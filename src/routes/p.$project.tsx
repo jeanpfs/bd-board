@@ -12,6 +12,7 @@ import {
 import { toast } from 'sonner'
 
 import { BoardHeader } from '@/components/board-header'
+import { BoardSwimlanes } from '@/components/board-swimlanes'
 import { KanbanColumn } from '@/components/kanban-column'
 import { BeadCard } from '@/components/bead-card'
 import { BeadDetailModal } from '@/components/bead-detail-modal'
@@ -20,6 +21,7 @@ import { getBeads, updateBeadStatusFn } from '@/lib/server'
 import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
 
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
+import type { BoardView } from '@/components/board-header'
 import type { Bead, BeadColumn } from '@/lib/types'
 
 export const Route = createFileRoute('/p/$project')({ component: BoardPage })
@@ -42,7 +44,7 @@ function BoardPage() {
   const queryClient = useQueryClient()
 
   const [search, setSearch] = useState('')
-  const [epicFilter, setEpicFilter] = useState('')
+  const [view, setView] = useState<BoardView>('status')
   const [selected, setSelected] = useState<Bead | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
@@ -71,16 +73,12 @@ function BoardPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return beads.filter((bead) => {
-      if (epicFilter && bead.id !== epicFilter && bead.parent !== epicFilter) {
-        return false
-      }
-      if (!q) return true
-      return (
-        bead.id.toLowerCase().includes(q) || bead.title.toLowerCase().includes(q)
-      )
-    })
-  }, [beads, search, epicFilter])
+    if (!q) return beads
+    return beads.filter(
+      (bead) =>
+        bead.id.toLowerCase().includes(q) || bead.title.toLowerCase().includes(q),
+    )
+  }, [beads, search])
 
   const columns = useMemo(() => {
     const grouped: Record<BeadColumn, Bead[]> = {
@@ -103,6 +101,24 @@ function BoardPage() {
     setSheetOpen(true)
   }
 
+  async function applyDrop(activeId: string, toColumn: BeadColumn) {
+    const previous = queryClient.getQueryData<Bead[]>(['beads', project])
+    const bead = (previous ?? beads).find((b) => b.id === activeId)
+    if (!bead || mapStatus(bead.status).column === toColumn) return
+
+    queryClient.setQueryData<Bead[]>(['beads', project], (old) =>
+      (old ?? []).map((b) => (b.id === activeId ? { ...b, status: toColumn } : b)),
+    )
+    try {
+      await updateBeadStatusFn({ data: { project, id: activeId, status: toColumn } })
+    } catch (error) {
+      queryClient.setQueryData(['beads', project], previous)
+      toast.error(error instanceof Error ? error.message : 'Falha ao mover bead')
+    } finally {
+      queryClient.invalidateQueries({ queryKey: ['beads', project] })
+    }
+  }
+
   function columnOfId(id: string): BeadColumn | null {
     if ((COLUMN_KEYS as string[]).includes(id)) return id as BeadColumn
     const bead = beadsById.get(id)
@@ -114,29 +130,12 @@ function BoardPage() {
     setActiveBead(dragged ?? beadsById.get(String(event.active.id)) ?? null)
   }
 
-  async function onDragEnd(event: DragEndEvent) {
+  function onDragEnd(event: DragEndEvent) {
     setActiveBead(null)
     const { active, over } = event
     if (!over) return
-    const id = String(active.id)
-    const bead = beadsById.get(id)
-    if (!bead) return
-    const from = mapStatus(bead.status).column
     const to = columnOfId(String(over.id))
-    if (!to || to === from) return
-
-    const previous = queryClient.getQueryData<Bead[]>(['beads', project])
-    queryClient.setQueryData<Bead[]>(['beads', project], (old) =>
-      (old ?? []).map((b) => (b.id === id ? { ...b, status: to } : b)),
-    )
-    try {
-      await updateBeadStatusFn({ data: { project, id, status: to } })
-    } catch (error) {
-      queryClient.setQueryData(['beads', project], previous)
-      toast.error(error instanceof Error ? error.message : 'Falha ao mover bead')
-    } finally {
-      queryClient.invalidateQueries({ queryKey: ['beads', project] })
-    }
+    if (to) applyDrop(String(active.id), to)
   }
 
   return (
@@ -146,8 +145,8 @@ function BoardPage() {
         beads={filtered}
         search={search}
         setSearch={setSearch}
-        epicFilter={epicFilter}
-        setEpicFilter={setEpicFilter}
+        view={view}
+        setView={setView}
         onCreate={() => setCreateOpen(true)}
       />
 
@@ -162,6 +161,8 @@ function BoardPage() {
           }
           onRetry={() => beadsQuery.refetch()}
         />
+      ) : view === 'epic' ? (
+        <BoardSwimlanes beads={filtered} onOpen={openBead} applyDrop={applyDrop} />
       ) : (
         <DndContext
           sensors={sensors}
