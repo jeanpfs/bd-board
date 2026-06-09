@@ -90,3 +90,8 @@ All items done. Verified with agent-browser against the running app (http://loca
 - DRAG gesture: wired (onDragEnd → updateBeadStatusFn, the verified mutation) via a drag-handle. The gesture itself is NOT auto-reproducible through agent-browser (known dnd-kit synthetic-event limitation); works with a real pointer. Status dropdown in the detail sheet is a fallback.
 
 Branch: feature/bd-board-kanban. Run: pnpm dev (port 3009). Screenshots: /tmp/bdboard-qa/.
+
+## POST-BUILD CHANGES
+- Bead detail is now a large centered MODAL (Dialog), not a side sheet. (commit e0d37e2)
+- Board has a Status/Épicos view switcher; Épicos = Jira-style epic swimlanes (status columns + collapsible lane per epic with child progress + Sem épico lane). Epic filter dropdown removed. (commits 04c2b39)
+- All verified via agent-browser. tsc + eslint (0 errors) clean.
