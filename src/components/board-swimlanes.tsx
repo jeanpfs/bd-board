@@ -15,12 +15,17 @@ import { BeadCard } from '@/components/bead-card'
 import { EpicProgress } from '@/components/epic-progress'
 import { cn } from '@/lib/utils'
 import { isEpic, mapStatus } from '@/lib/types'
+import { beadMatches, compareBeads } from '@/lib/sort'
 
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
+import type { SortKey } from '@/lib/sort'
 import type { Bead, BeadColumn } from '@/lib/types'
 
 interface BoardSwimlanesProps {
   beads: Bead[]
+  search: string
+  priorities: number[]
+  sort: SortKey
   onOpen: (bead: Bead) => void
   applyDrop: (activeId: string, toColumn: BeadColumn) => void
 }
@@ -45,16 +50,13 @@ function emptyByColumn(): Record<BeadColumn, Bead[]> {
   return { open: [], in_progress: [], blocked: [], closed: [] }
 }
 
-function priorityOf(bead: Bead): number {
-  return Number.isFinite(bead.priority) ? bead.priority : 9
-}
-
-function groupByColumn(beads: Bead[]): Record<BeadColumn, Bead[]> {
+function groupByColumn(
+  beads: Bead[],
+  compare: (a: Bead, b: Bead) => number,
+): Record<BeadColumn, Bead[]> {
   const grouped = emptyByColumn()
   for (const b of beads) grouped[mapStatus(b.status).column].push(b)
-  for (const key of COLUMN_KEYS) {
-    grouped[key].sort((a, b) => priorityOf(a) - priorityOf(b) || a.id.localeCompare(b.id))
-  }
+  for (const key of COLUMN_KEYS) grouped[key].sort(compare)
   return grouped
 }
 
@@ -96,6 +98,7 @@ function SwimLane({
   epic,
   title,
   childBeads,
+  sort,
   onOpen,
   applyDrop,
   defaultOpen = true,
@@ -103,6 +106,7 @@ function SwimLane({
   epic?: Bead
   title?: string
   childBeads: Bead[]
+  sort: SortKey
   onOpen: (bead: Bead) => void
   applyDrop: (activeId: string, toColumn: BeadColumn) => void
   defaultOpen?: boolean
@@ -113,7 +117,10 @@ function SwimLane({
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   )
 
-  const byColumn = useMemo(() => groupByColumn(childBeads), [childBeads])
+  const byColumn = useMemo(
+    () => groupByColumn(childBeads, compareBeads(sort)),
+    [childBeads, sort],
+  )
   const beadsById = useMemo(() => {
     const map = new Map<string, Bead>()
     for (const b of childBeads) map.set(b.id, b)
@@ -209,43 +216,57 @@ function SwimLane({
   )
 }
 
-export function BoardSwimlanes({ beads, onOpen, applyDrop }: BoardSwimlanesProps) {
-  const { lanes, noEpic, totals } = useMemo(() => {
-    const epics = beads
-      .filter(isEpic)
-      .sort((a, b) => priorityOf(a) - priorityOf(b) || a.id.localeCompare(b.id))
+export function BoardSwimlanes({
+  beads,
+  search,
+  priorities,
+  sort,
+  onOpen,
+  applyDrop,
+}: BoardSwimlanesProps) {
+  const { lanes, noEpic, totals, hasAny } = useMemo(() => {
+    const matches = (b: Bead) => beadMatches(b, search, priorities)
+    const epics = beads.filter(isEpic)
     const epicIds = new Set(epics.map((e) => e.id))
 
     const childrenByEpic = new Map<string, Bead[]>()
     for (const b of beads) {
-      if (b.parent && epicIds.has(b.parent)) {
+      if (b.parent && epicIds.has(b.parent) && matches(b)) {
         const list = childrenByEpic.get(b.parent) ?? []
         list.push(b)
         childrenByEpic.set(b.parent, list)
       }
     }
 
-    const builtLanes = epics
+    const epicOrder = [...epics].sort(compareBeads('priority'))
+    const builtLanes = epicOrder
       .map((epic) => ({ epic, children: childrenByEpic.get(epic.id) ?? [] }))
       .filter((lane) => lane.children.length > 0)
 
     const orphans = beads.filter(
-      (b) => !isEpic(b) && (!b.parent || !epicIds.has(b.parent)),
+      (b) => !isEpic(b) && (!b.parent || !epicIds.has(b.parent)) && matches(b),
     )
 
     const totalByColumn = emptyByColumn()
     for (const b of beads) {
-      if (isEpic(b)) continue
+      if (isEpic(b) || !matches(b)) continue
       totalByColumn[mapStatus(b.status).column].push(b)
     }
 
-    return { lanes: builtLanes, noEpic: orphans, totals: totalByColumn }
-  }, [beads])
+    return {
+      lanes: builtLanes,
+      noEpic: orphans,
+      totals: totalByColumn,
+      hasAny: builtLanes.length > 0 || orphans.length > 0,
+    }
+  }, [beads, search, priorities])
 
-  if (lanes.length === 0 && noEpic.length === 0) {
+  if (!hasAny) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <span className="text-sm text-muted-foreground/60">Nenhuma bead neste projeto</span>
+        <span className="text-sm text-muted-foreground/60">
+          Nenhuma bead corresponde aos filtros
+        </span>
       </div>
     )
   }
@@ -271,6 +292,7 @@ export function BoardSwimlanes({ beads, onOpen, applyDrop }: BoardSwimlanesProps
           <SwimLane
             title="Sem épico"
             childBeads={noEpic}
+            sort={sort}
             onOpen={onOpen}
             applyDrop={applyDrop}
             defaultOpen
@@ -281,6 +303,7 @@ export function BoardSwimlanes({ beads, onOpen, applyDrop }: BoardSwimlanesProps
             key={lane.epic.id}
             epic={lane.epic}
             childBeads={lane.children}
+            sort={sort}
             onOpen={onOpen}
             applyDrop={applyDrop}
           />

@@ -19,9 +19,11 @@ import { BeadDetailModal } from '@/components/bead-detail-modal'
 import { CreateBeadDialog } from '@/components/create-bead-dialog'
 import { getBeads, updateBeadStatusFn } from '@/lib/server'
 import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
+import { beadMatches, compareBeads } from '@/lib/sort'
 
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import type { BoardView } from '@/components/board-header'
+import type { SortKey } from '@/lib/sort'
 import type { Bead, BeadColumn } from '@/lib/types'
 
 interface BoardSearch {
@@ -47,10 +49,6 @@ const COLUMN_LABEL: Record<BeadColumn, string> = {
 
 const COLUMN_KEYS: BeadColumn[] = ['open', 'in_progress', 'blocked', 'closed']
 
-function priorityOf(bead: Bead): number {
-  return Number.isFinite(bead.priority) ? bead.priority : 9
-}
-
 function BoardPage() {
   const { project } = Route.useParams()
   const { bead: beadParam } = Route.useSearch()
@@ -59,6 +57,8 @@ function BoardPage() {
 
   const [search, setSearch] = useState('')
   const [view, setView] = useState<BoardView>('epic')
+  const [priorities, setPriorities] = useState<number[]>([])
+  const [sort, setSort] = useState<SortKey>('priority')
   const [createOpen, setCreateOpen] = useState(false)
   const [activeBead, setActiveBead] = useState<Bead | null>(null)
 
@@ -83,14 +83,10 @@ function BoardPage() {
 
   const epics = useMemo(() => beads.filter(isEpic), [beads])
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return beads
-    return beads.filter(
-      (bead) =>
-        bead.id.toLowerCase().includes(q) || bead.title.toLowerCase().includes(q),
-    )
-  }, [beads, search])
+  const filtered = useMemo(
+    () => beads.filter((bead) => beadMatches(bead, search, priorities)),
+    [beads, search, priorities],
+  )
 
   const columns = useMemo(() => {
     const grouped: Record<BeadColumn, Bead[]> = {
@@ -100,13 +96,10 @@ function BoardPage() {
       closed: [],
     }
     for (const bead of filtered) grouped[mapStatus(bead.status).column].push(bead)
-    for (const key of COLUMN_KEYS) {
-      grouped[key].sort(
-        (a, b) => priorityOf(a) - priorityOf(b) || a.id.localeCompare(b.id),
-      )
-    }
+    const compare = compareBeads(sort)
+    for (const key of COLUMN_KEYS) grouped[key].sort(compare)
     return grouped
-  }, [filtered])
+  }, [filtered, sort])
 
   const selected = beadParam ? (beadsById.get(beadParam) ?? null) : null
   const modalOpen = beadParam !== undefined
@@ -165,6 +158,10 @@ function BoardPage() {
         setSearch={setSearch}
         view={view}
         setView={setView}
+        priorities={priorities}
+        setPriorities={setPriorities}
+        sort={sort}
+        setSort={setSort}
         onCreate={() => setCreateOpen(true)}
       />
 
@@ -180,7 +177,14 @@ function BoardPage() {
           onRetry={() => beadsQuery.refetch()}
         />
       ) : view === 'epic' ? (
-        <BoardSwimlanes beads={filtered} onOpen={openBead} applyDrop={applyDrop} />
+        <BoardSwimlanes
+          beads={beads}
+          search={search}
+          priorities={priorities}
+          sort={sort}
+          onOpen={openBead}
+          applyDrop={applyDrop}
+        />
       ) : (
         <DndContext
           sensors={sensors}
