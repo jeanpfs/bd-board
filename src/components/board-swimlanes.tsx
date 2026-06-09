@@ -267,6 +267,15 @@ export function BoardSwimlanes({ beads, onOpen, applyDrop }: BoardSwimlanesProps
       </div>
 
       <div className="flex flex-col gap-3 px-1">
+        {noEpic.length > 0 ? (
+          <SwimLane
+            title="Sem épico"
+            childBeads={noEpic}
+            onOpen={onOpen}
+            applyDrop={applyDrop}
+            defaultOpen
+          />
+        ) : null}
         {lanes.map((lane) => (
           <SwimLane
             key={lane.epic.id}
@@ -276,15 +285,6 @@ export function BoardSwimlanes({ beads, onOpen, applyDrop }: BoardSwimlanesProps
             applyDrop={applyDrop}
           />
         ))}
-        {noEpic.length > 0 ? (
-          <SwimLane
-            title="Sem épico"
-            childBeads={noEpic}
-            onOpen={onOpen}
-            applyDrop={applyDrop}
-            defaultOpen={lanes.length === 0}
-          />
-        ) : null}
       </div>
     </div>
   )

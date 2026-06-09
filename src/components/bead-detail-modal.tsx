@@ -3,7 +3,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import Markdown from 'react-markdown'
-import { ChevronRight, CornerUpLeft, Layers, Loader2 } from 'lucide-react'
+import {
+  AlignLeft,
+  ChevronRight,
+  CircleCheck,
+  CornerUpLeft,
+  Layers,
+  ListTree,
+  Loader2,
+  MessageSquare,
+} from 'lucide-react'
 
 import {
   Dialog,
@@ -15,7 +24,6 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Separator } from '@/components/ui/separator'
 import {
   Select,
   SelectContent,
@@ -28,6 +36,8 @@ import { cn } from '@/lib/utils'
 import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
 import { addCommentFn, getBeadDetailFn, updateBeadStatusFn } from '@/lib/server'
 
+import type { LucideIcon } from 'lucide-react'
+import type { ReactNode } from 'react'
 import type { Bead, BeadColumn } from '@/lib/types'
 
 interface BeadDetailModalProps {
@@ -65,6 +75,30 @@ function relativeDate(value?: string): string {
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return ''
   return formatDistanceToNow(parsed, { addSuffix: true, locale: ptBR })
+}
+
+function SectionHeader({
+  icon: Icon,
+  label,
+  trailing,
+}: {
+  icon: LucideIcon
+  label: string
+  trailing?: ReactNode
+}) {
+  return (
+    <div className="mb-3 flex items-center gap-2 border-b border-border/60 pb-2">
+      <Icon className="size-3.5 text-muted-foreground" aria-hidden="true" />
+      <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
+        {label}
+      </h3>
+      {trailing != null ? (
+        <span className="ml-auto text-xs tabular-nums text-muted-foreground/70">
+          {trailing}
+        </span>
+      ) : null}
+    </div>
+  )
 }
 
 export function BeadDetailModal({
@@ -119,111 +153,121 @@ export function BeadDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton
-        className="flex max-h-[86vh] w-[94vw] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl lg:max-w-4xl"
-      >
+      <DialogContent className="flex max-h-[86vh] w-[94vw] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl lg:max-w-4xl">
         {bead ? (
           <>
-            <DialogHeader className="gap-2 space-y-0 border-b border-border px-6 py-4 text-left">
-              <div className="flex flex-wrap items-center gap-2 pr-8">
-                <span className="font-mono text-xs text-muted-foreground">{bead.id}</span>
-                <span
-                  className={cn(
-                    'rounded border px-1.5 py-px text-[0.65rem] font-medium',
-                    COLUMN_BADGE[column],
+            <DialogHeader className="space-y-0 border-b border-border px-6 py-5 text-left">
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-2 pr-8">
+                  <span className="font-mono text-xs text-muted-foreground">{bead.id}</span>
+                  <span
+                    className={cn(
+                      'rounded border px-1.5 py-px text-[0.65rem] font-medium',
+                      COLUMN_BADGE[column],
+                    )}
+                  >
+                    {COLUMN_LABEL[column]}
+                  </span>
+                  {isEpic(bead) ? (
+                    <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-px text-[0.65rem] font-semibold uppercase tracking-wide text-primary ring-1 ring-inset ring-primary/25">
+                      <Layers className="size-3" aria-hidden="true" />
+                      Épico
+                    </span>
+                  ) : (
+                    <span className="rounded border border-border px-1.5 py-px text-[0.65rem] text-muted-foreground">
+                      {bead.issue_type}
+                    </span>
                   )}
-                >
-                  {COLUMN_LABEL[column]}
-                </span>
-                {isEpic(bead) ? (
-                  <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-px text-[0.65rem] font-semibold uppercase tracking-wide text-primary ring-1 ring-inset ring-primary/25">
-                    <Layers className="size-3" aria-hidden="true" />
-                    Épico
+                  <span className="rounded border border-border px-1.5 py-px text-[0.65rem] tabular-nums text-muted-foreground">
+                    P{Math.max(0, Math.min(4, bead.priority))}
                   </span>
-                ) : (
-                  <span className="rounded border border-border px-1.5 py-px text-[0.65rem] text-muted-foreground">
-                    {bead.issue_type}
-                  </span>
-                )}
-                <span className="rounded border border-border px-1.5 py-px text-[0.65rem] tabular-nums text-muted-foreground">
-                  P{Math.max(0, Math.min(4, bead.priority))}
-                </span>
-              </div>
-
-              <DialogTitle className="text-left text-lg leading-snug font-semibold">
-                {bead.title}
-              </DialogTitle>
-              <DialogDescription className="sr-only">
-                Detalhes da bead {bead.id}
-              </DialogDescription>
-
-              {parentBead ? (
-                <button
-                  type="button"
-                  onClick={() => onOpenBead(parentBead)}
-                  className="inline-flex w-fit items-center gap-1 rounded text-xs text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  <CornerUpLeft className="size-3" aria-hidden="true" />
-                  Épico: <span className="font-mono">{parentBead.id}</span>
-                </button>
-              ) : null}
-
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <Select
-                  value={column}
-                  onValueChange={(v) => statusMutation.mutate(v as BeadColumn)}
-                >
-                  <SelectTrigger size="sm" className="h-7 w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COLUMNS.map((c) => (
-                      <SelectItem key={c.key} value={c.key}>
-                        <span
-                          className={cn('size-1.5 rounded-full', DOT_CLASS[c.key])}
-                          aria-hidden="true"
-                        />
-                        {COLUMN_LABEL[c.key]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {statusMutation.isPending ? (
-                  <Loader2 className="size-3.5 animate-spin text-muted-foreground" aria-hidden="true" />
-                ) : null}
-                {bead.assignee ? (
-                  <span className="ml-auto truncate text-xs text-muted-foreground">
-                    {bead.assignee}
-                  </span>
-                ) : null}
-              </div>
-
-              {bead.labels && bead.labels.length > 0 ? (
-                <div className="flex flex-wrap gap-1 pt-1">
-                  {bead.labels.map((label) => (
-                    <Badge
-                      key={label}
-                      variant="outline"
-                      className="h-5 px-1.5 text-[0.65rem] font-normal"
-                    >
-                      {label}
-                    </Badge>
-                  ))}
                 </div>
-              ) : null}
+
+                <DialogTitle className="text-xl leading-tight font-semibold tracking-tight text-balance">
+                  {bead.title}
+                </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Detalhes da bead {bead.id}
+                </DialogDescription>
+
+                {parentBead ? (
+                  <button
+                    type="button"
+                    onClick={() => onOpenBead(parentBead)}
+                    className="-mt-0.5 inline-flex w-fit items-center gap-1 rounded text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <CornerUpLeft className="size-3" aria-hidden="true" />
+                    Épico: <span className="font-mono">{parentBead.id}</span>
+                  </button>
+                ) : null}
+
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground/70">
+                      Status
+                    </span>
+                    <Select
+                      value={column}
+                      onValueChange={(v) => statusMutation.mutate(v as BeadColumn)}
+                    >
+                      <SelectTrigger size="sm" className="h-7 w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COLUMNS.map((c) => (
+                          <SelectItem key={c.key} value={c.key}>
+                            <span
+                              className={cn('size-1.5 rounded-full', DOT_CLASS[c.key])}
+                              aria-hidden="true"
+                            />
+                            {COLUMN_LABEL[c.key]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {statusMutation.isPending ? (
+                      <Loader2 className="size-3.5 animate-spin text-muted-foreground" aria-hidden="true" />
+                    ) : null}
+                  </div>
+
+                  {bead.assignee ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground/70">
+                        Responsável
+                      </span>
+                      <span className="text-sm text-foreground/90">{bead.assignee}</span>
+                    </div>
+                  ) : null}
+                </div>
+
+                {bead.labels && bead.labels.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground/70">
+                      Labels
+                    </span>
+                    {bead.labels.map((label) => (
+                      <Badge
+                        key={label}
+                        variant="outline"
+                        className="h-5 px-1.5 text-[0.65rem] font-normal"
+                      >
+                        {label}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </DialogHeader>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-              <div className="flex flex-col gap-6">
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+              <div className="flex flex-col gap-7">
                 {isEpic(bead) ? (
-                  <section className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-medium">Sub-tarefas</h3>
-                      <span className="text-xs tabular-nums text-muted-foreground">
-                        {doneChildren}/{childBeads.length} concluídas
-                      </span>
-                    </div>
+                  <section>
+                    <SectionHeader
+                      icon={ListTree}
+                      label="Sub-tarefas"
+                      trailing={`${doneChildren}/${childBeads.length} concluídas`}
+                    />
                     {childBeads.length === 0 ? (
                       <p className="text-xs text-muted-foreground/70">Sem sub-tarefas.</p>
                     ) : (
@@ -255,12 +299,11 @@ export function BeadDetailModal({
                         })}
                       </ul>
                     )}
-                    <Separator className="mt-1" />
                   </section>
                 ) : null}
 
-                <section className="flex flex-col gap-2">
-                  <h3 className="text-sm font-medium">Descrição</h3>
+                <section>
+                  <SectionHeader icon={AlignLeft} label="Descrição" />
                   {detailQuery.isLoading && !description ? (
                     <div className="flex flex-col gap-2">
                       <Skeleton className="h-3 w-full" />
@@ -268,7 +311,7 @@ export function BeadDetailModal({
                       <Skeleton className="h-3 w-2/3" />
                     </div>
                   ) : description ? (
-                    <div className="prose prose-invert prose-sm max-w-none prose-pre:bg-muted prose-pre:text-xs">
+                    <div className="prose prose-invert prose-sm max-w-none prose-headings:scroll-mt-4 prose-pre:bg-muted prose-pre:text-xs">
                       <Markdown>{description}</Markdown>
                     </div>
                   ) : (
@@ -277,18 +320,20 @@ export function BeadDetailModal({
                 </section>
 
                 {acceptance ? (
-                  <section className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium">Critérios de aceitação</h3>
+                  <section>
+                    <SectionHeader icon={CircleCheck} label="Critérios de aceitação" />
                     <div className="prose prose-invert prose-sm max-w-none">
                       <Markdown>{acceptance}</Markdown>
                     </div>
                   </section>
                 ) : null}
 
-                <Separator />
-
-                <section className="flex flex-col gap-3">
-                  <h3 className="text-sm font-medium">Comentários</h3>
+                <section>
+                  <SectionHeader
+                    icon={MessageSquare}
+                    label="Comentários"
+                    trailing={comments.length > 0 ? comments.length : undefined}
+                  />
                   {detailQuery.isLoading ? (
                     <Skeleton className="h-12 w-full" />
                   ) : comments.length === 0 ? (
@@ -309,7 +354,7 @@ export function BeadDetailModal({
                     </ul>
                   )}
 
-                  <div className="flex flex-col gap-2">
+                  <div className="mt-3 flex flex-col gap-2">
                     <Textarea
                       value={comment}
                       onChange={(e) => setComment(e.target.value)}
@@ -332,7 +377,14 @@ export function BeadDetailModal({
               </div>
             </div>
           </>
-        ) : null}
+        ) : (
+          <>
+            <DialogTitle className="sr-only">Carregando bead</DialogTitle>
+            <div className="flex h-48 items-center justify-center">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" aria-hidden="true" />
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   )

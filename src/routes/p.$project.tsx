@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   DndContext,
@@ -24,7 +24,19 @@ import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import type { BoardView } from '@/components/board-header'
 import type { Bead, BeadColumn } from '@/lib/types'
 
-export const Route = createFileRoute('/p/$project')({ component: BoardPage })
+interface BoardSearch {
+  bead?: string
+}
+
+export const Route = createFileRoute('/p/$project')({
+  validateSearch: (search: Record<string, unknown>): BoardSearch => ({
+    bead:
+      typeof search.bead === 'string' && search.bead.length > 0
+        ? search.bead
+        : undefined,
+  }),
+  component: BoardPage,
+})
 
 const COLUMN_LABEL: Record<BeadColumn, string> = {
   open: 'Aberto',
@@ -41,12 +53,12 @@ function priorityOf(bead: Bead): number {
 
 function BoardPage() {
   const { project } = Route.useParams()
+  const { bead: beadParam } = Route.useSearch()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const [search, setSearch] = useState('')
-  const [view, setView] = useState<BoardView>('status')
-  const [selected, setSelected] = useState<Bead | null>(null)
-  const [sheetOpen, setSheetOpen] = useState(false)
+  const [view, setView] = useState<BoardView>('epic')
   const [createOpen, setCreateOpen] = useState(false)
   const [activeBead, setActiveBead] = useState<Bead | null>(null)
 
@@ -96,9 +108,15 @@ function BoardPage() {
     return grouped
   }, [filtered])
 
+  const selected = beadParam ? (beadsById.get(beadParam) ?? null) : null
+  const modalOpen = beadParam !== undefined
+
   function openBead(bead: Bead) {
-    setSelected(bead)
-    setSheetOpen(true)
+    navigate({ to: '.', search: (prev) => ({ ...prev, bead: bead.id }) })
+  }
+
+  function setModalOpen(next: boolean) {
+    if (!next) navigate({ to: '.', search: (prev) => ({ ...prev, bead: undefined }) })
   }
 
   async function applyDrop(activeId: string, toColumn: BeadColumn) {
@@ -191,8 +209,8 @@ function BoardPage() {
       <BeadDetailModal
         project={project}
         bead={selected}
-        open={sheetOpen}
-        onOpenChange={setSheetOpen}
+        open={modalOpen}
+        onOpenChange={setModalOpen}
         onOpenBead={openBead}
         resolveBead={(id) => beadsById.get(id)}
       />
