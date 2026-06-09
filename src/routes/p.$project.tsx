@@ -14,7 +14,7 @@ import { toast } from 'sonner'
 import { BoardHeader } from '@/components/board-header'
 import { KanbanColumn } from '@/components/kanban-column'
 import { BeadCard } from '@/components/bead-card'
-import { BeadDetailSheet } from '@/components/bead-detail-sheet'
+import { BeadDetailModal } from '@/components/bead-detail-modal'
 import { CreateBeadDialog } from '@/components/create-bead-dialog'
 import { getBeads, updateBeadStatusFn } from '@/lib/server'
 import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
@@ -187,7 +187,7 @@ function BoardPage() {
         </DndContext>
       )}
 
-      <BeadDetailSheet
+      <BeadDetailModal
         project={project}
         bead={selected}
         open={sheetOpen}

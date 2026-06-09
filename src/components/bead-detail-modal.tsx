@@ -6,17 +6,16 @@ import Markdown from 'react-markdown'
 import { ChevronRight, CornerUpLeft, Layers, Loader2 } from 'lucide-react'
 
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Select,
   SelectContent,
@@ -31,7 +30,7 @@ import { addCommentFn, getBeadDetailFn, updateBeadStatusFn } from '@/lib/server'
 
 import type { Bead, BeadColumn } from '@/lib/types'
 
-interface BeadDetailSheetProps {
+interface BeadDetailModalProps {
   project: string
   bead: Bead | null
   open: boolean
@@ -68,14 +67,14 @@ function relativeDate(value?: string): string {
   return formatDistanceToNow(parsed, { addSuffix: true, locale: ptBR })
 }
 
-export function BeadDetailSheet({
+export function BeadDetailModal({
   project,
   bead,
   open,
   onOpenChange,
   onOpenBead,
   resolveBead,
-}: BeadDetailSheetProps) {
+}: BeadDetailModalProps) {
   const queryClient = useQueryClient()
   const [comment, setComment] = useState('')
 
@@ -119,12 +118,15 @@ export function BeadDetailSheet({
   const comments = detail?.comments ?? []
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-xl">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        showCloseButton
+        className="flex max-h-[86vh] w-[94vw] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl lg:max-w-4xl"
+      >
         {bead ? (
           <>
-            <SheetHeader className="gap-2 border-b border-border px-5 py-4">
-              <div className="flex flex-wrap items-center gap-2">
+            <DialogHeader className="gap-2 space-y-0 border-b border-border px-6 py-4 text-left">
+              <div className="flex flex-wrap items-center gap-2 pr-8">
                 <span className="font-mono text-xs text-muted-foreground">{bead.id}</span>
                 <span
                   className={cn(
@@ -148,12 +150,13 @@ export function BeadDetailSheet({
                   P{Math.max(0, Math.min(4, bead.priority))}
                 </span>
               </div>
-              <SheetTitle className="text-left text-base leading-snug">
+
+              <DialogTitle className="text-left text-lg leading-snug font-semibold">
                 {bead.title}
-              </SheetTitle>
-              <SheetDescription className="sr-only">
+              </DialogTitle>
+              <DialogDescription className="sr-only">
                 Detalhes da bead {bead.id}
-              </SheetDescription>
+              </DialogDescription>
 
               {parentBead ? (
                 <button
@@ -166,7 +169,7 @@ export function BeadDetailSheet({
                 </button>
               ) : null}
 
-              <div className="flex items-center gap-2 pt-1">
+              <div className="flex flex-wrap items-center gap-2 pt-1">
                 <Select
                   value={column}
                   onValueChange={(v) => statusMutation.mutate(v as BeadColumn)}
@@ -209,10 +212,10 @@ export function BeadDetailSheet({
                   ))}
                 </div>
               ) : null}
-            </SheetHeader>
+            </DialogHeader>
 
-            <ScrollArea className="min-h-0 flex-1">
-              <div className="flex flex-col gap-5 px-5 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+              <div className="flex flex-col gap-6">
                 {isEpic(bead) ? (
                   <section className="flex flex-col gap-2">
                     <div className="flex items-center justify-between">
@@ -327,10 +330,10 @@ export function BeadDetailSheet({
                   </div>
                 </section>
               </div>
-            </ScrollArea>
+            </div>
           </>
         ) : null}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }
