@@ -189,7 +189,7 @@ function BoardPage() {
           onDragEnd={onDragEnd}
           onDragCancel={() => setActiveBead(null)}
         >
-          <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-1">
+          <div className="grid min-h-0 flex-1 grid-cols-4 gap-3 pb-1">
             {COLUMNS.map((c) => (
               <KanbanColumn
                 key={c.key}
@@ -226,9 +226,9 @@ function BoardPage() {
 
 function BoardSkeleton() {
   return (
-    <div className="flex min-h-0 flex-1 gap-3 overflow-hidden">
+    <div className="grid min-h-0 flex-1 grid-cols-4 gap-3 overflow-hidden">
       {COLUMNS.map((c) => (
-        <div key={c.key} className="flex h-full w-[19rem] shrink-0 flex-col gap-2">
+        <div key={c.key} className="flex h-full min-w-0 flex-col gap-2">
           <div className="h-5 w-24 rounded bg-muted/60" />
           <div className="flex-1 rounded-xl bg-muted/20 ring-1 ring-inset ring-foreground/5" />
         </div>

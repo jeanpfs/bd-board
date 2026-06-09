@@ -49,7 +49,7 @@ export function KanbanColumn({
   const ids = useMemo(() => visible.map((b) => b.id), [visible])
 
   return (
-    <div className="flex h-full min-h-0 w-[19rem] shrink-0 flex-col">
+    <div className="flex h-full min-h-0 min-w-0 flex-col">
       <div className="flex items-center gap-2 px-1 pb-2">
         <span
           className={cn('size-2 shrink-0 rounded-full', DOT_CLASS[column])}

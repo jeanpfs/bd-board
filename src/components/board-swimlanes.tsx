@@ -74,7 +74,7 @@ function LaneCell({
     <div
       ref={setNodeRef}
       className={cn(
-        'flex min-h-20 flex-col gap-2 rounded-lg bg-muted/20 p-2 ring-1 ring-inset ring-foreground/5 transition-colors',
+        'flex min-h-20 min-w-0 flex-col gap-2 rounded-lg bg-muted/20 p-2 ring-1 ring-inset ring-foreground/5 transition-colors',
         isOver && 'bg-primary/5 ring-primary/30',
       )}
     >
@@ -141,8 +141,8 @@ function SwimLane({
   }
 
   return (
-    <section className="overflow-hidden rounded-xl ring-1 ring-inset ring-foreground/10">
-      <header className="flex items-center gap-2 bg-card/60 px-2 py-2">
+    <section className="flex flex-col gap-2">
+      <header className="flex items-center gap-2 rounded-lg bg-card/60 px-2 py-1.5 ring-1 ring-inset ring-foreground/10">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -195,7 +195,7 @@ function SwimLane({
           onDragEnd={onDragEnd}
           onDragCancel={() => setActiveBead(null)}
         >
-          <div className="grid grid-cols-4 gap-3 p-3">
+          <div className="grid grid-cols-4 gap-3">
             {COLUMN_KEYS.map((key) => (
               <LaneCell key={key} column={key} beads={byColumn[key]} onOpen={onOpen} />
             ))}
@@ -252,11 +252,11 @@ export function BoardSwimlanes({ beads, onOpen, applyDrop }: BoardSwimlanesProps
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto pb-2">
-      <div className="sticky top-0 z-10 grid grid-cols-4 gap-3 bg-background px-3 pb-2">
+      <div className="sticky top-0 z-10 grid grid-cols-4 gap-3 bg-background pb-2">
         {COLUMN_KEYS.map((key) => (
-          <div key={key} className="flex items-center gap-2">
+          <div key={key} className="flex min-w-0 items-center gap-2">
             <span className={cn('size-2 shrink-0 rounded-full', DOT_CLASS[key])} aria-hidden="true" />
-            <h2 className="text-sm font-medium tracking-tight text-foreground">
+            <h2 className="truncate text-sm font-medium tracking-tight text-foreground">
               {COLUMN_LABEL[key]}
             </h2>
             <span className="text-xs tabular-nums text-muted-foreground">
@@ -266,7 +266,7 @@ export function BoardSwimlanes({ beads, onOpen, applyDrop }: BoardSwimlanesProps
         ))}
       </div>
 
-      <div className="flex flex-col gap-3 px-1">
+      <div className="flex flex-col gap-4">
         {noEpic.length > 0 ? (
           <SwimLane
             title="Sem épico"
