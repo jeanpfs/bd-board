@@ -58,7 +58,8 @@ const COLUMN_LABEL: Record<BeadColumn, string> = {
 
 const COLUMN_BADGE: Record<BeadColumn, string> = {
   open: 'border-status-open/40 bg-status-open/10 text-status-open',
-  in_progress: 'border-status-progress/40 bg-status-progress/10 text-status-progress',
+  in_progress:
+    'border-status-progress/40 bg-status-progress/10 text-status-progress',
   blocked: 'border-status-blocked/40 bg-status-blocked/10 text-status-blocked',
   closed: 'border-status-closed/40 bg-status-closed/10 text-status-closed',
 }
@@ -123,7 +124,8 @@ export function BeadDetailModal({
   const column: BeadColumn = bead ? mapStatus(bead.status).column : 'open'
   const childBeads = bead?.childBeads ?? []
   const doneChildren = useMemo(
-    () => childBeads.filter((c) => mapStatus(c.status).column === 'closed').length,
+    () =>
+      childBeads.filter((c) => mapStatus(c.status).column === 'closed').length,
     [childBeads],
   )
 
@@ -159,7 +161,9 @@ export function BeadDetailModal({
             <DialogHeader className="space-y-0 border-b border-border px-6 py-5 text-left">
               <div className="flex flex-col gap-3">
                 <div className="flex flex-wrap items-center gap-2 pr-8">
-                  <span className="font-mono text-xs text-muted-foreground">{bead.id}</span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {bead.id}
+                  </span>
                   <span
                     className={cn(
                       'rounded border px-1.5 py-px text-[0.65rem] font-medium',
@@ -208,16 +212,25 @@ export function BeadDetailModal({
                     </span>
                     <Select
                       value={column}
-                      onValueChange={(v) => statusMutation.mutate(v as BeadColumn)}
+                      onValueChange={(v) =>
+                        statusMutation.mutate(v as BeadColumn)
+                      }
                     >
-                      <SelectTrigger size="sm" className="h-7 w-40">
+                      <SelectTrigger
+                        size="sm"
+                        className="h-7 w-40"
+                        aria-label="Alterar status"
+                      >
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         {COLUMNS.map((c) => (
                           <SelectItem key={c.key} value={c.key}>
                             <span
-                              className={cn('size-1.5 rounded-full', DOT_CLASS[c.key])}
+                              className={cn(
+                                'size-1.5 rounded-full',
+                                DOT_CLASS[c.key],
+                              )}
                               aria-hidden="true"
                             />
                             {COLUMN_LABEL[c.key]}
@@ -226,7 +239,10 @@ export function BeadDetailModal({
                       </SelectContent>
                     </Select>
                     {statusMutation.isPending ? (
-                      <Loader2 className="size-3.5 animate-spin text-muted-foreground" aria-hidden="true" />
+                      <Loader2
+                        className="size-3.5 animate-spin text-muted-foreground"
+                        aria-hidden="true"
+                      />
                     ) : null}
                   </div>
 
@@ -235,7 +251,9 @@ export function BeadDetailModal({
                       <span className="text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground/70">
                         Responsável
                       </span>
-                      <span className="text-sm text-foreground/90">{bead.assignee}</span>
+                      <span className="text-sm text-foreground/90">
+                        {bead.assignee}
+                      </span>
                     </div>
                   ) : null}
                 </div>
@@ -269,7 +287,9 @@ export function BeadDetailModal({
                       trailing={`${doneChildren}/${childBeads.length} concluídas`}
                     />
                     {childBeads.length === 0 ? (
-                      <p className="text-xs text-muted-foreground/70">Sem sub-tarefas.</p>
+                      <p className="text-xs text-muted-foreground/70">
+                        Sem sub-tarefas.
+                      </p>
                     ) : (
                       <ul className="flex flex-col gap-0.5">
                         {childBeads.map((child) => {
@@ -282,13 +302,18 @@ export function BeadDetailModal({
                                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/50"
                               >
                                 <span
-                                  className={cn('size-2 shrink-0 rounded-full', DOT_CLASS[col])}
+                                  className={cn(
+                                    'size-2 shrink-0 rounded-full',
+                                    DOT_CLASS[col],
+                                  )}
                                   aria-hidden="true"
                                 />
                                 <span className="font-mono text-[0.7rem] text-muted-foreground">
                                   {child.id}
                                 </span>
-                                <span className="truncate text-sm">{child.title}</span>
+                                <span className="truncate text-sm">
+                                  {child.title}
+                                </span>
                                 <ChevronRight
                                   className="ml-auto size-3.5 shrink-0 text-muted-foreground/50"
                                   aria-hidden="true"
@@ -315,13 +340,18 @@ export function BeadDetailModal({
                       <Markdown>{description}</Markdown>
                     </div>
                   ) : (
-                    <p className="text-xs text-muted-foreground/70">Sem descrição.</p>
+                    <p className="text-xs text-muted-foreground/70">
+                      Sem descrição.
+                    </p>
                   )}
                 </section>
 
                 {acceptance ? (
                   <section>
-                    <SectionHeader icon={CircleCheck} label="Critérios de aceitação" />
+                    <SectionHeader
+                      icon={CircleCheck}
+                      label="Critérios de aceitação"
+                    />
                     <div className="prose prose-invert prose-sm max-w-none">
                       <Markdown>{acceptance}</Markdown>
                     </div>
@@ -337,18 +367,27 @@ export function BeadDetailModal({
                   {detailQuery.isLoading ? (
                     <Skeleton className="h-12 w-full" />
                   ) : comments.length === 0 ? (
-                    <p className="text-xs text-muted-foreground/70">Sem comentários ainda.</p>
+                    <p className="text-xs text-muted-foreground/70">
+                      Sem comentários ainda.
+                    </p>
                   ) : (
                     <ul className="flex flex-col gap-3">
                       {comments.map((c) => (
-                        <li key={c.id} className="rounded-lg bg-muted/40 px-3 py-2">
+                        <li
+                          key={c.id}
+                          className="rounded-lg bg-muted/40 px-3 py-2"
+                        >
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <span className="font-medium text-foreground/80">
                               {c.author ?? 'Anônimo'}
                             </span>
-                            {c.created_at ? <span>· {relativeDate(c.created_at)}</span> : null}
+                            {c.created_at ? (
+                              <span>· {relativeDate(c.created_at)}</span>
+                            ) : null}
                           </div>
-                          <p className="mt-1 text-sm whitespace-pre-wrap">{c.text}</p>
+                          <p className="mt-1 text-sm whitespace-pre-wrap">
+                            {c.text}
+                          </p>
                         </li>
                       ))}
                     </ul>
@@ -356,6 +395,7 @@ export function BeadDetailModal({
 
                   <div className="mt-3 flex flex-col gap-2">
                     <Textarea
+                      name="comment"
                       value={comment}
                       onChange={(e) => setComment(e.target.value)}
                       placeholder="Adicionar um comentário…"
@@ -368,7 +408,10 @@ export function BeadDetailModal({
                       onClick={() => commentMutation.mutate(comment.trim())}
                     >
                       {commentMutation.isPending ? (
-                        <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                        <Loader2
+                          className="size-3.5 animate-spin"
+                          aria-hidden="true"
+                        />
                       ) : null}
                       Comentar
                     </Button>
@@ -381,7 +424,10 @@ export function BeadDetailModal({
           <>
             <DialogTitle className="sr-only">Carregando bead</DialogTitle>
             <div className="flex h-48 items-center justify-center">
-              <Loader2 className="size-5 animate-spin text-muted-foreground" aria-hidden="true" />
+              <Loader2
+                className="size-5 animate-spin text-muted-foreground"
+                aria-hidden="true"
+              />
             </div>
           </>
         )}

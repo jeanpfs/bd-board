@@ -77,7 +77,10 @@ export function KanbanColumn({
         ) : (
           <ScrollArea className="min-h-0 flex-1">
             <div className="flex flex-col gap-2 p-2">
-              <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+              <SortableContext
+                items={ids}
+                strategy={verticalListSortingStrategy}
+              >
                 {visible.map((bead) => (
                   <BeadCard key={bead.id} bead={bead} onOpen={onOpen} />
                 ))}

@@ -2,13 +2,18 @@ import { useMemo, useState } from 'react'
 import {
   DndContext,
   DragOverlay,
+  KeyboardSensor,
   PointerSensor,
   closestCorners,
   useDroppable,
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
 import { ChevronDown, ChevronRight, Layers } from 'lucide-react'
 
 import { BeadCard } from '@/components/bead-card'
@@ -115,6 +120,9 @@ function SwimLane({
   const [activeBead, setActiveBead] = useState<Bead | null>(null)
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   )
 
   const byColumn = useMemo(
@@ -170,8 +178,13 @@ function SwimLane({
             onClick={() => onOpen(epic)}
             className="flex min-w-0 items-center gap-2 rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           >
-            <Layers className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
-            <span className="font-mono text-[0.7rem] text-muted-foreground">{epic.id}</span>
+            <Layers
+              className="size-3.5 shrink-0 text-primary"
+              aria-hidden="true"
+            />
+            <span className="font-mono text-[0.7rem] text-muted-foreground">
+              {epic.id}
+            </span>
             <span className="truncate text-sm font-medium text-foreground hover:text-primary">
               {epic.title}
             </span>
@@ -202,13 +215,20 @@ function SwimLane({
           onDragEnd={onDragEnd}
           onDragCancel={() => setActiveBead(null)}
         >
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             {COLUMN_KEYS.map((key) => (
-              <LaneCell key={key} column={key} beads={byColumn[key]} onOpen={onOpen} />
+              <LaneCell
+                key={key}
+                column={key}
+                beads={byColumn[key]}
+                onOpen={onOpen}
+              />
             ))}
           </div>
           <DragOverlay>
-            {activeBead ? <BeadCard bead={activeBead} onOpen={() => {}} overlay /> : null}
+            {activeBead ? (
+              <BeadCard bead={activeBead} onOpen={() => {}} overlay />
+            ) : null}
           </DragOverlay>
         </DndContext>
       ) : null}
@@ -273,10 +293,13 @@ export function BoardSwimlanes({
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto pb-2">
-      <div className="sticky top-0 z-10 grid grid-cols-4 gap-3 bg-background pb-2">
+      <div className="sticky top-0 z-10 grid grid-cols-1 gap-3 bg-background pb-2 md:grid-cols-2 xl:grid-cols-4">
         {COLUMN_KEYS.map((key) => (
           <div key={key} className="flex min-w-0 items-center gap-2">
-            <span className={cn('size-2 shrink-0 rounded-full', DOT_CLASS[key])} aria-hidden="true" />
+            <span
+              className={cn('size-2 shrink-0 rounded-full', DOT_CLASS[key])}
+              aria-hidden="true"
+            />
             <h2 className="truncate text-sm font-medium tracking-tight text-foreground">
               {COLUMN_LABEL[key]}
             </h2>

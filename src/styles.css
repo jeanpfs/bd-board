@@ -1,8 +1,8 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
-@import "@fontsource-variable/geist/index.css";
-@import "@fontsource-variable/geist-mono/index.css";
+@import '@fontsource-variable/geist/index.css';
+@import '@fontsource-variable/geist-mono/index.css';
 
 @plugin "@tailwindcss/typography";
 
@@ -140,10 +140,12 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", "JetBrains Mono",
-    "Cascadia Code", Menlo, Consolas, monospace;
+  --font-sans:
+    'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono:
+    'Geist Mono Variable', ui-monospace, 'SF Mono', 'JetBrains Mono',
+    'Cascadia Code', Menlo, Consolas, monospace;
 }
 
 @layer base {
@@ -153,6 +155,7 @@
 
   html {
     box-sizing: border-box;
+    color-scheme: dark;
   }
 
   html,
@@ -165,10 +168,19 @@
     margin: 0;
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
-    font-feature-settings: "cv01", "cv03", "ss01";
+    font-feature-settings: 'cv01', 'cv03', 'ss01';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
     text-rendering: optimizeLegibility;
+  }
+
+  button,
+  a,
+  input,
+  textarea,
+  [role='button'] {
+    touch-action: manipulation;
   }
 
   ::selection {

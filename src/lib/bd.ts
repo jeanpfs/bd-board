@@ -3,7 +3,14 @@ import { promisify } from 'node:util'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as os from 'node:os'
-import type { Bead, BeadDetail, Comment, Project, ProjectCounts, RelatedBead } from './types.ts'
+import type {
+  Bead,
+  BeadDetail,
+  Comment,
+  Project,
+  ProjectCounts,
+  RelatedBead,
+} from './types.ts'
 
 const execFileAsync = promisify(execFile)
 
@@ -38,31 +45,59 @@ async function bdJson<T>(dir: string, args: string[]): Promise<T> {
   return JSON.parse(trimmed) as T
 }
 
-function buildCounts(rows: { status: string; c: string | number }[]): ProjectCounts {
-  const counts: ProjectCounts = { open: 0, in_progress: 0, blocked: 0, closed: 0, deferred: 0, total: 0 }
+function buildCounts(
+  rows: { status: string; c: string | number }[],
+): ProjectCounts {
+  const totals: ProjectCounts = {
+    open: 0,
+    in_progress: 0,
+    blocked: 0,
+    closed: 0,
+    deferred: 0,
+    total: 0,
+  }
   for (const row of rows) {
     const n = Number(row.c)
-    counts.total += n
+    totals.total += n
     switch (row.status) {
-      case 'open': counts.open += n; break
-      case 'in_progress': case 'hooked': counts.in_progress += n; break
-      case 'blocked': counts.blocked += n; break
-      case 'closed': counts.closed += n; break
-      case 'deferred': counts.deferred += n; break
+      case 'open':
+        totals.open += n
+        break
+      case 'in_progress':
+      case 'hooked':
+        totals.in_progress += n
+        break
+      case 'blocked':
+        totals.blocked += n
+        break
+      case 'closed':
+        totals.closed += n
+        break
+      case 'deferred':
+        totals.deferred += n
+        break
     }
   }
-  return counts
+  return totals
 }
 
 async function counts(dir: string): Promise<ProjectCounts> {
   try {
-    const rows = await bdJson<{ status: string; c: string | number }[]>(
-      dir,
-      ['sql', '--json', 'SELECT status, COUNT(*) AS c FROM issues GROUP BY status'],
-    )
+    const rows = await bdJson<{ status: string; c: string | number }[]>(dir, [
+      'sql',
+      '--json',
+      'SELECT status, COUNT(*) AS c FROM issues GROUP BY status',
+    ])
     return buildCounts(rows)
   } catch {
-    return { open: 0, in_progress: 0, blocked: 0, closed: 0, deferred: 0, total: 0 }
+    return {
+      open: 0,
+      in_progress: 0,
+      blocked: 0,
+      closed: 0,
+      deferred: 0,
+      total: 0,
+    }
   }
 }
 
@@ -80,7 +115,7 @@ async function discoverProjects(): Promise<Project[]> {
     let entries: string[]
     try {
       const dirents = await fs.readdir(root, { withFileTypes: true })
-      entries = dirents.filter(d => d.isDirectory()).map(d => d.name)
+      entries = dirents.filter((d) => d.isDirectory()).map((d) => d.name)
     } catch {
       continue
     }
@@ -112,14 +147,17 @@ async function discoverProjects(): Promise<Project[]> {
 async function getDirMap(): Promise<Map<string, string>> {
   if (dirCache) return dirCache
   const projects = await discoverProjects()
-  dirCache = new Map(projects.map(p => [p.database, p.dir]))
+  dirCache = new Map(projects.map((p) => [p.database, p.dir]))
   return dirCache
 }
 
 async function resolveDir(database: string): Promise<string> {
   const map = await getDirMap()
   const dir = map.get(database)
-  if (!dir) throw new Error(`Unknown database: ${database}. Run discoverProjects first.`)
+  if (!dir)
+    throw new Error(
+      `Unknown database: ${database}. Run discoverProjects first.`,
+    )
   return dir
 }
 
@@ -133,15 +171,17 @@ function deriveChildren(beads: Bead[]): Bead[] {
     }
   }
 
-  const beadById = new Map(beads.map(b => [b.id, b]))
+  const beadById = new Map(beads.map((b) => [b.id, b]))
 
-  return beads.map(b => {
+  return beads.map((b) => {
     const childIds = childMap.get(b.id)
     if (!childIds?.length) return b
     return {
       ...b,
       children: childIds,
-      childBeads: childIds.map(id => beadById.get(id)).filter((x): x is Bead => x !== undefined),
+      childBeads: childIds
+        .map((id) => beadById.get(id))
+        .filter((x): x is Bead => x !== undefined),
     }
   })
 }
@@ -162,9 +202,18 @@ function mapRawBead(raw: Record<string, unknown>): Bead {
     closed_at: raw['closed_at'] as string | undefined,
     labels: Array.isArray(raw['labels']) ? (raw['labels'] as string[]) : [],
     parent: raw['parent'] as string | undefined,
-    comment_count: raw['comment_count'] !== undefined ? Number(raw['comment_count']) : undefined,
-    dependency_count: raw['dependency_count'] !== undefined ? Number(raw['dependency_count']) : undefined,
-    dependent_count: raw['dependent_count'] !== undefined ? Number(raw['dependent_count']) : undefined,
+    comment_count:
+      raw['comment_count'] !== undefined
+        ? Number(raw['comment_count'])
+        : undefined,
+    dependency_count:
+      raw['dependency_count'] !== undefined
+        ? Number(raw['dependency_count'])
+        : undefined,
+    dependent_count:
+      raw['dependent_count'] !== undefined
+        ? Number(raw['dependent_count'])
+        : undefined,
   }
 }
 
@@ -179,17 +228,26 @@ function mapComment(raw: Record<string, unknown>): Comment {
 
 async function listBeads(database: string): Promise<Bead[]> {
   const dir = await resolveDir(database)
-  const raw = await bdJson<Record<string, unknown>[]>(dir, ['list', '--all', '--json'])
+  const raw = await bdJson<Record<string, unknown>[]>(dir, [
+    'list',
+    '--all',
+    '--json',
+  ])
   const beads = raw.map(mapRawBead)
   return deriveChildren(beads)
 }
 
-async function getBeadDetail(database: string, id: string): Promise<BeadDetail> {
+async function getBeadDetail(
+  database: string,
+  id: string,
+): Promise<BeadDetail> {
   const dir = await resolveDir(database)
 
   const [rawArr, rawComments] = await Promise.all([
     bdJson<Record<string, unknown>[]>(dir, ['show', id, '--json']),
-    bdJson<Record<string, unknown>[]>(dir, ['comments', id, '--json']).catch(() => [] as Record<string, unknown>[]),
+    bdJson<Record<string, unknown>[]>(dir, ['comments', id, '--json']).catch(
+      () => [] as Record<string, unknown>[],
+    ),
   ])
 
   const raw = rawArr[0] ?? {}
@@ -199,7 +257,7 @@ async function getBeadDetail(database: string, id: string): Promise<BeadDetail> 
     ? (raw['dependencies'] as Record<string, unknown>[])
     : []
 
-  const dependencies: RelatedBead[] = rawDeps.map(d => ({
+  const dependencies: RelatedBead[] = rawDeps.map((d) => ({
     id: String(d['id'] ?? ''),
     title: String(d['title'] ?? ''),
     status: String(d['status'] ?? 'open'),
@@ -207,12 +265,16 @@ async function getBeadDetail(database: string, id: string): Promise<BeadDetail> 
     dependency_type: String(d['dependency_type'] ?? ''),
   }))
 
-  const comments: Comment[] = (rawComments).map(mapComment)
+  const comments: Comment[] = rawComments.map(mapComment)
 
   return { ...bead, dependencies, comments }
 }
 
-async function updateBeadStatus(database: string, id: string, status: string): Promise<void> {
+async function updateBeadStatus(
+  database: string,
+  id: string,
+  status: string,
+): Promise<void> {
   const dir = await resolveDir(database)
   await bdRaw(dir, ['update', id, '--status', status])
 }
@@ -230,7 +292,11 @@ async function createBead(
   return out.trim()
 }
 
-async function addComment(database: string, id: string, text: string): Promise<void> {
+async function addComment(
+  database: string,
+  id: string,
+  text: string,
+): Promise<void> {
   const dir = await resolveDir(database)
   await bdRaw(dir, ['comment', id, text])
 }

@@ -4,11 +4,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   DndContext,
   DragOverlay,
+  KeyboardSensor,
   PointerSensor,
   closestCorners,
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { toast } from 'sonner'
 
 import { BoardHeader } from '@/components/board-header'
@@ -28,6 +30,32 @@ import type { Bead, BeadColumn } from '@/lib/types'
 
 interface BoardSearch {
   bead?: string
+  q?: string
+  p?: string
+  view?: BoardView
+  sort?: SortKey
+}
+
+const BOARD_VIEWS = new Set(['status', 'epic'])
+const SORT_KEYS = new Set(['priority', 'recent', 'title'])
+
+function parsePriorityParam(value?: string): number[] {
+  if (!value) return []
+  return Array.from(
+    new Set(
+      value
+        .split(',')
+        .map((part) => Number(part))
+        .filter(
+          (priority) =>
+            Number.isInteger(priority) && priority >= 0 && priority <= 4,
+        ),
+    ),
+  ).sort((a, b) => a - b)
+}
+
+function serializePriorities(values: number[]): string | undefined {
+  return values.length > 0 ? values.join(',') : undefined
 }
 
 export const Route = createFileRoute('/p/$project')({
@@ -35,6 +63,19 @@ export const Route = createFileRoute('/p/$project')({
     bead:
       typeof search.bead === 'string' && search.bead.length > 0
         ? search.bead
+        : undefined,
+    q: typeof search.q === 'string' && search.q.trim() ? search.q : undefined,
+    p:
+      typeof search.p === 'string'
+        ? serializePriorities(parsePriorityParam(search.p))
+        : undefined,
+    view:
+      typeof search.view === 'string' && BOARD_VIEWS.has(search.view)
+        ? (search.view as BoardView)
+        : undefined,
+    sort:
+      typeof search.sort === 'string' && SORT_KEYS.has(search.sort)
+        ? (search.sort as SortKey)
         : undefined,
   }),
   component: BoardPage,
@@ -51,19 +92,27 @@ const COLUMN_KEYS: BeadColumn[] = ['open', 'in_progress', 'blocked', 'closed']
 
 function BoardPage() {
   const { project } = Route.useParams()
-  const { bead: beadParam } = Route.useSearch()
+  const boardSearch = Route.useSearch()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const [search, setSearch] = useState('')
-  const [view, setView] = useState<BoardView>('epic')
-  const [priorities, setPriorities] = useState<number[]>([])
-  const [sort, setSort] = useState<SortKey>('priority')
   const [createOpen, setCreateOpen] = useState(false)
   const [activeBead, setActiveBead] = useState<Bead | null>(null)
 
+  const beadParam = boardSearch.bead
+  const search = boardSearch.q ?? ''
+  const view = boardSearch.view ?? 'epic'
+  const priorities = useMemo(
+    () => parsePriorityParam(boardSearch.p),
+    [boardSearch.p],
+  )
+  const sort = boardSearch.sort ?? 'priority'
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   )
 
   const beadsQuery = useQuery({
@@ -95,7 +144,8 @@ function BoardPage() {
       blocked: [],
       closed: [],
     }
-    for (const bead of filtered) grouped[mapStatus(bead.status).column].push(bead)
+    for (const bead of filtered)
+      grouped[mapStatus(bead.status).column].push(bead)
     const compare = compareBeads(sort)
     for (const key of COLUMN_KEYS) grouped[key].sort(compare)
     return grouped
@@ -108,8 +158,17 @@ function BoardPage() {
     navigate({ to: '.', search: (prev) => ({ ...prev, bead: bead.id }) })
   }
 
+  function patchBoardSearch(patch: Partial<BoardSearch>) {
+    navigate({
+      to: '.',
+      replace: true,
+      search: (prev) => ({ ...prev, ...patch }),
+    })
+  }
+
   function setModalOpen(next: boolean) {
-    if (!next) navigate({ to: '.', search: (prev) => ({ ...prev, bead: undefined }) })
+    if (!next)
+      navigate({ to: '.', search: (prev) => ({ ...prev, bead: undefined }) })
   }
 
   async function applyDrop(activeId: string, toColumn: BeadColumn) {
@@ -118,13 +177,19 @@ function BoardPage() {
     if (!bead || mapStatus(bead.status).column === toColumn) return
 
     queryClient.setQueryData<Bead[]>(['beads', project], (old) =>
-      (old ?? []).map((b) => (b.id === activeId ? { ...b, status: toColumn } : b)),
+      (old ?? []).map((b) =>
+        b.id === activeId ? { ...b, status: toColumn } : b,
+      ),
     )
     try {
-      await updateBeadStatusFn({ data: { project, id: activeId, status: toColumn } })
+      await updateBeadStatusFn({
+        data: { project, id: activeId, status: toColumn },
+      })
     } catch (error) {
       queryClient.setQueryData(['beads', project], previous)
-      toast.error(error instanceof Error ? error.message : 'Falha ao mover bead')
+      toast.error(
+        error instanceof Error ? error.message : 'Falha ao mover bead',
+      )
     } finally {
       queryClient.invalidateQueries({ queryKey: ['beads', project] })
     }
@@ -155,13 +220,17 @@ function BoardPage() {
         project={project}
         beads={filtered}
         search={search}
-        setSearch={setSearch}
+        setSearch={(value) =>
+          patchBoardSearch({ q: value.trim() ? value : undefined })
+        }
         view={view}
-        setView={setView}
+        setView={(value) => patchBoardSearch({ view: value })}
         priorities={priorities}
-        setPriorities={setPriorities}
+        setPriorities={(values) =>
+          patchBoardSearch({ p: serializePriorities(values) })
+        }
         sort={sort}
-        setSort={setSort}
+        setSort={(value) => patchBoardSearch({ sort: value })}
         onCreate={() => setCreateOpen(true)}
       />
 
@@ -193,7 +262,7 @@ function BoardPage() {
           onDragEnd={onDragEnd}
           onDragCancel={() => setActiveBead(null)}
         >
-          <div className="grid min-h-0 flex-1 grid-cols-4 gap-3 pb-1">
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 pb-1 md:grid-cols-2 xl:grid-cols-4">
             {COLUMNS.map((c) => (
               <KanbanColumn
                 key={c.key}
@@ -205,7 +274,9 @@ function BoardPage() {
             ))}
           </div>
           <DragOverlay>
-            {activeBead ? <BeadCard bead={activeBead} onOpen={() => {}} overlay /> : null}
+            {activeBead ? (
+              <BeadCard bead={activeBead} onOpen={() => {}} overlay />
+            ) : null}
           </DragOverlay>
         </DndContext>
       )}
@@ -230,7 +301,7 @@ function BoardPage() {
 
 function BoardSkeleton() {
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-4 gap-3 overflow-hidden">
+    <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden md:grid-cols-2 xl:grid-cols-4">
       {COLUMNS.map((c) => (
         <div key={c.key} className="flex h-full min-w-0 flex-col gap-2">
           <div className="h-5 w-24 rounded bg-muted/60" />

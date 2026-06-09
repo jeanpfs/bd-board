@@ -19,12 +19,18 @@ function columnOf(bead: Bead): BeadColumn {
   return mapStatus(bead.status).column
 }
 
-export function EpicProgress({ childBeads, showDots = true, className }: EpicProgressProps) {
+export function EpicProgress({
+  childBeads,
+  showDots = true,
+  className,
+}: EpicProgressProps) {
   const total = childBeads.length
 
   if (total === 0) {
     return (
-      <span className="block text-[0.7rem] text-muted-foreground/70">sem sub-tarefas</span>
+      <span className="block text-[0.7rem] text-muted-foreground/70">
+        sem sub-tarefas
+      </span>
     )
   }
 

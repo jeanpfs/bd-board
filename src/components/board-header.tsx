@@ -52,11 +52,36 @@ const VIEWS: { key: BoardView; label: string; icon: LucideIcon }[] = [
   { key: 'epic', label: 'Épicos', icon: Layers },
 ]
 
-const COUNT_META: { key: BeadColumn; label: string; dot: string; text: string }[] = [
-  { key: 'open', label: 'Aberto', dot: 'bg-status-open', text: 'text-status-open' },
-  { key: 'in_progress', label: 'Em progresso', dot: 'bg-status-progress', text: 'text-status-progress' },
-  { key: 'blocked', label: 'Bloqueado', dot: 'bg-status-blocked', text: 'text-status-blocked' },
-  { key: 'closed', label: 'Fechado', dot: 'bg-status-closed', text: 'text-status-closed' },
+const COUNT_META: {
+  key: BeadColumn
+  label: string
+  dot: string
+  text: string
+}[] = [
+  {
+    key: 'open',
+    label: 'Aberto',
+    dot: 'bg-status-open',
+    text: 'text-status-open',
+  },
+  {
+    key: 'in_progress',
+    label: 'Em progresso',
+    dot: 'bg-status-progress',
+    text: 'text-status-progress',
+  },
+  {
+    key: 'blocked',
+    label: 'Bloqueado',
+    dot: 'bg-status-blocked',
+    text: 'text-status-blocked',
+  },
+  {
+    key: 'closed',
+    label: 'Fechado',
+    dot: 'bg-status-closed',
+    text: 'text-status-closed',
+  },
 ]
 
 const PRIORITY_HINT: Record<number, string> = {
@@ -78,14 +103,21 @@ export function BoardHeader({
   onCreate,
 }: BoardHeaderProps) {
   const counts = useMemo(() => {
-    const acc: Record<BeadColumn, number> = { open: 0, in_progress: 0, blocked: 0, closed: 0 }
+    const acc: Record<BeadColumn, number> = {
+      open: 0,
+      in_progress: 0,
+      blocked: 0,
+      closed: 0,
+    }
     for (const b of beads) acc[mapStatus(b.status).column] += 1
     return acc
   }, [beads])
 
   function togglePriority(p: number, checked: boolean) {
     setPriorities(
-      checked ? [...priorities, p].sort((a, b) => a - b) : priorities.filter((x) => x !== p),
+      checked
+        ? [...priorities, p].sort((a, b) => a - b)
+        : priorities.filter((x) => x !== p),
     )
   }
 
@@ -100,10 +132,14 @@ export function BoardHeader({
           Projetos
         </Link>
 
-        <span className="text-muted-foreground/40" aria-hidden="true">/</span>
+        <span className="text-muted-foreground/40" aria-hidden="true">
+          /
+        </span>
 
         <div className="flex items-center gap-2">
-          <h1 className="text-base font-medium tracking-tight text-foreground">{project}</h1>
+          <h1 className="text-base font-medium tracking-tight text-foreground">
+            {project}
+          </h1>
           <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[0.7rem] leading-none text-muted-foreground tabular-nums">
             {beads.length}
           </span>
@@ -111,10 +147,18 @@ export function BoardHeader({
 
         <div className="hidden items-center gap-x-3 gap-y-1 xl:flex">
           {COUNT_META.map((m) => (
-            <span key={m.key} className="inline-flex items-center gap-1.5 text-xs">
-              <span className={cn('size-1.5 shrink-0 rounded-full', m.dot)} aria-hidden="true" />
+            <span
+              key={m.key}
+              className="inline-flex items-center gap-1.5 text-xs"
+            >
+              <span
+                className={cn('size-1.5 shrink-0 rounded-full', m.dot)}
+                aria-hidden="true"
+              />
               <span className="text-muted-foreground/80">{m.label}</span>
-              <span className={cn('tabular-nums', m.text)}>{counts[m.key]}</span>
+              <span className={cn('tabular-nums', m.text)}>
+                {counts[m.key]}
+              </span>
             </span>
           ))}
         </div>
@@ -167,12 +211,16 @@ export function BoardHeader({
                 <DropdownMenuCheckboxItem
                   key={p}
                   checked={priorities.includes(p)}
-                  onCheckedChange={(checked) => togglePriority(p, Boolean(checked))}
+                  onCheckedChange={(checked) =>
+                    togglePriority(p, Boolean(checked))
+                  }
                   onSelect={(e) => e.preventDefault()}
                 >
                   <span className="font-mono font-medium">P{p}</span>
                   {PRIORITY_HINT[p] ? (
-                    <span className="ml-1 text-xs text-muted-foreground">· {PRIORITY_HINT[p]}</span>
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      · {PRIORITY_HINT[p]}
+                    </span>
                   ) : null}
                 </DropdownMenuCheckboxItem>
               ))}
@@ -197,7 +245,10 @@ export function BoardHeader({
             <DropdownMenuContent align="end" className="w-44">
               <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuRadioGroup value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+              <DropdownMenuRadioGroup
+                value={sort}
+                onValueChange={(v) => setSort(v as SortKey)}
+              >
                 {SORT_OPTIONS.map((o) => (
                   <DropdownMenuRadioItem key={o.key} value={o.key}>
                     {o.label}

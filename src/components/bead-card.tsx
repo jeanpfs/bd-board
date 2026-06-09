@@ -31,7 +31,10 @@ const BADGE_TONES: Record<'warning' | 'muted' | 'info', string> = {
 }
 
 function initials(name: string): string {
-  const parts = name.trim().split(/[\s_@.-]+/).filter(Boolean)
+  const parts = name
+    .trim()
+    .split(/[\s_@.-]+/)
+    .filter(Boolean)
   if (parts.length === 0) return '?'
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
   return (parts[0][0] + parts[1][0]).toUpperCase()
@@ -69,15 +72,15 @@ export function BeadCard({ bead, onOpen, overlay = false }: BeadCardProps) {
       )}
     >
       {!overlay ? (
-        <span
+        <button
+          type="button"
           {...attributes}
           {...listeners}
-          role="button"
           aria-label="Arrastar bead"
           className="absolute top-1.5 right-1.5 z-10 flex cursor-grab touch-none items-center rounded p-0.5 text-muted-foreground/30 opacity-0 transition-opacity group-hover/card:opacity-100 hover:text-muted-foreground active:cursor-grabbing"
         >
           <GripVertical className="size-3.5" aria-hidden="true" />
-        </span>
+        </button>
       ) : null}
 
       <button

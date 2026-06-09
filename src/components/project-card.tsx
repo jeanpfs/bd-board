@@ -19,10 +19,34 @@ export function ProjectCard({ project }: { project: Project }) {
   const pctDone = counts.total > 0 ? (counts.closed / counts.total) * 100 : null
 
   const legend: LegendItem[] = [
-    { key: 'open', label: 'Aberto', value: aberto, dotClassName: 'bg-status-open', textClassName: 'text-status-open' },
-    { key: 'in_progress', label: 'Em progresso', value: counts.in_progress, dotClassName: 'bg-status-progress', textClassName: 'text-status-progress' },
-    { key: 'blocked', label: 'Bloqueado', value: counts.blocked, dotClassName: 'bg-status-blocked', textClassName: 'text-status-blocked' },
-    { key: 'closed', label: 'Fechado', value: counts.closed, dotClassName: 'bg-status-closed', textClassName: 'text-status-closed' },
+    {
+      key: 'open',
+      label: 'Aberto',
+      value: aberto,
+      dotClassName: 'bg-status-open',
+      textClassName: 'text-status-open',
+    },
+    {
+      key: 'in_progress',
+      label: 'Em progresso',
+      value: counts.in_progress,
+      dotClassName: 'bg-status-progress',
+      textClassName: 'text-status-progress',
+    },
+    {
+      key: 'blocked',
+      label: 'Bloqueado',
+      value: counts.blocked,
+      dotClassName: 'bg-status-blocked',
+      textClassName: 'text-status-blocked',
+    },
+    {
+      key: 'closed',
+      label: 'Fechado',
+      value: counts.closed,
+      dotClassName: 'bg-status-closed',
+      textClassName: 'text-status-closed',
+    },
   ]
 
   return (
@@ -52,15 +76,22 @@ export function ProjectCard({ project }: { project: Project }) {
 
           <div className="grid grid-cols-2 gap-x-4 gap-y-2">
             {legend.map((item) => (
-              <span key={item.key} className="inline-flex items-center gap-1.5 text-xs">
+              <span
+                key={item.key}
+                className="inline-flex items-center gap-1.5 text-xs"
+              >
                 <span
                   className={`size-1.5 shrink-0 rounded-full ${item.dotClassName}`}
                   aria-hidden="true"
                 />
-                <span className={`font-medium tabular-nums ${item.textClassName}`}>
+                <span
+                  className={`font-medium tabular-nums ${item.textClassName}`}
+                >
                   {item.value}
                 </span>
-                <span className="truncate text-muted-foreground/70">{item.label}</span>
+                <span className="truncate text-muted-foreground/70">
+                  {item.label}
+                </span>
               </span>
             ))}
           </div>

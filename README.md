@@ -1,56 +1,87 @@
-# bd · board
+# bd board
 
-Kanban visual e dashboard multi-projeto para o issue tracker [`bd` (beads)](https://github.com/steveyegge/beads), com estética estilo Linear. Reescrita enxuta do `beads-web` usando **apenas TanStack Start + shadcn/ui** (sem backend Rust, sem binário único).
+Visual kanban board and multi-project dashboard for [`bd` (beads)](https://github.com/steveyegge/beads).
 
-## Como funciona
-
-- **Sem banco próprio.** Toda leitura/escrita passa pelo binário `bd` via *server functions* do TanStack Start (`createServerFn` → `node:child_process`).
-- **Auto-descoberta de projetos.** Varre `~/Code/*/.beads/metadata.json` e cruza com `bd sql "SHOW DATABASES"` no servidor Dolt compartilhado. Cada projeto vira um card no dashboard.
-- **Tempo real.** Polling do TanStack Query (8s no board, 15s no dashboard).
-
-## Requisitos
-
-- Node 20+ e `pnpm`
-- `bd` 1.0+ no `PATH` (Homebrew) e o servidor Dolt rodando (modo shared-server)
-- Projetos com `.beads/metadata.json` sob `~/Code` (configurável via `BD_ROOTS`)
-
-## Rodar
-
-```bash
-pnpm install
-pnpm dev          # http://localhost:3009
-```
-
-Variáveis opcionais:
-
-- `BD_BIN` — caminho do binário `bd` (default: `bd`, fallback `/opt/homebrew/bin/bd`)
-- `BD_ROOTS` — diretórios para descobrir projetos, separados por `:` (default: `~/Code`)
+`bd-board` is intentionally local-first: it discovers bead-enabled repositories on disk, reads data through the local `bd` CLI, and renders a fast dashboard for day-to-day planning.
 
 ## Features
 
-- **Dashboard** — todos os projetos com barra de status proporcional e contagens (Aberto / Em progresso / Bloqueado / Fechado).
-- **Board kanban** — 4 colunas, ordenado por prioridade, com busca e filtro por épico.
-- **Épicos em destaque** — cards de épico mostram barra de progresso das filhas (`x/N concluídas`) e pontos de status; o detalhe lista as sub-tarefas clicáveis.
-- **Arrastar para mudar status** — drag pela alça (grip) move a bead entre colunas (otimista, com rollback em erro).
-- **Detalhe em painel lateral** — descrição em markdown, critérios de aceitação, comentários (+ adicionar), troca de status, navegação épico ↔ filha.
-- **Criar bead** — diálogo com título, descrição, tipo e épico pai.
+- Multi-project dashboard with live status counts.
+- Board view grouped by status or by epic swimlanes.
+- Priority filtering, text search, and sort controls with URL state.
+- Epic progress from child beads.
+- Bead detail modal with markdown description, acceptance criteria, comments, parent and child navigation.
+- Drag-and-drop status updates with mouse and keyboard sensors.
+- Optional write mode for creating beads, adding comments, and changing status.
 
-## Stack
+## Requirements
 
-TanStack Start (React 19, Vite, Nitro) · TanStack Query · shadcn/ui (radix) · Tailwind v4 · @dnd-kit · react-markdown · Geist.
+- Node.js 20+.
+- pnpm 10+.
+- `bd` 1.0+ available on `PATH`.
+- Repositories with `.beads/metadata.json` under the configured roots.
 
-## Arquitetura
+## Setup
 
+```bash
+pnpm install
+cp .env.example .env.local
+pnpm dev
 ```
+
+Open http://localhost:3009.
+
+## Configuration
+
+Environment variables:
+
+- `BD_BIN`: path to the `bd` binary. Defaults to `bd`, with `/opt/homebrew/bin/bd` as a fallback.
+- `BD_ROOTS`: colon-separated directories to scan for bead projects. Defaults to `~/Code`.
+- `BD_BOARD_ALLOW_WRITE`: set to `true`, `1`, or `yes` to enable create, comment, and status update mutations.
+
+Reads are enabled by default. Writes are disabled by default because this app executes local `bd` mutations.
+
+## Commands
+
+```bash
+pnpm dev
+pnpm typecheck
+pnpm check
+pnpm exec eslint --max-warnings=0
+pnpm test
+pnpm audit:prod
+pnpm validate
+```
+
+## Architecture
+
+```text
 src/
   lib/
-    types.ts      # tipos + mapeamento de status + colunas
-    bd.ts         # shell-out no bd (server-only): discovery, list, show, counts, mutações
-    server.ts     # server functions (getProjects, getBeads, getBeadDetailFn, ...)
+    bd.ts                 local bd CLI adapter
+    server.ts             TanStack Start server functions
+    server-validation.ts  server-function input validation
+    sort.ts               filtering and sorting helpers
+    types.ts              bead/project types and status mapping
   routes/
-    __root.tsx        # shell (top-nav, providers, tema dark)
-    index.tsx         # dashboard
-    p.$project.tsx    # board kanban
-  components/         # project-card, kanban-column, bead-card, epic-progress,
-                      # bead-detail-sheet, create-bead-dialog, board-header, ...
+    __root.tsx            app shell
+    index.tsx             project dashboard
+    p.$project.tsx        board route
+  components/
+    board-header.tsx
+    board-swimlanes.tsx
+    kanban-column.tsx
+    bead-card.tsx
+    bead-detail-modal.tsx
+    create-bead-dialog.tsx
 ```
+
+The app does not store its own database. It shells out to `bd` with `node:child_process` and parses JSON output.
+
+## Safety Model
+
+`bd-board` is not designed as a hosted multi-tenant app. Run it locally, bind it only to trusted interfaces, and keep `BD_BOARD_ALLOW_WRITE` disabled unless you want the UI to mutate local bead data.
+
+## License
+
+MIT

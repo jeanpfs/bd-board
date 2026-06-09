@@ -79,7 +79,9 @@ export function CreateBeadDialog({
       onOpenChange(false)
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Falha ao criar bead')
+      toast.error(
+        error instanceof Error ? error.message : 'Falha ao criar bead',
+      )
     },
   })
 
@@ -111,9 +113,11 @@ export function CreateBeadDialog({
             <Label htmlFor="bead-title">Título</Label>
             <Input
               id="bead-title"
+              name="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Resumo da tarefa"
+              autoComplete="off"
               autoFocus
             />
           </div>
@@ -122,6 +126,7 @@ export function CreateBeadDialog({
             <Label htmlFor="bead-desc">Descrição</Label>
             <Textarea
               id="bead-desc"
+              name="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Detalhes (markdown)…"
@@ -131,9 +136,9 @@ export function CreateBeadDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label>Tipo</Label>
+              <Label htmlFor="bead-type">Tipo</Label>
               <Select value={type} onValueChange={setType}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="bead-type" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -147,13 +152,13 @@ export function CreateBeadDialog({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label>Épico pai</Label>
+              <Label htmlFor="bead-parent">Épico pai</Label>
               <Select
                 value={parent}
                 onValueChange={setParent}
                 disabled={type === 'epic'}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="bead-parent" className="w-full">
                   <SelectValue placeholder="Nenhum" />
                 </SelectTrigger>
                 <SelectContent className="max-w-72">
@@ -172,10 +177,17 @@ export function CreateBeadDialog({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+            >
               Cancelar
             </Button>
-            <Button type="submit" disabled={!title.trim() || mutation.isPending}>
+            <Button
+              type="submit"
+              disabled={!title.trim() || mutation.isPending}
+            >
               {mutation.isPending ? (
                 <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
               ) : null}

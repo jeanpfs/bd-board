@@ -31,8 +31,10 @@ function timeOf(b: Bead): number {
 
 export function compareBeads(sort: SortKey): (a: Bead, b: Bead) => number {
   return (a, b) => {
-    if (sort === 'recent') return timeOf(b) - timeOf(a) || a.id.localeCompare(b.id)
-    if (sort === 'title') return a.title.localeCompare(b.title) || prio(a) - prio(b)
+    if (sort === 'recent')
+      return timeOf(b) - timeOf(a) || a.id.localeCompare(b.id)
+    if (sort === 'title')
+      return a.title.localeCompare(b.title) || prio(a) - prio(b)
     return prio(a) - prio(b) || a.id.localeCompare(b.id)
   }
 }
@@ -42,11 +44,17 @@ export function beadMatches(
   search: string,
   priorities: number[],
 ): boolean {
-  if (priorities.length > 0 && !priorities.includes(clampPriority(bead.priority))) {
+  if (
+    priorities.length > 0 &&
+    !priorities.includes(clampPriority(bead.priority))
+  ) {
     return false
   }
   const q = search.trim().toLowerCase()
-  if (q && !(bead.id.toLowerCase().includes(q) || bead.title.toLowerCase().includes(q))) {
+  if (
+    q &&
+    !(bead.id.toLowerCase().includes(q) || bead.title.toLowerCase().includes(q))
+  ) {
     return false
   }
   return true

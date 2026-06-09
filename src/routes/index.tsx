@@ -94,7 +94,10 @@ function SummaryStats({ projects }: { projects: Project[] }) {
           className="flex flex-col gap-1.5 rounded-xl bg-card p-3.5 ring-1 ring-foreground/10"
         >
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className={`size-1.5 shrink-0 rounded-full ${m.dot}`} aria-hidden="true" />
+            <span
+              className={`size-1.5 shrink-0 rounded-full ${m.dot}`}
+              aria-hidden="true"
+            />
             {m.label}
           </span>
           <span className="text-2xl font-semibold tabular-nums tracking-tight">
@@ -123,7 +126,10 @@ function LoadingState() {
     <>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="flex flex-col gap-2 rounded-xl bg-card p-3.5 ring-1 ring-foreground/10">
+          <div
+            key={i}
+            className="flex flex-col gap-2 rounded-xl bg-card p-3.5 ring-1 ring-foreground/10"
+          >
             <Skeleton className="h-3 w-20" />
             <Skeleton className="h-7 w-12" />
           </div>
@@ -131,7 +137,10 @@ function LoadingState() {
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="flex items-start gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+          <div
+            key={i}
+            className="flex items-start gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10"
+          >
             <div className="flex flex-1 flex-col gap-4">
               <div className="flex flex-col gap-1.5">
                 <Skeleton className="h-5 w-28" />
@@ -169,7 +178,9 @@ function ErrorState({
           aria-hidden="true"
         />
         <div className="flex flex-col gap-0.5">
-          <p className="text-sm font-medium">Não foi possível carregar os projetos</p>
+          <p className="text-sm font-medium">
+            Não foi possível carregar os projetos
+          </p>
           <p className="text-xs text-muted-foreground">{message}</p>
         </div>
       </div>
