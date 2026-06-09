@@ -66,3 +66,5 @@
 # - github.token    → use GITHUB_TOKEN env var instead
 
 dolt.shared-server: true
+
+sync.remote: "git+https://github.com/jeanpfs/bd-board.git"
