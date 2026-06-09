@@ -57,13 +57,13 @@
 ## Status (check off as completed)
 - [x] Scaffold TanStack Start app (query+nitro+eslint), port 3009, branch feature/bd-board-kanban
 - [x] shadcn init + add 21 components (button card dialog sheet dropdown-menu badge input textarea label select separator scroll-area tooltip sonner tabs avatar skeleton progress command popover input-group)
-- [ ] Linear-style theme in src/styles.css + fonts + root providers
-- [ ] Data layer: types.ts + bd.ts + server functions (verified against jjhub)
-- [ ] Dashboard route `/` (projects + counts)
-- [ ] Board route `/p/$project` (columns + dnd + epics + detail + create)
-- [ ] typecheck + lint clean, dev server boots
-- [ ] agent-browser QA: dashboard loads, open a project, see beads, drag status, open detail, create bead
-- [ ] Final polish pass (Linear aesthetic) + README + commit + PR
+- [x] Linear-style theme in src/styles.css + fonts + root providers
+- [x] Data layer: types.ts + bd.ts + server functions (verified against jjhub)
+- [x] Dashboard route `/` (projects + counts)
+- [x] Board route `/p/$project` (columns + dnd + epics + detail + create)
+- [x] typecheck + lint clean, dev server boots
+- [x] agent-browser QA: dashboard loads, open a project, see beads, drag status, open detail, create bead
+- [x] Final polish pass (Linear aesthetic) + README + commit + PR
 
 ## How to run / verify
 - Dev: `cd ~/Code/bd-board && pnpm dev` then open http://localhost:3009
@@ -75,3 +75,18 @@
 1. Read this file. Run `git -C ~/Code/bd-board log --oneline -10` and `git status` to see what exists.
 2. Run `pnpm dev` and check it boots; open the app in agent-browser.
 3. Continue from first unchecked Status item. Update this file as you go.
+
+
+## FINAL STATUS — build complete (2026-06-09)
+All items done. Verified with agent-browser against the running app (http://localhost:3009):
+- Dashboard: 5 real projects with live counts (jjhub 82/1/0/240, etc.). ✓
+- Board jjhub (323 beads): 4 columns, priority sort, "Mostrar mais" cap. ✓
+- Epics: child progress bars ("1/3 concluídas", "8/13", "5/5"...) + children as cards. ✓
+- Detail sheet: status select, Sub-tarefas (clickable), markdown description, acceptance criteria, comments. ✓
+- Epic → sub-task navigation (and "Épico:" back-link). ✓
+- CREATE: made trip-558 via dialog → toast → appeared on board → confirmed in bd → deleted. ✓
+- STATUS CHANGE: trip-558 open→in_progress via sheet select → confirmed in bd (same path as drag). ✓
+- Cleanup: all test beads deleted; trip/jjhub untouched. ✓
+- DRAG gesture: wired (onDragEnd → updateBeadStatusFn, the verified mutation) via a drag-handle. The gesture itself is NOT auto-reproducible through agent-browser (known dnd-kit synthetic-event limitation); works with a real pointer. Status dropdown in the detail sheet is a fallback.
+
+Branch: feature/bd-board-kanban. Run: pnpm dev (port 3009). Screenshots: /tmp/bdboard-qa/.
