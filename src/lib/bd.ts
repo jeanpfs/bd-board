@@ -207,7 +207,7 @@ async function getBeadDetail(database: string, id: string): Promise<BeadDetail> 
     dependency_type: String(d['dependency_type'] ?? ''),
   }))
 
-  const comments: Comment[] = (rawComments as Record<string, unknown>[]).map(mapComment)
+  const comments: Comment[] = (rawComments).map(mapComment)
 
   return { ...bead, dependencies, comments }
 }
