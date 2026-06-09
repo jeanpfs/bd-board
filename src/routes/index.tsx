@@ -12,6 +12,17 @@ import type { Project } from '@/lib/types'
 
 export const Route = createFileRoute('/')({ component: Home })
 
+const SUMMARY_META: {
+  key: 'open' | 'in_progress' | 'blocked' | 'closed'
+  label: string
+  dot: string
+}[] = [
+  { key: 'open', label: 'Abertas', dot: 'bg-status-open' },
+  { key: 'in_progress', label: 'Em progresso', dot: 'bg-status-progress' },
+  { key: 'blocked', label: 'Bloqueadas', dot: 'bg-status-blocked' },
+  { key: 'closed', label: 'Fechadas', dot: 'bg-status-closed' },
+]
+
 function Home() {
   const { data, isPending, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['projects'],
@@ -25,7 +36,7 @@ function Home() {
       <PageHeader projects={data} />
 
       {isPending ? (
-        <LoadingGrid />
+        <LoadingState />
       ) : isError ? (
         <ErrorState
           message={error instanceof Error ? error.message : String(error)}
@@ -35,7 +46,10 @@ function Home() {
       ) : data.length === 0 ? (
         <EmptyState />
       ) : (
-        <ProjectGrid projects={data} />
+        <>
+          <SummaryStats projects={data} />
+          <ProjectGrid projects={data} />
+        </>
       )}
     </div>
   )
@@ -61,6 +75,37 @@ function PageHeader({ projects }: { projects: Project[] | undefined }) {
   )
 }
 
+function SummaryStats({ projects }: { projects: Project[] }) {
+  const agg = projects.reduce(
+    (acc, p) => ({
+      open: acc.open + p.counts.open + p.counts.deferred,
+      in_progress: acc.in_progress + p.counts.in_progress,
+      blocked: acc.blocked + p.counts.blocked,
+      closed: acc.closed + p.counts.closed,
+    }),
+    { open: 0, in_progress: 0, blocked: 0, closed: 0 },
+  )
+
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {SUMMARY_META.map((m) => (
+        <div
+          key={m.key}
+          className="flex flex-col gap-1.5 rounded-xl bg-card p-3.5 ring-1 ring-foreground/10"
+        >
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className={`size-1.5 shrink-0 rounded-full ${m.dot}`} aria-hidden="true" />
+            {m.label}
+          </span>
+          <span className="text-2xl font-semibold tabular-nums tracking-tight">
+            {agg[m.key].toLocaleString('pt-BR')}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function ProjectGrid({ projects }: { projects: Project[] }) {
   const sorted = [...projects].sort((a, b) => b.counts.total - a.counts.total)
 
@@ -73,27 +118,37 @@ function ProjectGrid({ projects }: { projects: Project[] }) {
   )
 }
 
-function LoadingGrid() {
+function LoadingState() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <Card key={i} className="gap-3">
-          <div className="flex items-center justify-between px-4">
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="h-4 w-16" />
+    <>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="flex flex-col gap-2 rounded-xl bg-card p-3.5 ring-1 ring-foreground/10">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-7 w-12" />
           </div>
-          <div className="flex flex-col gap-3 px-4">
-            <Skeleton className="h-2 w-full rounded-full" />
-            <div className="flex gap-3">
-              <Skeleton className="h-3 w-16" />
-              <Skeleton className="h-3 w-20" />
-              <Skeleton className="h-3 w-16" />
-              <Skeleton className="h-3 w-16" />
+        ))}
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex items-start gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+            <div className="flex flex-1 flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Skeleton className="h-5 w-28" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-3 w-20" />
+              </div>
             </div>
+            <Skeleton className="size-13 rounded-full" />
           </div>
-        </Card>
-      ))}
-    </div>
+        ))}
+      </div>
+    </>
   )
 }
 
@@ -118,12 +173,7 @@ function ErrorState({
           <p className="text-xs text-muted-foreground">{message}</p>
         </div>
       </div>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={onRetry}
-        disabled={retrying}
-      >
+      <Button size="sm" variant="outline" onClick={onRetry} disabled={retrying}>
         {retrying ? 'Tentando…' : 'Tentar novamente'}
       </Button>
     </Card>
