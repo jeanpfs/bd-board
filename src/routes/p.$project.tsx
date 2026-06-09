@@ -1,0 +1,242 @@
+import { useMemo, useState } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  closestCorners,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import { toast } from 'sonner'
+
+import { BoardHeader } from '@/components/board-header'
+import { KanbanColumn } from '@/components/kanban-column'
+import { BeadCard } from '@/components/bead-card'
+import { BeadDetailSheet } from '@/components/bead-detail-sheet'
+import { CreateBeadDialog } from '@/components/create-bead-dialog'
+import { getBeads, updateBeadStatusFn } from '@/lib/server'
+import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
+
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
+import type { Bead, BeadColumn } from '@/lib/types'
+
+export const Route = createFileRoute('/p/$project')({ component: BoardPage })
+
+const COLUMN_LABEL: Record<BeadColumn, string> = {
+  open: 'Aberto',
+  in_progress: 'Em progresso',
+  blocked: 'Bloqueado',
+  closed: 'Fechado',
+}
+
+const COLUMN_KEYS: BeadColumn[] = ['open', 'in_progress', 'blocked', 'closed']
+
+function priorityOf(bead: Bead): number {
+  return Number.isFinite(bead.priority) ? bead.priority : 9
+}
+
+function BoardPage() {
+  const { project } = Route.useParams()
+  const queryClient = useQueryClient()
+
+  const [search, setSearch] = useState('')
+  const [epicFilter, setEpicFilter] = useState('')
+  const [selected, setSelected] = useState<Bead | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [activeBead, setActiveBead] = useState<Bead | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  )
+
+  const beadsQuery = useQuery({
+    queryKey: ['beads', project],
+    queryFn: () => getBeads({ data: { project } }),
+    refetchInterval: 8000,
+    staleTime: 3000,
+  })
+
+  const beads = beadsQuery.data ?? []
+
+  const beadsById = useMemo(() => {
+    const map = new Map<string, Bead>()
+    for (const bead of beads) map.set(bead.id, bead)
+    return map
+  }, [beads])
+
+  const epics = useMemo(() => beads.filter(isEpic), [beads])
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return beads.filter((bead) => {
+      if (epicFilter && bead.id !== epicFilter && bead.parent !== epicFilter) {
+        return false
+      }
+      if (!q) return true
+      return (
+        bead.id.toLowerCase().includes(q) || bead.title.toLowerCase().includes(q)
+      )
+    })
+  }, [beads, search, epicFilter])
+
+  const columns = useMemo(() => {
+    const grouped: Record<BeadColumn, Bead[]> = {
+      open: [],
+      in_progress: [],
+      blocked: [],
+      closed: [],
+    }
+    for (const bead of filtered) grouped[mapStatus(bead.status).column].push(bead)
+    for (const key of COLUMN_KEYS) {
+      grouped[key].sort(
+        (a, b) => priorityOf(a) - priorityOf(b) || a.id.localeCompare(b.id),
+      )
+    }
+    return grouped
+  }, [filtered])
+
+  function openBead(bead: Bead) {
+    setSelected(bead)
+    setSheetOpen(true)
+  }
+
+  function columnOfId(id: string): BeadColumn | null {
+    if ((COLUMN_KEYS as string[]).includes(id)) return id as BeadColumn
+    const bead = beadsById.get(id)
+    return bead ? mapStatus(bead.status).column : null
+  }
+
+  function onDragStart(event: DragStartEvent) {
+    const dragged = event.active.data.current?.bead as Bead | undefined
+    setActiveBead(dragged ?? beadsById.get(String(event.active.id)) ?? null)
+  }
+
+  async function onDragEnd(event: DragEndEvent) {
+    setActiveBead(null)
+    const { active, over } = event
+    if (!over) return
+    const id = String(active.id)
+    const bead = beadsById.get(id)
+    if (!bead) return
+    const from = mapStatus(bead.status).column
+    const to = columnOfId(String(over.id))
+    if (!to || to === from) return
+
+    const previous = queryClient.getQueryData<Bead[]>(['beads', project])
+    queryClient.setQueryData<Bead[]>(['beads', project], (old) =>
+      (old ?? []).map((b) => (b.id === id ? { ...b, status: to } : b)),
+    )
+    try {
+      await updateBeadStatusFn({ data: { project, id, status: to } })
+    } catch (error) {
+      queryClient.setQueryData(['beads', project], previous)
+      toast.error(error instanceof Error ? error.message : 'Falha ao mover bead')
+    } finally {
+      queryClient.invalidateQueries({ queryKey: ['beads', project] })
+    }
+  }
+
+  return (
+    <div className="flex h-[calc(100dvh-6rem)] min-h-0 flex-col">
+      <BoardHeader
+        project={project}
+        beads={filtered}
+        search={search}
+        setSearch={setSearch}
+        epicFilter={epicFilter}
+        setEpicFilter={setEpicFilter}
+        onCreate={() => setCreateOpen(true)}
+      />
+
+      {beadsQuery.isLoading ? (
+        <BoardSkeleton />
+      ) : beadsQuery.isError ? (
+        <BoardError
+          message={
+            beadsQuery.error instanceof Error
+              ? beadsQuery.error.message
+              : 'Erro ao carregar beads'
+          }
+          onRetry={() => beadsQuery.refetch()}
+        />
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          onDragCancel={() => setActiveBead(null)}
+        >
+          <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-1">
+            {COLUMNS.map((c) => (
+              <KanbanColumn
+                key={c.key}
+                column={c.key}
+                label={COLUMN_LABEL[c.key]}
+                beads={columns[c.key]}
+                onOpen={openBead}
+              />
+            ))}
+          </div>
+          <DragOverlay>
+            {activeBead ? <BeadCard bead={activeBead} onOpen={() => {}} overlay /> : null}
+          </DragOverlay>
+        </DndContext>
+      )}
+
+      <BeadDetailSheet
+        project={project}
+        bead={selected}
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        onOpenBead={openBead}
+        resolveBead={(id) => beadsById.get(id)}
+      />
+      <CreateBeadDialog
+        project={project}
+        epics={epics}
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+      />
+    </div>
+  )
+}
+
+function BoardSkeleton() {
+  return (
+    <div className="flex min-h-0 flex-1 gap-3 overflow-hidden">
+      {COLUMNS.map((c) => (
+        <div key={c.key} className="flex h-full w-[19rem] shrink-0 flex-col gap-2">
+          <div className="h-5 w-24 rounded bg-muted/60" />
+          <div className="flex-1 rounded-xl bg-muted/20 ring-1 ring-inset ring-foreground/5" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function BoardError({
+  message,
+  onRetry,
+}: {
+  message: string
+  onRetry: () => void
+}) {
+  return (
+    <div className="flex flex-1 items-center justify-center">
+      <div className="flex max-w-sm flex-col items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-6 py-8 text-center">
+        <p className="text-sm text-muted-foreground">{message}</p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    </div>
+  )
+}
