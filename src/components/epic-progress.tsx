@@ -8,11 +8,11 @@ interface EpicProgressProps {
   className?: string
 }
 
-const SEGMENT_ORDER: { key: BeadColumn; className: string; dotClassName: string }[] = [
-  { key: 'closed', className: 'bg-status-closed', dotClassName: 'bg-status-closed' },
-  { key: 'in_progress', className: 'bg-status-progress', dotClassName: 'bg-status-progress' },
-  { key: 'blocked', className: 'bg-status-blocked', dotClassName: 'bg-status-blocked' },
-  { key: 'open', className: 'bg-status-open', dotClassName: 'bg-status-open' },
+const SEGMENT_ORDER: { key: BeadColumn; className: string }[] = [
+  { key: 'closed', className: 'bg-status-closed' },
+  { key: 'in_progress', className: 'bg-status-progress' },
+  { key: 'blocked', className: 'bg-status-blocked' },
+  { key: 'open', className: 'bg-status-open' },
 ]
 
 function columnOf(bead: Bead): BeadColumn {
@@ -24,7 +24,7 @@ export function EpicProgress({ childBeads, showDots = true, className }: EpicPro
 
   if (total === 0) {
     return (
-      <p className="text-[0.7rem] text-muted-foreground/70">sem sub-tarefas</p>
+      <span className="block text-[0.7rem] text-muted-foreground/70">sem sub-tarefas</span>
     )
   }
 
@@ -41,40 +41,42 @@ export function EpicProgress({ childBeads, showDots = true, className }: EpicPro
   const done = counts.closed
 
   return (
-    <div className={className ? `flex flex-col gap-1.5 ${className}` : 'flex flex-col gap-1.5'}>
-      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted ring-1 ring-inset ring-foreground/5">
-        {SEGMENT_ORDER.filter((s) => counts[s.key] > 0).map((s) => {
-          const pct = (counts[s.key] / total) * 100
-          return (
-            <div
-              key={s.key}
-              className={`${s.className} h-full transition-[width] duration-500 ease-out`}
-              style={{ width: `${pct}%` }}
-            />
-          )
-        })}
-      </div>
+    <span
+      className={
+        className
+          ? `flex flex-col gap-1.5 ${className}`
+          : 'flex flex-col gap-1.5'
+      }
+    >
+      <span className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted ring-1 ring-inset ring-foreground/5">
+        {SEGMENT_ORDER.filter((s) => counts[s.key] > 0).map((s) => (
+          <span
+            key={s.key}
+            className={`${s.className} h-full transition-[width] duration-500 ease-out`}
+            style={{ width: `${(counts[s.key] / total) * 100}%` }}
+          />
+        ))}
+      </span>
 
-      <div className="flex items-center justify-between gap-2">
+      <span className="flex items-center justify-between gap-2">
         <span className="text-[0.7rem] font-medium text-muted-foreground tabular-nums">
           {done}/{total} concluídas
         </span>
         {showDots && total <= 28 ? (
-          <div className="flex flex-wrap items-center justify-end gap-1">
+          <span className="flex flex-wrap items-center justify-end gap-1">
             {childBeads.map((child) => {
-              const col = columnOf(child)
-              const seg = SEGMENT_ORDER.find((s) => s.key === col)
+              const seg = SEGMENT_ORDER.find((s) => s.key === columnOf(child))
               return (
                 <span
                   key={child.id}
-                  className={`size-1.5 shrink-0 rounded-full ${seg?.dotClassName ?? 'bg-status-open'}`}
+                  className={`size-1.5 shrink-0 rounded-full ${seg?.className ?? 'bg-status-open'}`}
                   aria-hidden="true"
                 />
               )
             })}
-          </div>
+          </span>
         ) : null}
-      </div>
-    </div>
+      </span>
+    </span>
   )
 }

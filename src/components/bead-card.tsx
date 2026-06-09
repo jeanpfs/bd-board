@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Layers, MessageSquare } from 'lucide-react'
+import { GripVertical, Layers, MessageSquare } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -37,13 +37,7 @@ function initials(name: string): string {
   return (parts[0]![0]! + parts[1]![0]!).toUpperCase()
 }
 
-function priorityLabel(priority: number): string {
-  const p = Math.max(0, Math.min(4, priority))
-  return `P${p}`
-}
-
 export function BeadCard({ bead, onOpen, overlay = false }: BeadCardProps) {
-  const sortable = useSortable({ id: bead.id, data: { bead } })
   const {
     attributes,
     listeners,
@@ -51,106 +45,110 @@ export function BeadCard({ bead, onOpen, overlay = false }: BeadCardProps) {
     transform,
     transition,
     isDragging,
-  } = sortable
+  } = useSortable({ id: bead.id, data: { bead } })
 
   const epic = isEpic(bead)
   const badge = mapStatus(bead.status).badge
   const labels = bead.labels ?? []
   const childBeads = bead.childBeads ?? []
+  const priority = Math.max(0, Math.min(4, bead.priority))
 
   const style = overlay
     ? undefined
-    : {
-        transform: CSS.Transform.toString(transform),
-        transition,
-      }
+    : { transform: CSS.Transform.toString(transform), transition }
 
   return (
     <div
       ref={overlay ? undefined : setNodeRef}
       style={style}
-      {...(overlay ? {} : attributes)}
-      {...(overlay ? {} : listeners)}
-      onClick={() => onOpen(bead)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onOpen(bead)
-        }
-      }}
       className={cn(
-        'group/card relative flex cursor-pointer flex-col gap-2 rounded-lg bg-card p-2.5 text-left ring-1 ring-foreground/10 transition-colors outline-none hover:bg-accent/40 hover:ring-primary/30 focus-visible:ring-2 focus-visible:ring-ring/60',
-        epic && 'border-l-2 border-l-primary pl-2.5',
+        'group/card relative rounded-lg bg-card ring-1 ring-foreground/10 transition-colors hover:bg-accent/40 hover:ring-primary/30',
+        epic && 'border-l-2 border-l-primary',
         isDragging && !overlay && 'opacity-40',
-        overlay && 'cursor-grabbing shadow-lg ring-primary/40',
+        overlay && 'shadow-lg ring-primary/40',
       )}
     >
-      <div className="flex items-center gap-1.5">
-        <span className="font-mono text-[0.7rem] leading-none text-muted-foreground">
-          {bead.id}
-        </span>
+      {!overlay ? (
         <span
-          className={cn(
-            'rounded border px-1 py-px text-[0.6rem] font-semibold leading-none tabular-nums',
-            PRIORITY_STYLES[Math.max(0, Math.min(4, bead.priority))],
-          )}
+          {...attributes}
+          {...listeners}
+          role="button"
+          aria-label="Arrastar bead"
+          className="absolute top-1.5 right-1.5 z-10 flex cursor-grab touch-none items-center rounded p-0.5 text-muted-foreground/30 opacity-0 transition-opacity group-hover/card:opacity-100 hover:text-muted-foreground active:cursor-grabbing"
         >
-          {priorityLabel(bead.priority)}
+          <GripVertical className="size-3.5" aria-hidden="true" />
         </span>
-        {epic ? (
-          <span className="ml-auto inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wide text-primary ring-1 ring-inset ring-primary/25">
-            <Layers className="size-2.5" aria-hidden="true" />
-            Épico
+      ) : null}
+
+      <button
+        type="button"
+        onClick={() => onOpen(bead)}
+        className="flex w-full cursor-pointer flex-col gap-2 rounded-lg p-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+      >
+        <span className="flex items-center gap-1.5 pr-5">
+          <span className="font-mono text-[0.7rem] leading-none text-muted-foreground">
+            {bead.id}
           </span>
-        ) : null}
-        {badge ? (
           <span
             className={cn(
-              'rounded border px-1.5 py-px text-[0.6rem] font-medium leading-none',
-              epic ? '' : 'ml-auto',
-              BADGE_TONES[badge.tone],
+              'rounded border px-1 py-px text-[0.6rem] font-semibold leading-none tabular-nums',
+              PRIORITY_STYLES[priority],
             )}
           >
-            {badge.label}
+            P{priority}
           </span>
-        ) : null}
-      </div>
-
-      <p className="line-clamp-2 text-sm leading-snug text-foreground">
-        {bead.title}
-      </p>
-
-      {epic ? <EpicProgress childBeads={childBeads} /> : null}
-
-      <div className="flex items-center gap-2">
-        {labels.slice(0, 3).map((label) => (
-          <Badge
-            key={label}
-            variant="outline"
-            className="h-4 max-w-[7rem] truncate px-1.5 text-[0.6rem] font-normal"
-          >
-            {label}
-          </Badge>
-        ))}
-
-        <div className="ml-auto flex items-center gap-2 text-[0.7rem] text-muted-foreground">
-          {bead.comment_count ? (
-            <span className="inline-flex items-center gap-0.5 tabular-nums">
-              <MessageSquare className="size-3" aria-hidden="true" />
-              {bead.comment_count}
+          {epic ? (
+            <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wide text-primary ring-1 ring-inset ring-primary/25">
+              <Layers className="size-2.5" aria-hidden="true" />
+              Épico
             </span>
           ) : null}
-          {bead.assignee ? (
-            <Avatar size="sm" className="size-5">
-              <AvatarFallback className="text-[0.55rem]">
-                {initials(bead.assignee)}
-              </AvatarFallback>
-            </Avatar>
+          {badge ? (
+            <span
+              className={cn(
+                'rounded border px-1.5 py-px text-[0.6rem] font-medium leading-none',
+                BADGE_TONES[badge.tone],
+              )}
+            >
+              {badge.label}
+            </span>
           ) : null}
-        </div>
-      </div>
+        </span>
+
+        <span className="line-clamp-2 text-sm leading-snug text-foreground">
+          {bead.title}
+        </span>
+
+        {epic ? <EpicProgress childBeads={childBeads} /> : null}
+
+        <span className="flex items-center gap-2">
+          {labels.slice(0, 3).map((label) => (
+            <Badge
+              key={label}
+              variant="outline"
+              className="h-4 max-w-[7rem] truncate px-1.5 text-[0.6rem] font-normal"
+            >
+              {label}
+            </Badge>
+          ))}
+
+          <span className="ml-auto flex items-center gap-2 text-[0.7rem] text-muted-foreground">
+            {bead.comment_count ? (
+              <span className="inline-flex items-center gap-0.5 tabular-nums">
+                <MessageSquare className="size-3" aria-hidden="true" />
+                {bead.comment_count}
+              </span>
+            ) : null}
+            {bead.assignee ? (
+              <Avatar size="sm" className="size-5">
+                <AvatarFallback className="text-[0.55rem]">
+                  {initials(bead.assignee)}
+                </AvatarFallback>
+              </Avatar>
+            ) : null}
+          </span>
+        </span>
+      </button>
     </div>
   )
 }
