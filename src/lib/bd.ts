@@ -3,6 +3,7 @@ import { promisify } from 'node:util'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as os from 'node:os'
+import type { BdAdapter } from './bd-contract.ts'
 import type {
   Bead,
   BeadDetail,
@@ -110,8 +111,12 @@ async function counts(dir: string): Promise<ProjectCounts> {
 
 async function resolveRoots(): Promise<string[]> {
   const env = process.env['BD_ROOTS']
-  if (env) return env.split(path.delimiter).filter(Boolean)
+  if (env) return splitConfiguredRoots(env, path.delimiter)
   return [path.join(os.homedir(), 'Code')]
+}
+
+export function splitConfiguredRoots(raw: string, delimiter: string): string[] {
+  return raw.split(delimiter).filter(Boolean)
 }
 
 async function discoverProjects(): Promise<Project[]> {
@@ -461,6 +466,19 @@ async function addComment(
 ): Promise<void> {
   const dir = await resolveDir(database)
   await bdRaw(dir, ['comment', id, text])
+}
+
+export const bdAdapter: BdAdapter = {
+  discoverProjects,
+  listBeads,
+  getBeadDetail,
+  getProjectKnowledge,
+  updateBeadStatus,
+  updateBead,
+  previewDeleteBead,
+  deleteBead,
+  createBead,
+  addComment,
 }
 
 export {
