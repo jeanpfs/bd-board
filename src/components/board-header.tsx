@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 import {
   ArrowUpDown,
@@ -25,12 +24,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-import { mapStatus } from '@/lib/types'
 import { PRIORITIES, SORT_OPTIONS } from '@/lib/sort'
 
 import type { LucideIcon } from 'lucide-react'
 import type { SortKey } from '@/lib/sort'
-import type { Bead, BeadColumn } from '@/lib/types'
+import type { Bead } from '@/lib/types'
 
 export type BoardView = 'status' | 'epic'
 export type ProjectTab = 'board' | 'knowledge'
@@ -61,38 +59,6 @@ const TABS: { key: ProjectTab; label: string; icon: LucideIcon }[] = [
   { key: 'knowledge', label: 'Knowledge', icon: BookOpen },
 ]
 
-const COUNT_META: {
-  key: BeadColumn
-  label: string
-  dot: string
-  text: string
-}[] = [
-  {
-    key: 'open',
-    label: 'Aberto',
-    dot: 'bg-status-open',
-    text: 'text-status-open',
-  },
-  {
-    key: 'in_progress',
-    label: 'Em progresso',
-    dot: 'bg-status-progress',
-    text: 'text-status-progress',
-  },
-  {
-    key: 'blocked',
-    label: 'Bloqueado',
-    dot: 'bg-status-blocked',
-    text: 'text-status-blocked',
-  },
-  {
-    key: 'closed',
-    label: 'Fechado',
-    dot: 'bg-status-closed',
-    text: 'text-status-closed',
-  },
-]
-
 const PRIORITY_HINT: Record<number, string> = {
   0: 'mais alta',
   4: 'mais baixa',
@@ -113,17 +79,6 @@ export function BoardHeader({
   setSort,
   onCreate,
 }: BoardHeaderProps) {
-  const counts = useMemo(() => {
-    const acc: Record<BeadColumn, number> = {
-      open: 0,
-      in_progress: 0,
-      blocked: 0,
-      closed: 0,
-    }
-    for (const b of beads) acc[mapStatus(b.status).column] += 1
-    return acc
-  }, [beads])
-
   function togglePriority(p: number, checked: boolean) {
     setPriorities(
       checked
@@ -183,24 +138,6 @@ export function BoardHeader({
               </button>
             )
           })}
-        </div>
-
-        <div className="hidden items-center gap-x-3 gap-y-1 xl:flex">
-          {COUNT_META.map((m) => (
-            <span
-              key={m.key}
-              className="inline-flex items-center gap-1.5 text-xs"
-            >
-              <span
-                className={cn('size-1.5 shrink-0 rounded-full', m.dot)}
-                aria-hidden="true"
-              />
-              <span className="text-muted-foreground/80">{m.label}</span>
-              <span className={cn('tabular-nums', m.text)}>
-                {counts[m.key]}
-              </span>
-            </span>
-          ))}
         </div>
 
         {tab === 'board' ? (
