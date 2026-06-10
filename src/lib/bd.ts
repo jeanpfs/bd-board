@@ -6,6 +6,7 @@ import * as os from 'node:os'
 import type {
   Bead,
   BeadDetail,
+  BeadUpdate,
   Comment,
   Project,
   ProjectComment,
@@ -198,6 +199,8 @@ function mapRawBead(raw: Record<string, unknown>): Bead {
     title: raw['title'] as string,
     description: raw['description'] as string | undefined,
     acceptance_criteria: raw['acceptance_criteria'] as string | undefined,
+    design: raw['design'] as string | undefined,
+    notes: raw['notes'] as string | undefined,
     status: raw['status'] as string,
     priority: Number(raw['priority'] ?? 2),
     issue_type: raw['issue_type'] as string,
@@ -366,6 +369,78 @@ async function updateBeadStatus(
   await bdRaw(dir, ['update', id, '--status', status])
 }
 
+function buildUpdateBeadArgs(
+  id: string,
+  opts: BeadUpdate,
+  existingLabels: string[] = [],
+): string[] {
+  const args = ['update', id]
+
+  if (opts.title !== undefined) args.push('--title', opts.title)
+  if (opts.description !== undefined)
+    args.push('--description', opts.description)
+  if (opts.acceptance_criteria !== undefined)
+    args.push('--acceptance', opts.acceptance_criteria)
+  if (opts.design !== undefined) args.push('--design', opts.design)
+  if (opts.notes !== undefined) args.push('--notes', opts.notes)
+  if (opts.priority !== undefined)
+    args.push('--priority', String(opts.priority))
+  if (opts.issue_type !== undefined) args.push('--type', opts.issue_type)
+  if (opts.assignee !== undefined) args.push('--assignee', opts.assignee)
+
+  if (opts.labels !== undefined) {
+    if (opts.labels.length > 0) {
+      args.push('--set-labels', opts.labels.join(','))
+    } else {
+      for (const label of existingLabels) {
+        args.push('--remove-label', label)
+      }
+    }
+  }
+
+  return args
+}
+
+async function updateBead(
+  database: string,
+  id: string,
+  opts: BeadUpdate,
+): Promise<void> {
+  const dir = await resolveDir(database)
+  const existing =
+    opts.labels !== undefined ? await getBeadDetail(database, id) : undefined
+  const args = buildUpdateBeadArgs(id, opts, existing?.labels ?? [])
+  if (args.length <= 2) return
+  await bdRaw(dir, args)
+}
+
+async function previewDeleteBead(
+  database: string,
+  id: string,
+): Promise<string> {
+  const dir = await resolveDir(database)
+  const out = await bdRaw(dir, buildPreviewDeleteBeadArgs(id))
+  return out.trim()
+}
+
+async function deleteBead(database: string, id: string): Promise<void> {
+  const dir = await resolveDir(database)
+  try {
+    await bdRaw(dir, buildDeleteBeadArgs(id))
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    throw new Error(`Unable to delete bead. ${message}`)
+  }
+}
+
+function buildPreviewDeleteBeadArgs(id: string): string[] {
+  return ['delete', id]
+}
+
+function buildDeleteBeadArgs(id: string): string[] {
+  return ['delete', id, '--force']
+}
+
 async function createBead(
   database: string,
   opts: { title: string; description?: string; type?: string; parent?: string },
@@ -394,6 +469,12 @@ export {
   getBeadDetail,
   getProjectKnowledge,
   updateBeadStatus,
+  updateBead,
+  buildUpdateBeadArgs,
+  previewDeleteBead,
+  deleteBead,
+  buildPreviewDeleteBeadArgs,
+  buildDeleteBeadArgs,
   createBead,
   addComment,
   resolveDir,

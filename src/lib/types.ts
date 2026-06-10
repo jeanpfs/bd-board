@@ -47,6 +47,8 @@ export interface Bead {
   title: string
   description?: string
   acceptance_criteria?: string
+  design?: string
+  notes?: string
   status: RawStatus
   priority: number
   issue_type: string
@@ -75,6 +77,18 @@ export interface RelatedBead {
 export interface BeadDetail extends Bead {
   dependencies?: RelatedBead[]
   comments?: Comment[]
+}
+
+export interface BeadUpdate {
+  title?: string
+  description?: string
+  acceptance_criteria?: string
+  design?: string
+  notes?: string
+  priority?: number
+  issue_type?: string
+  assignee?: string
+  labels?: string[]
 }
 
 export interface ProjectCounts {

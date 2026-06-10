@@ -5,6 +5,9 @@ import {
   getBeadDetail,
   getProjectKnowledge,
   updateBeadStatus,
+  updateBead,
+  previewDeleteBead,
+  deleteBead,
   createBead,
   addComment,
 } from './bd.ts'
@@ -15,6 +18,8 @@ import {
   parseCreateBeadInput,
   parseProjectInput,
   parseStatusUpdateInput,
+  parseUpdateBeadInput,
+  isWritesEnabled,
 } from './server-validation.ts'
 
 export const getProjects = createServerFn({ method: 'GET' }).handler(() =>
@@ -33,11 +38,39 @@ export const getProjectKnowledgeFn = createServerFn({ method: 'GET' })
   .validator(parseProjectInput)
   .handler(({ data }) => getProjectKnowledge(data.project))
 
+export const getWriteConfigFn = createServerFn({ method: 'GET' }).handler(
+  () => ({ writesEnabled: isWritesEnabled() }),
+)
+
 export const updateBeadStatusFn = createServerFn({ method: 'POST' })
   .validator(parseStatusUpdateInput)
   .handler(async ({ data }) => {
     assertWritesEnabled()
     await updateBeadStatus(data.project, data.id, data.status)
+    return { ok: true as const }
+  })
+
+export const updateBeadFn = createServerFn({ method: 'POST' })
+  .validator(parseUpdateBeadInput)
+  .handler(async ({ data }) => {
+    assertWritesEnabled()
+    await updateBead(data.project, data.id, data.update)
+    return { ok: true as const }
+  })
+
+export const previewDeleteBeadFn = createServerFn({ method: 'POST' })
+  .validator(parseBeadInput)
+  .handler(async ({ data }) => {
+    assertWritesEnabled()
+    const preview = await previewDeleteBead(data.project, data.id)
+    return { preview }
+  })
+
+export const deleteBeadFn = createServerFn({ method: 'POST' })
+  .validator(parseBeadInput)
+  .handler(async ({ data }) => {
+    assertWritesEnabled()
+    await deleteBead(data.project, data.id)
     return { ok: true as const }
   })
 
