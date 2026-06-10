@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { AlertCircle, FolderOpen } from 'lucide-react'
 
 import { ProjectCard } from '@/components/project-card'
+import { DesktopProbeCard } from '@/components/desktop-probe-card'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -34,6 +35,7 @@ function Home() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader projects={data} />
+      <DesktopProbeCard />
 
       {isPending ? (
         <LoadingState />

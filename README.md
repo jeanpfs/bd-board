@@ -2,7 +2,7 @@
 
 Visual kanban board and multi-project dashboard for [`bd` (beads)](https://github.com/steveyegge/beads).
 
-`bd-board` is intentionally local-first: it discovers bead-enabled repositories on disk, reads data through the local `bd` CLI, and renders a fast dashboard for day-to-day planning.
+`bd-board` is intentionally local-first: it discovers bead-enabled repositories on disk, reads data through the local `bd` CLI, and renders a fast dashboard for day-to-day planning. It now also has an early Tauri desktop shell spike so the same UI can run outside the browser.
 
 ## Features
 
@@ -31,13 +31,22 @@ pnpm dev
 
 Open http://localhost:3009.
 
+Desktop spike:
+
+```bash
+pnpm install
+pnpm desktop:dev
+```
+
 ## Configuration
 
 Environment variables:
 
 - `BD_BIN`: path to the `bd` binary. Defaults to `bd`, with `/opt/homebrew/bin/bd` as a fallback.
-- `BD_ROOTS`: colon-separated directories to scan for bead projects. Defaults to `~/Code`.
+- `BD_ROOTS`: platform-delimited directories to scan for bead projects. Defaults to `~/Code`.
 - `BD_BOARD_ALLOW_WRITE`: set to `true`, `1`, or `yes` to enable create, comment, and status update mutations.
+
+The desktop shell uses the same `BD_BIN` and `BD_ROOTS` configuration.
 
 Reads are enabled by default. Writes are disabled by default because this app executes local `bd` mutations.
 

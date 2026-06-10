@@ -110,7 +110,7 @@ async function counts(dir: string): Promise<ProjectCounts> {
 
 async function resolveRoots(): Promise<string[]> {
   const env = process.env['BD_ROOTS']
-  if (env) return env.split(':').filter(Boolean)
+  if (env) return env.split(path.delimiter).filter(Boolean)
   return [path.join(os.homedir(), 'Code')]
 }
 

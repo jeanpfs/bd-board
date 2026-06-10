@@ -23,6 +23,8 @@
   },
   "scripts": {
     "dev": "vite dev --port 3009",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build",
     "generate-routes": "tsr generate",
     "build": "vite build",
     "preview": "vite preview --port 3009",
@@ -41,6 +43,7 @@
     "@dnd-kit/utilities": "3.2.2",
     "@fontsource-variable/geist": "5.2.9",
     "@fontsource-variable/geist-mono": "5.2.8",
+    "@tauri-apps/api": "2.11.0",
     "@tanstack/react-query": "5.101.0",
     "@tanstack/react-router": "1.170.15",
     "@tanstack/react-router-ssr-query": "1.167.1",
@@ -62,6 +65,7 @@
   "devDependencies": {
     "@tailwindcss/typography": "0.5.20",
     "@tailwindcss/vite": "4.3.0",
+    "@tauri-apps/cli": "2.11.2",
     "@tanstack/eslint-config": "0.4.0",
     "@tanstack/router-cli": "1.167.17",
     "@tanstack/router-plugin": "1.168.18",
