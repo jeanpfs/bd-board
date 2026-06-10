@@ -413,6 +413,30 @@ async function updateBead(
   await bdRaw(dir, args)
 }
 
+async function previewDeleteBead(database: string, id: string): Promise<string> {
+  const dir = await resolveDir(database)
+  const out = await bdRaw(dir, buildPreviewDeleteBeadArgs(id))
+  return out.trim()
+}
+
+async function deleteBead(database: string, id: string): Promise<void> {
+  const dir = await resolveDir(database)
+  try {
+    await bdRaw(dir, buildDeleteBeadArgs(id))
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    throw new Error(`Unable to delete bead. ${message}`)
+  }
+}
+
+function buildPreviewDeleteBeadArgs(id: string): string[] {
+  return ['delete', id]
+}
+
+function buildDeleteBeadArgs(id: string): string[] {
+  return ['delete', id, '--force']
+}
+
 async function createBead(
   database: string,
   opts: { title: string; description?: string; type?: string; parent?: string },
@@ -443,6 +467,10 @@ export {
   updateBeadStatus,
   updateBead,
   buildUpdateBeadArgs,
+  previewDeleteBead,
+  deleteBead,
+  buildPreviewDeleteBeadArgs,
+  buildDeleteBeadArgs,
   createBead,
   addComment,
   resolveDir,

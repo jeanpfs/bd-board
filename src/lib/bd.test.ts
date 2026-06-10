@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildUpdateBeadArgs } from './bd'
+import {
+  buildDeleteBeadArgs,
+  buildPreviewDeleteBeadArgs,
+  buildUpdateBeadArgs,
+} from './bd'
 
 describe('buildUpdateBeadArgs', () => {
   it('builds bd update arguments for editable fields', () => {
@@ -50,5 +54,19 @@ describe('buildUpdateBeadArgs', () => {
         '--remove-label',
         'ui',
       ])
+  })
+})
+
+describe('delete bead arguments', () => {
+  it('keeps preview and confirmed delete commands separate', () => {
+    expect(buildPreviewDeleteBeadArgs('bd-board-a2k')).toEqual([
+      'delete',
+      'bd-board-a2k',
+    ])
+    expect(buildDeleteBeadArgs('bd-board-a2k')).toEqual([
+      'delete',
+      'bd-board-a2k',
+      '--force',
+    ])
   })
 })

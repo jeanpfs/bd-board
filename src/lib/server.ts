@@ -6,6 +6,8 @@ import {
   getProjectKnowledge,
   updateBeadStatus,
   updateBead,
+  previewDeleteBead,
+  deleteBead,
   createBead,
   addComment,
 } from './bd.ts'
@@ -48,6 +50,22 @@ export const updateBeadFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     assertWritesEnabled()
     await updateBead(data.project, data.id, data.update)
+    return { ok: true as const }
+  })
+
+export const previewDeleteBeadFn = createServerFn({ method: 'POST' })
+  .validator(parseBeadInput)
+  .handler(async ({ data }) => {
+    assertWritesEnabled()
+    const preview = await previewDeleteBead(data.project, data.id)
+    return { preview }
+  })
+
+export const deleteBeadFn = createServerFn({ method: 'POST' })
+  .validator(parseBeadInput)
+  .handler(async ({ data }) => {
+    assertWritesEnabled()
+    await deleteBead(data.project, data.id)
     return { ok: true as const }
   })
 

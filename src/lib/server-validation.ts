@@ -219,7 +219,7 @@ export function assertWritesEnabled(
   const value = String(env['BD_BOARD_ALLOW_WRITE'] ?? '').toLowerCase()
   if (!['1', 'true', 'yes'].includes(value)) {
     throw new Error(
-      'Writes are disabled. Set BD_BOARD_ALLOW_WRITE=true to create, comment, or update beads.',
+      'Writes are disabled. Set BD_BOARD_ALLOW_WRITE=true to create, edit, comment, or delete beads.',
     )
   }
 }
