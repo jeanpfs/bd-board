@@ -1,8 +1,6 @@
 # Project Instructions
 
-<!-- bd-doctor-divergence: ok -->
-
-This project uses `bd` for task tracking. Run `bd prime` when workflow context is missing or stale.
+This project uses `bd` for task tracking in shared-server mode. Keep tracker data, local agent configuration, and runtime state out of the repository.
 
 ## Commands
 
@@ -28,6 +26,20 @@ pnpm validate
 
 ## Beads
 
-- Create or update beads for durable task tracking.
-- Do not use markdown TODO lists as a substitute for tracked work.
-- Close completed beads before handoff when the work is actually complete.
+`bd` runs against the shared Dolt server at `~/Code/jeanpfs-ai/beads/shared-server`, using the `bd_board` database. The repository must not track `.beads/`, `.agents/`, `.claude/`, `.codex/`, exported JSONL files, local Dolt runtime files, or agent hooks.
+
+Use `bd config list` to confirm shared-only settings before handoff:
+
+```bash
+bd config list
+```
+
+Expected local settings:
+
+- `dolt.shared-server = true`
+- `export.auto = false`
+- `export.git-add = false`
+- `import.auto = false`
+- `no-git-ops = true`
+
+Create, update, and close beads through the remote/shared database only. Do not commit tracker snapshots or local agent state.

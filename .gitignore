@@ -12,10 +12,11 @@ dist-ssr
 __unconfig*
 todos.json
 
-# Beads / Dolt files (added by bd init)
+# Local tracker and agent state
+.beads/
 .dolt/
 *.db
 .beads-credential-key
-.beads/proxieddb/
-
-.lavra/
+.agents/
+.claude/
+.codex/
