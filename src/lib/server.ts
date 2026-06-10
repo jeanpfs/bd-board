@@ -19,6 +19,7 @@ import {
   parseProjectInput,
   parseStatusUpdateInput,
   parseUpdateBeadInput,
+  isWritesEnabled,
 } from './server-validation.ts'
 
 export const getProjects = createServerFn({ method: 'GET' }).handler(() =>
@@ -36,6 +37,10 @@ export const getBeadDetailFn = createServerFn({ method: 'GET' })
 export const getProjectKnowledgeFn = createServerFn({ method: 'GET' })
   .validator(parseProjectInput)
   .handler(({ data }) => getProjectKnowledge(data.project))
+
+export const getWriteConfigFn = createServerFn({ method: 'GET' }).handler(
+  () => ({ writesEnabled: isWritesEnabled() }),
+)
 
 export const updateBeadStatusFn = createServerFn({ method: 'POST' })
   .validator(parseStatusUpdateInput)
