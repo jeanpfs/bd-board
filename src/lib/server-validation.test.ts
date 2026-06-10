@@ -7,6 +7,7 @@ import {
   parseCreateBeadInput,
   parseProjectInput,
   parseStatusUpdateInput,
+  parseUpdateBeadInput,
 } from './server-validation'
 
 describe('server input validation', () => {
@@ -95,6 +96,65 @@ describe('server input validation', () => {
     expect(() =>
       parseCommentInput({ project: 'bd-board', id: 'bd-board-a2k', text: ' ' }),
     ).toThrow('Comment text is required')
+  })
+
+  it('normalizes update bead input', () => {
+    expect(
+      parseUpdateBeadInput({
+        project: 'bd-board',
+        id: 'bd-board-a2k',
+        title: '  Updated title  ',
+        description: '  Updated description  ',
+        acceptance_criteria: '',
+        design: null,
+        notes: ' Notes ',
+        priority: 0,
+        issue_type: 'feature',
+        assignee: ' Jean ',
+        labels: [' ui ', 'backend', 'ui', ''],
+      }),
+    ).toEqual({
+      project: 'bd-board',
+      id: 'bd-board-a2k',
+      update: {
+        title: 'Updated title',
+        description: 'Updated description',
+        acceptance_criteria: '',
+        design: '',
+        notes: 'Notes',
+        priority: 0,
+        issue_type: 'feature',
+        assignee: 'Jean',
+        labels: ['backend', 'ui'],
+      },
+    })
+  })
+
+  it('rejects invalid update bead input', () => {
+    expect(() =>
+      parseUpdateBeadInput({ project: 'bd-board', id: 'bd-board-a2k' }),
+    ).toThrow('No bead updates provided')
+    expect(() =>
+      parseUpdateBeadInput({
+        project: 'bd-board',
+        id: 'bd-board-a2k',
+        title: '',
+      }),
+    ).toThrow('Title is required')
+    expect(() =>
+      parseUpdateBeadInput({
+        project: 'bd-board',
+        id: 'bd-board-a2k',
+        priority: 5,
+      }),
+    ).toThrow('Priority is invalid')
+    expect(() =>
+      parseUpdateBeadInput({
+        project: 'bd-board',
+        id: 'bd-board-a2k',
+        labels: ['bad label'],
+      }),
+    ).toThrow('Label is invalid')
   })
 
   it('requires an explicit write opt-in', () => {

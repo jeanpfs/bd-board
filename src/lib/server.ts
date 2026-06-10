@@ -5,6 +5,7 @@ import {
   getBeadDetail,
   getProjectKnowledge,
   updateBeadStatus,
+  updateBead,
   createBead,
   addComment,
 } from './bd.ts'
@@ -15,6 +16,7 @@ import {
   parseCreateBeadInput,
   parseProjectInput,
   parseStatusUpdateInput,
+  parseUpdateBeadInput,
 } from './server-validation.ts'
 
 export const getProjects = createServerFn({ method: 'GET' }).handler(() =>
@@ -38,6 +40,14 @@ export const updateBeadStatusFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     assertWritesEnabled()
     await updateBeadStatus(data.project, data.id, data.status)
+    return { ok: true as const }
+  })
+
+export const updateBeadFn = createServerFn({ method: 'POST' })
+  .validator(parseUpdateBeadInput)
+  .handler(async ({ data }) => {
+    assertWritesEnabled()
+    await updateBead(data.project, data.id, data.update)
     return { ok: true as const }
   })
 
