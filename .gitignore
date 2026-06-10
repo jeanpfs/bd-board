@@ -17,3 +17,5 @@ todos.json
 *.db
 .beads-credential-key
 .beads/proxieddb/
+
+.lavra/

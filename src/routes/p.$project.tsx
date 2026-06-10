@@ -278,7 +278,7 @@ function BoardPage() {
           onDragEnd={onDragEnd}
           onDragCancel={() => setActiveBead(null)}
         >
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 pb-1 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 pt-2 pb-1 md:grid-cols-2 xl:grid-cols-4">
             {COLUMNS.map((c) => (
               <KanbanColumn
                 key={c.key}

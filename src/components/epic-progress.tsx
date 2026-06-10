@@ -64,25 +64,27 @@ export function EpicProgress({
         ))}
       </span>
 
-      <span className="flex items-center justify-between gap-2">
-        <span className="text-[0.7rem] font-medium text-muted-foreground tabular-nums">
-          {done}/{total} concluídas
-        </span>
-        {showDots && total <= 28 ? (
-          <span className="flex flex-wrap items-center justify-end gap-1">
-            {childBeads.map((child) => {
-              const seg = SEGMENT_ORDER.find((s) => s.key === columnOf(child))
-              return (
-                <span
-                  key={child.id}
-                  className={`size-1.5 shrink-0 rounded-full ${seg?.className ?? 'bg-status-open'}`}
-                  aria-hidden="true"
-                />
-              )
-            })}
+      {showDots ? (
+        <span className="flex items-center justify-between gap-2">
+          <span className="text-[0.7rem] font-medium text-muted-foreground tabular-nums">
+            {done}/{total} concluídas
           </span>
-        ) : null}
-      </span>
+          {total <= 28 ? (
+            <span className="flex flex-wrap items-center justify-end gap-1">
+              {childBeads.map((child) => {
+                const seg = SEGMENT_ORDER.find((s) => s.key === columnOf(child))
+                return (
+                  <span
+                    key={child.id}
+                    className={`size-1.5 shrink-0 rounded-full ${seg?.className ?? 'bg-status-open'}`}
+                    aria-hidden="true"
+                  />
+                )
+              })}
+            </span>
+          ) : null}
+        </span>
+      ) : null}
     </span>
   )
 }
