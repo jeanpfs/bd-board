@@ -5,6 +5,7 @@ import { enUS } from 'date-fns/locale'
 import Markdown from 'react-markdown'
 import {
   AlignLeft,
+  AlertTriangle,
   ChevronRight,
   CircleCheck,
   CornerUpLeft,
@@ -13,6 +14,7 @@ import {
   Loader2,
   MessageSquare,
   Pencil,
+  Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -41,8 +43,10 @@ import { cn } from '@/lib/utils'
 import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
 import {
   addCommentFn,
+  deleteBeadFn,
   getBeadDetailFn,
   getWriteConfigFn,
+  previewDeleteBeadFn,
   updateBeadFn,
   updateBeadStatusFn,
 } from '@/lib/server'
@@ -158,12 +162,12 @@ function BeadEditDialog({
   useEffect(() => {
     if (!open) return
     const source = detail ?? bead
-    setTitle(source.title ?? '')
+    setTitle(source.title)
     setDescription(source.description ?? '')
     setAcceptance(source.acceptance_criteria ?? '')
     setDesign(source.design ?? '')
     setNotes(source.notes ?? '')
-    setPriority(String(Math.max(0, Math.min(4, source.priority ?? 2))))
+    setPriority(String(Math.max(0, Math.min(4, source.priority))))
     setIssueType(source.issue_type || 'task')
     setAssignee(source.assignee ?? '')
     setLabels((source.labels ?? []).join(', '))
@@ -363,6 +367,199 @@ function BeadEditDialog({
   )
 }
 
+function BeadDeleteDialog({
+  project,
+  bead,
+  detail,
+  open,
+  onOpenChange,
+  onDeleted,
+}: {
+  project: string
+  bead: Bead
+  detail?: BeadDetail
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onDeleted: () => void
+}) {
+  const queryClient = useQueryClient()
+  const [confirmation, setConfirmation] = useState('')
+  const childCount = bead.childBeads?.length ?? bead.children?.length ?? 0
+  const dependencyCount =
+    detail?.dependencies?.length ?? bead.dependency_count ?? 0
+  const dependentCount = bead.dependent_count ?? 0
+  const isConfirmed = confirmation.trim() === bead.id
+
+  useEffect(() => {
+    if (open) setConfirmation('')
+  }, [open, bead.id])
+
+  const previewQuery = useQuery({
+    queryKey: ['delete-preview', project, bead.id],
+    queryFn: () => previewDeleteBeadFn({ data: { project, id: bead.id } }),
+    enabled: open,
+    retry: false,
+  })
+
+  const mutation = useMutation({
+    mutationFn: () => deleteBeadFn({ data: { project, id: bead.id } }),
+    onSuccess: () => {
+      toast.success(`Bead ${bead.id} deleted`)
+      queryClient.invalidateQueries({ queryKey: ['beads', project] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.removeQueries({ queryKey: ['bead', project, bead.id] })
+      queryClient.removeQueries({
+        queryKey: ['delete-preview', project, bead.id],
+      })
+      onOpenChange(false)
+      onDeleted()
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to delete bead',
+      )
+    },
+  })
+
+  const preview = previewQuery.data?.preview.trim()
+  const errorMessage =
+    mutation.error instanceof Error
+      ? mutation.error.message
+      : previewQuery.error instanceof Error
+        ? previewQuery.error.message
+        : null
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!isConfirmed || mutation.isPending) return
+    mutation.mutate()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Delete bead</DialogTitle>
+          <DialogDescription>
+            This will permanently delete{' '}
+            <span className="font-mono text-foreground">{bead.id}</span>:{' '}
+            <span className="text-foreground">{bead.title}</span>.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form className="flex flex-col gap-4" onSubmit={submit}>
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="flex items-start gap-2">
+              <AlertTriangle
+                className="mt-0.5 size-4 shrink-0"
+                aria-hidden="true"
+              />
+              <div>
+                <p className="font-medium">This action cannot be undone.</p>
+                <p className="mt-1 text-destructive/85">
+                  The bead will be removed through the bd CLI delete command.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {childCount > 0 || dependencyCount > 0 || dependentCount > 0 ? (
+            <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
+              <p className="font-medium text-foreground">Linked work</p>
+              <ul className="mt-1.5 list-disc space-y-1 pl-4 text-muted-foreground">
+                {childCount > 0 ? (
+                  <li>
+                    {childCount} child {childCount === 1 ? 'bead' : 'beads'}
+                  </li>
+                ) : null}
+                {dependencyCount > 0 ? (
+                  <li>
+                    {dependencyCount}{' '}
+                    {dependencyCount === 1 ? 'dependency' : 'dependencies'}
+                  </li>
+                ) : null}
+                {dependentCount > 0 ? (
+                  <li>
+                    {dependentCount}{' '}
+                    {dependentCount === 1
+                      ? 'dependent bead'
+                      : 'dependent beads'}
+                  </li>
+                ) : null}
+              </ul>
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="delete-bead-confirmation">
+              Type {bead.id} to confirm
+            </Label>
+            <Input
+              id="delete-bead-confirmation"
+              value={confirmation}
+              onChange={(event) => setConfirmation(event.target.value)}
+              autoComplete="off"
+              autoFocus
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>bd delete preview</Label>
+            <div className="max-h-40 overflow-auto rounded-md border border-border bg-muted/40 p-3">
+              {previewQuery.isFetching ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2
+                    className="size-3.5 animate-spin"
+                    aria-hidden="true"
+                  />
+                  Loading preview...
+                </div>
+              ) : preview ? (
+                <pre className="whitespace-pre-wrap font-mono text-xs text-muted-foreground">
+                  {preview}
+                </pre>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  No preview output.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {errorMessage ? (
+            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {errorMessage}
+            </p>
+          ) : null}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+              disabled={mutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="destructive"
+              disabled={!isConfirmed || mutation.isPending}
+            >
+              {mutation.isPending ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+              ) : (
+                <Trash2 className="size-3.5" aria-hidden="true" />
+              )}
+              Delete bead
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export function BeadDetailModal({
   project,
   bead,
@@ -374,6 +571,7 @@ export function BeadDetailModal({
   const queryClient = useQueryClient()
   const [comment, setComment] = useState('')
   const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const detailQuery = useQuery({
     queryKey: ['bead', project, bead?.id],
@@ -427,7 +625,10 @@ export function BeadDetailModal({
       <Dialog
         open={open}
         onOpenChange={(next) => {
-          if (!next) setEditOpen(false)
+          if (!next) {
+            setEditOpen(false)
+            setDeleteOpen(false)
+          }
           onOpenChange(next)
         }}
       >
@@ -465,15 +666,30 @@ export function BeadDetailModal({
                     </div>
 
                     {canWrite ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 shrink-0"
-                        onClick={() => setEditOpen(true)}
-                      >
-                        <Pencil className="size-3.5" aria-hidden="true" />
-                        Edit
-                      </Button>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8"
+                          onClick={() => setEditOpen(true)}
+                        >
+                          <Pencil className="size-3.5" aria-hidden="true" />
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-8"
+                          onClick={() => setDeleteOpen(true)}
+                        >
+                          <Trash2 className="size-3.5" aria-hidden="true" />
+                          Delete
+                        </Button>
+                      </div>
+                    ) : writeConfigQuery.isSuccess ? (
+                      <span className="shrink-0 rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
+                        Read-only
+                      </span>
                     ) : null}
                   </div>
 
@@ -733,6 +949,17 @@ export function BeadDetailModal({
           detail={detail}
           open={editOpen}
           onOpenChange={setEditOpen}
+        />
+      ) : null}
+
+      {bead ? (
+        <BeadDeleteDialog
+          project={project}
+          bead={bead}
+          detail={detail}
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          onDeleted={() => onOpenChange(false)}
         />
       ) : null}
     </>
