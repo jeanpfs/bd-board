@@ -3,6 +3,8 @@ use std::env;
 use std::path::PathBuf;
 use std::process::Command;
 
+mod desktop;
+
 #[derive(Serialize)]
 pub struct RootStatus {
   pub path: String,
@@ -33,7 +35,14 @@ pub fn run() {
 
       Ok(())
     })
-    .invoke_handler(tauri::generate_handler![desktop_probe])
+    .invoke_handler(tauri::generate_handler![
+      desktop_probe,
+      desktop::discover_projects,
+      desktop::list_beads,
+      desktop::get_bead_detail,
+      desktop::get_project_knowledge,
+      desktop::get_write_config
+    ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

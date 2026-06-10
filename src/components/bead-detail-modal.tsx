@@ -179,15 +179,17 @@ function BeadEditDialog({
         data: {
           project,
           id: bead.id,
-          title,
-          description,
-          acceptance_criteria: acceptance,
-          design,
-          notes,
-          priority: Number(priority),
-          issue_type: issueType,
-          assignee,
-          labels: labelsFromText(labels),
+          update: {
+            title,
+            description,
+            acceptance_criteria: acceptance,
+            design,
+            notes,
+            priority: Number(priority),
+            issue_type: issueType,
+            assignee,
+            labels: labelsFromText(labels),
+          },
         },
       }),
     onSuccess: () => {
@@ -728,6 +730,7 @@ export function BeadDetailModal({
                       </span>
                       <Select
                         value={column}
+                        disabled={!canWrite}
                         onValueChange={(v) =>
                           statusMutation.mutate(v as BeadColumn)
                         }
@@ -918,11 +921,16 @@ export function BeadDetailModal({
                         onChange={(e) => setComment(e.target.value)}
                         placeholder="Add a comment..."
                         className="min-h-20 resize-none"
+                        disabled={!canWrite}
                       />
                       <Button
                         size="sm"
                         className="w-fit self-end"
-                        disabled={!comment.trim() || commentMutation.isPending}
+                        disabled={
+                          !canWrite ||
+                          !comment.trim() ||
+                          commentMutation.isPending
+                        }
                         onClick={() => commentMutation.mutate(comment.trim())}
                       >
                         {commentMutation.isPending ? (

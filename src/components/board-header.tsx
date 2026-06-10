@@ -47,6 +47,7 @@ interface BoardHeaderProps {
   sort: SortKey
   setSort: (value: SortKey) => void
   onCreate: () => void
+  canWrite?: boolean
 }
 
 const VIEWS: { key: BoardView; label: string; icon: LucideIcon }[] = [
@@ -78,6 +79,7 @@ export function BoardHeader({
   sort,
   setSort,
   onCreate,
+  canWrite = true,
 }: BoardHeaderProps) {
   function togglePriority(p: number, checked: boolean) {
     setPriorities(
@@ -250,10 +252,12 @@ export function BoardHeader({
               />
             </div>
 
-            <Button size="sm" onClick={onCreate}>
-              <Plus aria-hidden="true" />
-              New bead
-            </Button>
+            {canWrite ? (
+              <Button size="sm" onClick={onCreate}>
+                <Plus aria-hidden="true" />
+                New bead
+              </Button>
+            ) : null}
           </div>
         ) : null}
       </div>
