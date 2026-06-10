@@ -3,6 +3,7 @@ import {
   discoverProjects,
   listBeads,
   getBeadDetail,
+  getProjectKnowledge,
   updateBeadStatus,
   createBead,
   addComment,
@@ -27,6 +28,10 @@ export const getBeads = createServerFn({ method: 'GET' })
 export const getBeadDetailFn = createServerFn({ method: 'GET' })
   .validator(parseBeadInput)
   .handler(({ data }) => getBeadDetail(data.project, data.id))
+
+export const getProjectKnowledgeFn = createServerFn({ method: 'GET' })
+  .validator(parseProjectInput)
+  .handler(({ data }) => getProjectKnowledge(data.project))
 
 export const updateBeadStatusFn = createServerFn({ method: 'POST' })
   .validator(parseStatusUpdateInput)

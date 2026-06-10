@@ -19,12 +19,13 @@ import { KanbanColumn } from '@/components/kanban-column'
 import { BeadCard } from '@/components/bead-card'
 import { BeadDetailModal } from '@/components/bead-detail-modal'
 import { CreateBeadDialog } from '@/components/create-bead-dialog'
+import { ProjectKnowledgePanel } from '@/components/project-knowledge-panel'
 import { getBeads, updateBeadStatusFn } from '@/lib/server'
 import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
 import { beadMatches, compareBeads } from '@/lib/sort'
 
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
-import type { BoardView } from '@/components/board-header'
+import type { BoardView, ProjectTab } from '@/components/board-header'
 import type { SortKey } from '@/lib/sort'
 import type { Bead, BeadColumn } from '@/lib/types'
 
@@ -32,11 +33,13 @@ interface BoardSearch {
   bead?: string
   q?: string
   p?: string
+  tab?: ProjectTab
   view?: BoardView
   sort?: SortKey
 }
 
 const BOARD_VIEWS = new Set(['status', 'epic'])
+const PROJECT_TABS = new Set(['board', 'knowledge'])
 const SORT_KEYS = new Set(['priority', 'recent', 'title'])
 
 function parsePriorityParam(value?: string): number[] {
@@ -68,6 +71,10 @@ export const Route = createFileRoute('/p/$project')({
     p:
       typeof search.p === 'string'
         ? serializePriorities(parsePriorityParam(search.p))
+        : undefined,
+    tab:
+      typeof search.tab === 'string' && PROJECT_TABS.has(search.tab)
+        ? (search.tab as ProjectTab)
         : undefined,
     view:
       typeof search.view === 'string' && BOARD_VIEWS.has(search.view)
@@ -101,6 +108,7 @@ function BoardPage() {
 
   const beadParam = boardSearch.bead
   const search = boardSearch.q ?? ''
+  const tab = boardSearch.tab ?? 'board'
   const view = boardSearch.view ?? 'epic'
   const priorities = useMemo(
     () => parsePriorityParam(boardSearch.p),
@@ -218,7 +226,9 @@ function BoardPage() {
     <div className="flex h-[calc(100dvh-6rem)] min-h-0 flex-col">
       <BoardHeader
         project={project}
-        beads={filtered}
+        beads={tab === 'board' ? filtered : beads}
+        tab={tab}
+        setTab={(value) => patchBoardSearch({ tab: value })}
         search={search}
         setSearch={(value) =>
           patchBoardSearch({ q: value.trim() ? value : undefined })
@@ -244,6 +254,12 @@ function BoardPage() {
               : 'Erro ao carregar beads'
           }
           onRetry={() => beadsQuery.refetch()}
+        />
+      ) : tab === 'knowledge' ? (
+        <ProjectKnowledgePanel
+          project={project}
+          beadsById={beadsById}
+          onOpenBead={openBead}
         />
       ) : view === 'epic' ? (
         <BoardSwimlanes

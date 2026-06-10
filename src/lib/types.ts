@@ -17,6 +17,31 @@ export interface Comment {
   created_at?: string
 }
 
+export type KnowledgeType =
+  | 'learned'
+  | 'decision'
+  | 'fact'
+  | 'pattern'
+  | 'investigation'
+  | 'must-check'
+  | 'deviation'
+
+export interface ProjectComment extends Comment {
+  bead_id: string
+  bead_title?: string
+  knowledge_type?: KnowledgeType
+}
+
+export interface ProjectKnowledgeEntry extends ProjectComment {
+  type: KnowledgeType
+  content: string
+}
+
+export interface ProjectKnowledge {
+  comments: ProjectComment[]
+  knowledge: ProjectKnowledgeEntry[]
+}
+
 export interface Bead {
   id: string
   title: string

@@ -8,15 +8,21 @@ import type {
   BeadDetail,
   Comment,
   Project,
+  ProjectComment,
   ProjectCounts,
+  ProjectKnowledge,
+  ProjectKnowledgeEntry,
   RelatedBead,
 } from './types.ts'
+import { parseKnowledgeCommentText } from './knowledge.ts'
 
 const execFileAsync = promisify(execFile)
 
 const BD_PRIMARY = process.env['BD_BIN'] ?? 'bd'
 const BD_FALLBACK = '/opt/homebrew/bin/bd'
 const MAX_BUFFER = 64 * 1024 * 1024
+const COMMENTS_LIMIT = 250
+const KNOWLEDGE_LIMIT = 500
 
 let dirCache: Map<string, string> | null = null
 
@@ -226,6 +232,34 @@ function mapComment(raw: Record<string, unknown>): Comment {
   }
 }
 
+function mapProjectComment(raw: Record<string, unknown>): ProjectComment {
+  const text = String(raw['text'] ?? '')
+  const parsed = parseKnowledgeCommentText(text)
+  return {
+    id: String(raw['id'] ?? ''),
+    bead_id: String(raw['bead_id'] ?? raw['issue_id'] ?? ''),
+    bead_title: String(raw['bead_title'] ?? raw['title'] ?? '') || undefined,
+    author: (raw['author'] ?? raw['created_by']) as string | undefined,
+    text,
+    created_at: raw['created_at'] as string | undefined,
+    knowledge_type: parsed?.type,
+  }
+}
+
+function mapKnowledgeEntry(
+  raw: Record<string, unknown>,
+): ProjectKnowledgeEntry | null {
+  const comment = mapProjectComment(raw)
+  const parsed = parseKnowledgeCommentText(comment.text)
+  if (!parsed) return null
+  return {
+    ...comment,
+    type: parsed.type,
+    content: parsed.content,
+    knowledge_type: parsed.type,
+  }
+}
+
 async function listBeads(database: string): Promise<Bead[]> {
   const dir = await resolveDir(database)
   const raw = await bdJson<Record<string, unknown>[]>(dir, [
@@ -270,6 +304,59 @@ async function getBeadDetail(
   return { ...bead, dependencies, comments }
 }
 
+async function getProjectKnowledge(
+  database: string,
+): Promise<ProjectKnowledge> {
+  const dir = await resolveDir(database)
+
+  const commentQuery = `
+    SELECT
+      c.id AS id,
+      c.issue_id AS bead_id,
+      i.title AS bead_title,
+      c.author AS author,
+      c.text AS text,
+      c.created_at AS created_at
+    FROM comments c
+    LEFT JOIN issues i ON i.id = c.issue_id
+    ORDER BY c.created_at DESC
+    LIMIT ${COMMENTS_LIMIT}
+  `
+
+  const knowledgeQuery = `
+    SELECT
+      c.id AS id,
+      c.issue_id AS bead_id,
+      i.title AS bead_title,
+      c.author AS author,
+      c.text AS text,
+      c.created_at AS created_at
+    FROM comments c
+    LEFT JOIN issues i ON i.id = c.issue_id
+    WHERE c.text LIKE 'LEARNED:%'
+       OR c.text LIKE 'DECISION:%'
+       OR c.text LIKE 'FACT:%'
+       OR c.text LIKE 'PATTERN:%'
+       OR c.text LIKE 'INVESTIGATION:%'
+       OR c.text LIKE 'MUST-CHECK:%'
+       OR c.text LIKE 'DEVIATION:%'
+    ORDER BY c.created_at DESC
+    LIMIT ${KNOWLEDGE_LIMIT}
+  `
+
+  const [rawComments, rawKnowledge] = await Promise.all([
+    bdJson<Record<string, unknown>[]>(dir, ['sql', '--json', commentQuery]),
+    bdJson<Record<string, unknown>[]>(dir, ['sql', '--json', knowledgeQuery]),
+  ])
+
+  return {
+    comments: rawComments.map(mapProjectComment),
+    knowledge: rawKnowledge
+      .map(mapKnowledgeEntry)
+      .filter((entry): entry is ProjectKnowledgeEntry => entry !== null),
+  }
+}
+
 async function updateBeadStatus(
   database: string,
   id: string,
@@ -305,6 +392,7 @@ export {
   discoverProjects,
   listBeads,
   getBeadDetail,
+  getProjectKnowledge,
   updateBeadStatus,
   createBead,
   addComment,
