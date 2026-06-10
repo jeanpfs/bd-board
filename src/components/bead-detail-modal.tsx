@@ -206,10 +206,14 @@ function BeadEditDialog({
   const errorMessage =
     mutation.error instanceof Error ? mutation.error.message : null
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  function save() {
     if (!title.trim() || mutation.isPending) return
     mutation.mutate()
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    save()
   }
 
   return (
@@ -342,7 +346,7 @@ function BeadEditDialog({
             </p>
           ) : null}
 
-          <DialogFooter>
+          <DialogFooter className="sticky bottom-0 z-10 shrink-0">
             <Button
               type="button"
               variant="ghost"
@@ -352,8 +356,9 @@ function BeadEditDialog({
               Cancel
             </Button>
             <Button
-              type="submit"
+              type="button"
               disabled={!title.trim() || mutation.isPending}
+              onClick={save}
             >
               {mutation.isPending ? (
                 <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
@@ -429,10 +434,14 @@ function BeadDeleteDialog({
         ? previewQuery.error.message
         : null
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  function confirmDelete() {
     if (!isConfirmed || mutation.isPending) return
     mutation.mutate()
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    confirmDelete()
   }
 
   return (
@@ -532,7 +541,7 @@ function BeadDeleteDialog({
             </p>
           ) : null}
 
-          <DialogFooter>
+          <DialogFooter className="sticky bottom-0 z-10 shrink-0">
             <Button
               type="button"
               variant="ghost"
@@ -542,9 +551,10 @@ function BeadDeleteDialog({
               Cancel
             </Button>
             <Button
-              type="submit"
+              type="button"
               variant="destructive"
               disabled={!isConfirmed || mutation.isPending}
+              onClick={confirmDelete}
             >
               {mutation.isPending ? (
                 <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
@@ -623,7 +633,7 @@ export function BeadDetailModal({
   return (
     <>
       <Dialog
-        open={open}
+        open={open && !editOpen && !deleteOpen}
         onOpenChange={(next) => {
           if (!next) {
             setEditOpen(false)
