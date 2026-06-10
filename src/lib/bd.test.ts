@@ -45,15 +45,16 @@ describe('buildUpdateBeadArgs', () => {
   })
 
   it('removes existing labels when labels are explicitly empty', () => {
-    expect(buildUpdateBeadArgs('bd-board-a2k', { labels: [] }, ['old', 'ui']))
-      .toEqual([
-        'update',
-        'bd-board-a2k',
-        '--remove-label',
-        'old',
-        '--remove-label',
-        'ui',
-      ])
+    expect(
+      buildUpdateBeadArgs('bd-board-a2k', { labels: [] }, ['old', 'ui']),
+    ).toEqual([
+      'update',
+      'bd-board-a2k',
+      '--remove-label',
+      'old',
+      '--remove-label',
+      'ui',
+    ])
   })
 })
 

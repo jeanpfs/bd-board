@@ -383,7 +383,8 @@ function buildUpdateBeadArgs(
     args.push('--acceptance', opts.acceptance_criteria)
   if (opts.design !== undefined) args.push('--design', opts.design)
   if (opts.notes !== undefined) args.push('--notes', opts.notes)
-  if (opts.priority !== undefined) args.push('--priority', String(opts.priority))
+  if (opts.priority !== undefined)
+    args.push('--priority', String(opts.priority))
   if (opts.issue_type !== undefined) args.push('--type', opts.issue_type)
   if (opts.assignee !== undefined) args.push('--assignee', opts.assignee)
 
@@ -413,7 +414,10 @@ async function updateBead(
   await bdRaw(dir, args)
 }
 
-async function previewDeleteBead(database: string, id: string): Promise<string> {
+async function previewDeleteBead(
+  database: string,
+  id: string,
+): Promise<string> {
   const dir = await resolveDir(database)
   const out = await bdRaw(dir, buildPreviewDeleteBeadArgs(id))
   return out.trim()
