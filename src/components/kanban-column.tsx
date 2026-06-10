@@ -3,6 +3,7 @@ import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 
 import { BeadCard } from '@/components/bead-card'
+import { StatusColumnHeader } from '@/components/status-column-header'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
@@ -15,20 +16,6 @@ interface KanbanColumnProps {
   beads: Bead[]
   onOpen: (bead: Bead) => void
   initialLimit?: number
-}
-
-const DOT_CLASS: Record<BeadColumn, string> = {
-  open: 'bg-status-open',
-  in_progress: 'bg-status-progress',
-  blocked: 'bg-status-blocked',
-  closed: 'bg-status-closed',
-}
-
-const ACCENT_CLASS: Record<BeadColumn, string> = {
-  open: 'text-status-open',
-  in_progress: 'text-status-progress',
-  blocked: 'text-status-blocked',
-  closed: 'text-status-closed',
 }
 
 export function KanbanColumn({
@@ -50,18 +37,12 @@ export function KanbanColumn({
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
-      <div className="flex items-center gap-2 px-1 pb-2">
-        <span
-          className={cn('size-2 shrink-0 rounded-full', DOT_CLASS[column])}
-          aria-hidden="true"
-        />
-        <h2 className="text-sm font-medium tracking-tight text-foreground">
-          {label}
-        </h2>
-        <span className={cn('text-xs tabular-nums', ACCENT_CLASS[column])}>
-          {beads.length}
-        </span>
-      </div>
+      <StatusColumnHeader
+        column={column}
+        label={label}
+        count={beads.length}
+        className="mb-3"
+      />
 
       <div
         ref={setNodeRef}

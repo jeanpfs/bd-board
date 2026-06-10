@@ -18,6 +18,7 @@ import { ChevronDown, ChevronRight, Layers } from 'lucide-react'
 
 import { BeadCard } from '@/components/bead-card'
 import { EpicProgress } from '@/components/epic-progress'
+import { StatusColumnHeader } from '@/components/status-column-header'
 import { cn } from '@/lib/utils'
 import { isEpic, mapStatus } from '@/lib/types'
 import { beadMatches, compareBeads } from '@/lib/sort'
@@ -42,13 +43,6 @@ const COLUMN_LABEL: Record<BeadColumn, string> = {
   in_progress: 'Em progresso',
   blocked: 'Bloqueado',
   closed: 'Fechado',
-}
-
-const DOT_CLASS: Record<BeadColumn, string> = {
-  open: 'bg-status-open',
-  in_progress: 'bg-status-progress',
-  blocked: 'bg-status-blocked',
-  closed: 'bg-status-closed',
 }
 
 function emptyByColumn(): Record<BeadColumn, Bead[]> {
@@ -293,20 +287,14 @@ export function BoardSwimlanes({
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto pb-2">
-      <div className="sticky top-0 z-10 grid grid-cols-1 gap-3 bg-background pb-2 md:grid-cols-2 xl:grid-cols-4">
+      <div className="sticky top-0 z-10 grid grid-cols-1 gap-3 bg-background/95 pt-2 pb-3 backdrop-blur md:grid-cols-2 xl:grid-cols-4 supports-[backdrop-filter]:bg-background/80">
         {COLUMN_KEYS.map((key) => (
-          <div key={key} className="flex min-w-0 items-center gap-2">
-            <span
-              className={cn('size-2 shrink-0 rounded-full', DOT_CLASS[key])}
-              aria-hidden="true"
-            />
-            <h2 className="truncate text-sm font-medium tracking-tight text-foreground">
-              {COLUMN_LABEL[key]}
-            </h2>
-            <span className="text-xs tabular-nums text-muted-foreground">
-              {totals[key].length}
-            </span>
-          </div>
+          <StatusColumnHeader
+            key={key}
+            column={key}
+            label={COLUMN_LABEL[key]}
+            count={totals[key].length}
+          />
         ))}
       </div>
 
