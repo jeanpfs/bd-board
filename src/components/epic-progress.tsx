@@ -29,7 +29,7 @@ export function EpicProgress({
   if (total === 0) {
     return (
       <span className="block text-[0.7rem] text-muted-foreground/70">
-        sem sub-tarefas
+        no child tasks
       </span>
     )
   }
@@ -67,7 +67,7 @@ export function EpicProgress({
       {showDots ? (
         <span className="flex items-center justify-between gap-2">
           <span className="text-[0.7rem] font-medium text-muted-foreground tabular-nums">
-            {done}/{total} concluídas
+            {done}/{total} completed
           </span>
           {total <= 28 ? (
             <span className="flex flex-wrap items-center justify-end gap-1">

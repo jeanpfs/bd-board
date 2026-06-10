@@ -89,10 +89,10 @@ export const Route = createFileRoute('/p/$project')({
 })
 
 const COLUMN_LABEL: Record<BeadColumn, string> = {
-  open: 'Aberto',
-  in_progress: 'Em progresso',
-  blocked: 'Bloqueado',
-  closed: 'Fechado',
+  open: 'Open',
+  in_progress: 'In progress',
+  blocked: 'Blocked',
+  closed: 'Closed',
 }
 
 const COLUMN_KEYS: BeadColumn[] = ['open', 'in_progress', 'blocked', 'closed']
@@ -196,7 +196,7 @@ function BoardPage() {
     } catch (error) {
       queryClient.setQueryData(['beads', project], previous)
       toast.error(
-        error instanceof Error ? error.message : 'Falha ao mover bead',
+        error instanceof Error ? error.message : 'Failed to move bead',
       )
     } finally {
       queryClient.invalidateQueries({ queryKey: ['beads', project] })
@@ -251,7 +251,7 @@ function BoardPage() {
           message={
             beadsQuery.error instanceof Error
               ? beadsQuery.error.message
-              : 'Erro ao carregar beads'
+              : 'Failed to load beads'
           }
           onRetry={() => beadsQuery.refetch()}
         />
@@ -344,7 +344,7 @@ function BoardError({
           onClick={onRetry}
           className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
-          Tentar novamente
+          Try again
         </button>
       </div>
     </div>

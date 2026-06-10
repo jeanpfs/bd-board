@@ -37,7 +37,7 @@ const TYPES = [
   { value: 'task', label: 'Task' },
   { value: 'bug', label: 'Bug' },
   { value: 'feature', label: 'Feature' },
-  { value: 'epic', label: 'Épico' },
+  { value: 'epic', label: 'Epic' },
 ]
 
 const NO_PARENT = '__none__'
@@ -73,14 +73,14 @@ export function CreateBeadDialog({
         },
       }),
     onSuccess: (res) => {
-      toast.success(`Bead ${res.id} criada`)
+      toast.success(`Bead ${res.id} created`)
       queryClient.invalidateQueries({ queryKey: ['beads', project] })
       reset()
       onOpenChange(false)
     },
     onError: (error) => {
       toast.error(
-        error instanceof Error ? error.message : 'Falha ao criar bead',
+        error instanceof Error ? error.message : 'Failed to create bead',
       )
     },
   })
@@ -95,9 +95,9 @@ export function CreateBeadDialog({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Nova bead</DialogTitle>
+          <DialogTitle>New bead</DialogTitle>
           <DialogDescription>
-            Cria uma issue no projeto{' '}
+            Creates an issue in project{' '}
             <span className="font-mono text-foreground">{project}</span>.
           </DialogDescription>
         </DialogHeader>
@@ -110,33 +110,33 @@ export function CreateBeadDialog({
           }}
         >
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="bead-title">Título</Label>
+            <Label htmlFor="bead-title">Title</Label>
             <Input
               id="bead-title"
               name="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Resumo da tarefa"
+              placeholder="Task summary"
               autoComplete="off"
               autoFocus
             />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="bead-desc">Descrição</Label>
+            <Label htmlFor="bead-desc">Description</Label>
             <Textarea
               id="bead-desc"
               name="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Detalhes (markdown)…"
+              placeholder="Details (markdown)..."
               className="min-h-24 resize-none"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="bead-type">Tipo</Label>
+              <Label htmlFor="bead-type">Type</Label>
               <Select value={type} onValueChange={setType}>
                 <SelectTrigger id="bead-type" className="w-full">
                   <SelectValue />
@@ -152,17 +152,17 @@ export function CreateBeadDialog({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="bead-parent">Épico pai</Label>
+              <Label htmlFor="bead-parent">Parent epic</Label>
               <Select
                 value={parent}
                 onValueChange={setParent}
                 disabled={type === 'epic'}
               >
                 <SelectTrigger id="bead-parent" className="w-full">
-                  <SelectValue placeholder="Nenhum" />
+                  <SelectValue placeholder="None" />
                 </SelectTrigger>
                 <SelectContent className="max-w-72">
-                  <SelectItem value={NO_PARENT}>Nenhum</SelectItem>
+                  <SelectItem value={NO_PARENT}>None</SelectItem>
                   {epics.map((epic) => (
                     <SelectItem key={epic.id} value={epic.id}>
                       <span className="font-mono text-xs text-muted-foreground">
@@ -182,7 +182,7 @@ export function CreateBeadDialog({
               variant="ghost"
               onClick={() => onOpenChange(false)}
             >
-              Cancelar
+              Cancel
             </Button>
             <Button
               type="submit"
@@ -191,7 +191,7 @@ export function CreateBeadDialog({
               {mutation.isPending ? (
                 <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
               ) : null}
-              Criar
+              Create
             </Button>
           </DialogFooter>
         </form>

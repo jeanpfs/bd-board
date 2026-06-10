@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { enUS } from 'date-fns/locale'
 import {
   AlertTriangle,
   BookOpen,
@@ -55,7 +55,7 @@ function relativeDate(value?: string): string {
   if (!value) return ''
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return ''
-  return formatDistanceToNow(parsed, { addSuffix: true, locale: ptBR })
+  return formatDistanceToNow(parsed, { addSuffix: true, locale: enUS })
 }
 
 function matchesText(
@@ -164,10 +164,10 @@ export function ProjectKnowledgePanel({
           <p className="text-sm text-muted-foreground">
             {query.error instanceof Error
               ? query.error.message
-              : 'Erro ao carregar knowledge'}
+              : 'Failed to load knowledge'}
           </p>
           <Button variant="outline" size="sm" onClick={() => query.refetch()}>
-            Tentar novamente
+            Try again
           </Button>
         </div>
       </div>
@@ -185,9 +185,9 @@ export function ProjectKnowledgePanel({
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Pesquisar knowledge e comentários..."
+            placeholder="Search knowledge and comments..."
             className="h-8 pl-8"
-            aria-label="Pesquisar knowledge e comentários"
+            aria-label="Search knowledge and comments"
           />
         </div>
 
@@ -201,7 +201,7 @@ export function ProjectKnowledgePanel({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os tipos</SelectItem>
+              <SelectItem value="all">All types</SelectItem>
               {KNOWLEDGE_TYPES.map((item) => (
                 <SelectItem key={item} value={item}>
                   {KNOWLEDGE_TYPE_LABEL[item]}
@@ -226,7 +226,7 @@ export function ProjectKnowledgePanel({
           />
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
             {filteredKnowledge.length === 0 ? (
-              <EmptyState text="Sem comentários estruturados." />
+              <EmptyState text="No structured comments." />
             ) : (
               <ul className="flex flex-col gap-2">
                 {filteredKnowledge.map((entry) => {
@@ -270,12 +270,12 @@ export function ProjectKnowledgePanel({
         <section className="flex min-h-0 flex-col rounded-lg border border-border/70 bg-card/60">
           <PanelHeader
             icon={MessageSquare}
-            title="Comentários"
+            title="Comments"
             count={filteredComments.length}
           />
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
             {filteredComments.length === 0 ? (
-              <EmptyState text="Sem comentários." />
+              <EmptyState text="No comments." />
             ) : (
               <ul className="flex flex-col gap-2">
                 {filteredComments.map((comment) => {
