@@ -6,7 +6,7 @@
   "mainBinaryName": "bd-board",
   "build": {
     "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "pnpm build",
+    "beforeBuildCommand": "pnpm desktop:prepare",
     "devUrl": "http://localhost:3009",
     "frontendDist": "../dist"
   },
