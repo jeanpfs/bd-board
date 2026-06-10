@@ -18,12 +18,6 @@ export function TopNav() {
             <span>board</span>
           </span>
         </Link>
-
-        <div className="ml-auto hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
-          <span className="font-mono text-[0.7rem] tracking-tight">
-            beads kanban
-          </span>
-        </div>
       </div>
     </header>
   )

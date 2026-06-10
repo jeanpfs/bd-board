@@ -76,7 +76,7 @@ export function BeadCard({ bead, onOpen, overlay = false }: BeadCardProps) {
           type="button"
           {...attributes}
           {...listeners}
-          aria-label="Arrastar bead"
+          aria-label="Drag bead"
           className="absolute top-1.5 right-1.5 z-10 flex cursor-grab touch-none items-center rounded p-0.5 text-muted-foreground/30 opacity-0 transition-opacity group-hover/card:opacity-100 hover:text-muted-foreground active:cursor-grabbing"
         >
           <GripVertical className="size-3.5" aria-hidden="true" />
@@ -103,7 +103,7 @@ export function BeadCard({ bead, onOpen, overlay = false }: BeadCardProps) {
           {epic ? (
             <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wide text-primary ring-1 ring-inset ring-primary/25">
               <Layers className="size-2.5" aria-hidden="true" />
-              Épico
+              Epic
             </span>
           ) : null}
           {badge ? (

@@ -3,9 +3,9 @@ import type { Bead } from './types'
 export type SortKey = 'priority' | 'recent' | 'title'
 
 export const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: 'priority', label: 'Prioridade' },
-  { key: 'recent', label: 'Mais recentes' },
-  { key: 'title', label: 'Título' },
+  { key: 'priority', label: 'Priority' },
+  { key: 'recent', label: 'Most recent' },
+  { key: 'title', label: 'Title' },
 ]
 
 export const PRIORITIES = [0, 1, 2, 3, 4]

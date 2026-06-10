@@ -17,10 +17,10 @@ const SUMMARY_META: {
   label: string
   dot: string
 }[] = [
-  { key: 'open', label: 'Abertas', dot: 'bg-status-open' },
-  { key: 'in_progress', label: 'Em progresso', dot: 'bg-status-progress' },
-  { key: 'blocked', label: 'Bloqueadas', dot: 'bg-status-blocked' },
-  { key: 'closed', label: 'Fechadas', dot: 'bg-status-closed' },
+  { key: 'open', label: 'Open', dot: 'bg-status-open' },
+  { key: 'in_progress', label: 'In progress', dot: 'bg-status-progress' },
+  { key: 'blocked', label: 'Blocked', dot: 'bg-status-blocked' },
+  { key: 'closed', label: 'Closed', dot: 'bg-status-closed' },
 ]
 
 function Home() {
@@ -61,12 +61,12 @@ function PageHeader({ projects }: { projects: Project[] | undefined }) {
 
   return (
     <header className="flex flex-col gap-1">
-      <h1 className="text-xl font-semibold tracking-tight">Projetos</h1>
+      <h1 className="text-xl font-semibold tracking-tight">Projects</h1>
       {projects ? (
         <p className="text-sm text-muted-foreground">
-          {count} {count === 1 ? 'projeto' : 'projetos'}
+          {count} {count === 1 ? 'project' : 'projects'}
           <span className="px-1.5 text-muted-foreground/50">·</span>
-          {beads.toLocaleString('pt-BR')} {beads === 1 ? 'bead' : 'beads'}
+          {beads.toLocaleString('en-US')} {beads === 1 ? 'bead' : 'beads'}
         </p>
       ) : (
         <Skeleton className="h-4 w-40" />
@@ -101,7 +101,7 @@ function SummaryStats({ projects }: { projects: Project[] }) {
             {m.label}
           </span>
           <span className="text-2xl font-semibold tabular-nums tracking-tight">
-            {agg[m.key].toLocaleString('pt-BR')}
+            {agg[m.key].toLocaleString('en-US')}
           </span>
         </div>
       ))}
@@ -178,14 +178,12 @@ function ErrorState({
           aria-hidden="true"
         />
         <div className="flex flex-col gap-0.5">
-          <p className="text-sm font-medium">
-            Não foi possível carregar os projetos
-          </p>
+          <p className="text-sm font-medium">Could not load projects</p>
           <p className="text-xs text-muted-foreground">{message}</p>
         </div>
       </div>
       <Button size="sm" variant="outline" onClick={onRetry} disabled={retrying}>
-        {retrying ? 'Tentando…' : 'Tentar novamente'}
+        {retrying ? 'Retrying...' : 'Try again'}
       </Button>
     </Card>
   )
@@ -197,13 +195,13 @@ function EmptyState() {
       <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
         <FolderOpen className="size-4.5" aria-hidden="true" />
       </span>
-      <p className="text-sm font-medium">Nenhum projeto encontrado</p>
+      <p className="text-sm font-medium">No projects found</p>
       <p className="max-w-sm text-xs text-muted-foreground">
-        Projetos são auto-descobertos de{' '}
+        Projects are auto-discovered from{' '}
         <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">
           ~/Code/*/.beads
         </code>
-        . Verifique se há repositórios com metadados de beads.
+        . Check for repositories with beads metadata.
       </p>
     </Card>
   )

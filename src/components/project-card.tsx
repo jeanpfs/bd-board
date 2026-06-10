@@ -15,34 +15,34 @@ interface LegendItem {
 
 export function ProjectCard({ project }: { project: Project }) {
   const { counts } = project
-  const aberto = counts.open + counts.deferred
+  const open = counts.open + counts.deferred
   const pctDone = counts.total > 0 ? (counts.closed / counts.total) * 100 : null
 
   const legend: LegendItem[] = [
     {
       key: 'open',
-      label: 'Aberto',
-      value: aberto,
+      label: 'Open',
+      value: open,
       dotClassName: 'bg-status-open',
       textClassName: 'text-status-open',
     },
     {
       key: 'in_progress',
-      label: 'Em progresso',
+      label: 'In progress',
       value: counts.in_progress,
       dotClassName: 'bg-status-progress',
       textClassName: 'text-status-progress',
     },
     {
       key: 'blocked',
-      label: 'Bloqueado',
+      label: 'Blocked',
       value: counts.blocked,
       dotClassName: 'bg-status-blocked',
       textClassName: 'text-status-blocked',
     },
     {
       key: 'closed',
-      label: 'Fechado',
+      label: 'Closed',
       value: counts.closed,
       dotClassName: 'bg-status-closed',
       textClassName: 'text-status-closed',
@@ -70,7 +70,7 @@ export function ProjectCard({ project }: { project: Project }) {
             <p className="mt-1 text-xs text-muted-foreground">
               <span className="font-mono">{project.database}</span>
               <span className="px-1 text-muted-foreground/40">·</span>
-              {counts.total.toLocaleString('pt-BR')} beads
+              {counts.total.toLocaleString('en-US')} beads
             </p>
           </div>
 

@@ -39,10 +39,10 @@ interface BoardSwimlanesProps {
 const COLUMN_KEYS: BeadColumn[] = ['open', 'in_progress', 'blocked', 'closed']
 
 const COLUMN_LABEL: Record<BeadColumn, string> = {
-  open: 'Aberto',
-  in_progress: 'Em progresso',
-  blocked: 'Bloqueado',
-  closed: 'Fechado',
+  open: 'Open',
+  in_progress: 'In progress',
+  blocked: 'Blocked',
+  closed: 'Closed',
 }
 
 function emptyByColumn(): Record<BeadColumn, Bead[]> {
@@ -279,7 +279,7 @@ export function BoardSwimlanes({
     return (
       <div className="flex flex-1 items-center justify-center">
         <span className="text-sm text-muted-foreground/60">
-          Nenhuma bead corresponde aos filtros
+          No beads match the filters
         </span>
       </div>
     )
@@ -301,7 +301,7 @@ export function BoardSwimlanes({
       <div className="flex flex-col gap-4">
         {noEpic.length > 0 ? (
           <SwimLane
-            title="Sem épico"
+            title="No epic"
             childBeads={noEpic}
             sort={sort}
             onOpen={onOpen}

@@ -51,7 +51,7 @@ interface BoardHeaderProps {
 
 const VIEWS: { key: BoardView; label: string; icon: LucideIcon }[] = [
   { key: 'status', label: 'Status', icon: Columns3 },
-  { key: 'epic', label: 'Épicos', icon: Layers },
+  { key: 'epic', label: 'Epics', icon: Layers },
 ]
 
 const TABS: { key: ProjectTab; label: string; icon: LucideIcon }[] = [
@@ -60,8 +60,8 @@ const TABS: { key: ProjectTab; label: string; icon: LucideIcon }[] = [
 ]
 
 const PRIORITY_HINT: Record<number, string> = {
-  0: 'mais alta',
-  4: 'mais baixa',
+  0: 'highest',
+  4: 'lowest',
 }
 
 export function BoardHeader({
@@ -95,7 +95,7 @@ export function BoardHeader({
           className="inline-flex items-center gap-1 rounded-md text-sm text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
         >
           <ChevronLeft className="size-4" aria-hidden="true" />
-          Projetos
+          Projects
         </Link>
 
         <span className="text-muted-foreground/40" aria-hidden="true">
@@ -114,7 +114,7 @@ export function BoardHeader({
         <div
           className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-muted/60 p-0.5"
           role="tablist"
-          aria-label="Visualização do projeto"
+          aria-label="Project view"
         >
           {TABS.map((item) => {
             const Icon = item.icon
@@ -145,7 +145,7 @@ export function BoardHeader({
             <div
               className="inline-flex items-center gap-0.5 rounded-md bg-muted/60 p-0.5"
               role="group"
-              aria-label="Agrupar por"
+              aria-label="Group by"
             >
               {VIEWS.map((v) => {
                 const Icon = v.icon
@@ -174,7 +174,7 @@ export function BoardHeader({
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 gap-1.5">
                   <SlidersHorizontal className="size-3.5" aria-hidden="true" />
-                  Prioridade
+                  Priority
                   {priorities.length > 0 ? (
                     <span className="rounded bg-primary/15 px-1 text-[0.65rem] font-semibold tabular-nums text-primary">
                       {priorities.length}
@@ -183,7 +183,7 @@ export function BoardHeader({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuLabel>Prioridade</DropdownMenuLabel>
+                <DropdownMenuLabel>Priority</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {PRIORITIES.map((p) => (
                   <DropdownMenuCheckboxItem
@@ -206,7 +206,7 @@ export function BoardHeader({
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onSelect={() => setPriorities([])}>
-                      Limpar filtro
+                      Clear filter
                     </DropdownMenuItem>
                   </>
                 ) : null}
@@ -221,7 +221,7 @@ export function BoardHeader({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
+                <DropdownMenuLabel>Sort by</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuRadioGroup
                   value={sort}
@@ -244,15 +244,15 @@ export function BoardHeader({
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Pesquisar…"
+                placeholder="Search..."
                 className="h-8 w-40 pl-8 sm:w-52"
-                aria-label="Pesquisar beads"
+                aria-label="Search beads"
               />
             </div>
 
             <Button size="sm" onClick={onCreate}>
               <Plus aria-hidden="true" />
-              Nova bead
+              New bead
             </Button>
           </div>
         ) : null}

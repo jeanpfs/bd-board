@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { enUS } from 'date-fns/locale'
 import Markdown from 'react-markdown'
 import {
   AlignLeft,
@@ -50,10 +50,10 @@ interface BeadDetailModalProps {
 }
 
 const COLUMN_LABEL: Record<BeadColumn, string> = {
-  open: 'Aberto',
-  in_progress: 'Em progresso',
-  blocked: 'Bloqueado',
-  closed: 'Fechado',
+  open: 'Open',
+  in_progress: 'In progress',
+  blocked: 'Blocked',
+  closed: 'Closed',
 }
 
 const COLUMN_BADGE: Record<BeadColumn, string> = {
@@ -75,7 +75,7 @@ function relativeDate(value?: string): string {
   if (!value) return ''
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return ''
-  return formatDistanceToNow(parsed, { addSuffix: true, locale: ptBR })
+  return formatDistanceToNow(parsed, { addSuffix: true, locale: enUS })
 }
 
 function SectionHeader({
@@ -175,7 +175,7 @@ export function BeadDetailModal({
                   {isEpic(bead) ? (
                     <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-px text-[0.65rem] font-semibold uppercase tracking-wide text-primary ring-1 ring-inset ring-primary/25">
                       <Layers className="size-3" aria-hidden="true" />
-                      Épico
+                      Epic
                     </span>
                   ) : (
                     <span className="rounded border border-border px-1.5 py-px text-[0.65rem] text-muted-foreground">
@@ -191,7 +191,7 @@ export function BeadDetailModal({
                   {bead.title}
                 </DialogTitle>
                 <DialogDescription className="sr-only">
-                  Detalhes da bead {bead.id}
+                  Bead details for {bead.id}
                 </DialogDescription>
 
                 {parentBead ? (
@@ -201,7 +201,7 @@ export function BeadDetailModal({
                     className="-mt-0.5 inline-flex w-fit items-center gap-1 rounded text-xs text-muted-foreground transition-colors hover:text-foreground"
                   >
                     <CornerUpLeft className="size-3" aria-hidden="true" />
-                    Épico: <span className="font-mono">{parentBead.id}</span>
+                    Epic: <span className="font-mono">{parentBead.id}</span>
                   </button>
                 ) : null}
 
@@ -219,7 +219,7 @@ export function BeadDetailModal({
                       <SelectTrigger
                         size="sm"
                         className="h-7 w-40"
-                        aria-label="Alterar status"
+                        aria-label="Change status"
                       >
                         <SelectValue />
                       </SelectTrigger>
@@ -249,7 +249,7 @@ export function BeadDetailModal({
                   {bead.assignee ? (
                     <div className="flex items-center gap-2">
                       <span className="text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground/70">
-                        Responsável
+                        Assignee
                       </span>
                       <span className="text-sm text-foreground/90">
                         {bead.assignee}
@@ -283,12 +283,12 @@ export function BeadDetailModal({
                   <section>
                     <SectionHeader
                       icon={ListTree}
-                      label="Sub-tarefas"
-                      trailing={`${doneChildren}/${childBeads.length} concluídas`}
+                      label="Child tasks"
+                      trailing={`${doneChildren}/${childBeads.length} completed`}
                     />
                     {childBeads.length === 0 ? (
                       <p className="text-xs text-muted-foreground/70">
-                        Sem sub-tarefas.
+                        No child tasks.
                       </p>
                     ) : (
                       <ul className="flex flex-col gap-0.5">
@@ -328,7 +328,7 @@ export function BeadDetailModal({
                 ) : null}
 
                 <section>
-                  <SectionHeader icon={AlignLeft} label="Descrição" />
+                  <SectionHeader icon={AlignLeft} label="Description" />
                   {detailQuery.isLoading && !description ? (
                     <div className="flex flex-col gap-2">
                       <Skeleton className="h-3 w-full" />
@@ -341,7 +341,7 @@ export function BeadDetailModal({
                     </div>
                   ) : (
                     <p className="text-xs text-muted-foreground/70">
-                      Sem descrição.
+                      No description.
                     </p>
                   )}
                 </section>
@@ -350,7 +350,7 @@ export function BeadDetailModal({
                   <section>
                     <SectionHeader
                       icon={CircleCheck}
-                      label="Critérios de aceitação"
+                      label="Acceptance criteria"
                     />
                     <div className="prose prose-invert prose-sm max-w-none">
                       <Markdown>{acceptance}</Markdown>
@@ -361,14 +361,14 @@ export function BeadDetailModal({
                 <section>
                   <SectionHeader
                     icon={MessageSquare}
-                    label="Comentários"
+                    label="Comments"
                     trailing={comments.length > 0 ? comments.length : undefined}
                   />
                   {detailQuery.isLoading ? (
                     <Skeleton className="h-12 w-full" />
                   ) : comments.length === 0 ? (
                     <p className="text-xs text-muted-foreground/70">
-                      Sem comentários ainda.
+                      No comments yet.
                     </p>
                   ) : (
                     <ul className="flex flex-col gap-3">
@@ -379,7 +379,7 @@ export function BeadDetailModal({
                         >
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <span className="font-medium text-foreground/80">
-                              {c.author ?? 'Anônimo'}
+                              {c.author ?? 'Anonymous'}
                             </span>
                             {c.created_at ? (
                               <span>· {relativeDate(c.created_at)}</span>
@@ -398,7 +398,7 @@ export function BeadDetailModal({
                       name="comment"
                       value={comment}
                       onChange={(e) => setComment(e.target.value)}
-                      placeholder="Adicionar um comentário…"
+                      placeholder="Add a comment..."
                       className="min-h-20 resize-none"
                     />
                     <Button
@@ -413,7 +413,7 @@ export function BeadDetailModal({
                           aria-hidden="true"
                         />
                       ) : null}
-                      Comentar
+                      Comment
                     </Button>
                   </div>
                 </section>
@@ -422,7 +422,7 @@ export function BeadDetailModal({
           </>
         ) : (
           <>
-            <DialogTitle className="sr-only">Carregando bead</DialogTitle>
+            <DialogTitle className="sr-only">Loading bead</DialogTitle>
             <div className="flex h-48 items-center justify-center">
               <Loader2
                 className="size-5 animate-spin text-muted-foreground"
