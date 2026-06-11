@@ -13,8 +13,13 @@ import {
   isWritesEnabled,
 } from './server-validation.ts'
 
-import type { Bead, BeadDetail, Project, ProjectKnowledge } from './types.ts'
-import type { BeadUpdate } from './types.ts'
+import type {
+  Bead,
+  BeadDetail,
+  BeadUpdate,
+  Project,
+  ProjectKnowledge,
+} from './types.ts'
 
 function isDesktopApp(): boolean {
   return typeof window !== 'undefined' && isTauri()
