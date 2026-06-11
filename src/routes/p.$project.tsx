@@ -20,11 +20,7 @@ import { BeadCard } from '@/components/bead-card'
 import { BeadDetailModal } from '@/components/bead-detail-modal'
 import { CreateBeadDialog } from '@/components/create-bead-dialog'
 import { ProjectKnowledgePanel } from '@/components/project-knowledge-panel'
-import {
-  getBeads,
-  getWriteConfigFn,
-  updateBeadStatusFn,
-} from '@/lib/server'
+import { getBeads, getWriteConfigFn, updateBeadStatusFn } from '@/lib/server'
 import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
 import { beadMatches, compareBeads } from '@/lib/sort'
 
