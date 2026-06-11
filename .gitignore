@@ -11,6 +11,8 @@ dist-ssr
 .vinxi
 __unconfig*
 todos.json
+src-tauri/target/
+src-tauri/gen/
 
 # Local tracker and agent state
 .beads/

@@ -4,6 +4,7 @@ import {
   buildDeleteBeadArgs,
   buildPreviewDeleteBeadArgs,
   buildUpdateBeadArgs,
+  splitConfiguredRoots,
 } from './bd'
 
 describe('buildUpdateBeadArgs', () => {
@@ -68,6 +69,19 @@ describe('delete bead arguments', () => {
       'delete',
       'bd-board-a2k',
       '--force',
+    ])
+  })
+})
+
+describe('splitConfiguredRoots', () => {
+  it('splits roots with the platform delimiter', () => {
+    expect(splitConfiguredRoots('/Users/me/Code:/tmp/work', ':')).toEqual([
+      '/Users/me/Code',
+      '/tmp/work',
+    ])
+    expect(splitConfiguredRoots('C:\\Code;D:\\work', ';')).toEqual([
+      'C:\\Code',
+      'D:\\work',
     ])
   })
 })

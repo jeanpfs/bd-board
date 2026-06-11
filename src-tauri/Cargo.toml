@@ -1,0 +1,24 @@
+[package]
+name = "bd-board-desktop"
+version = "0.1.0"
+description = "bd board desktop shell"
+edition = "2021"
+rust-version = "1.77.2"
+build = "build.rs"
+license = "MIT"
+
+[lib]
+name = "bd_board_desktop"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.2", features = [] }
+
+[dependencies]
+serde_json = "1"
+serde = { version = "1", features = ["derive"] }
+tauri = { version = "2.11.2", features = [] }
+
+[features]
+default = []
+custom-protocol = ["tauri/custom-protocol"]
