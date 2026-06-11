@@ -23,6 +23,8 @@ Visual kanban board and multi-project dashboard for [`bd` (beads)](https://githu
 
 ## Setup
 
+Web development:
+
 ```bash
 pnpm install
 cp .env.example .env.local
@@ -31,12 +33,68 @@ pnpm dev
 
 Open http://localhost:3009.
 
-Desktop spike:
+Desktop development:
 
 ```bash
 pnpm install
 pnpm desktop:dev
 ```
+
+## Desktop App
+
+The desktop app is a Tauri v2 shell around the same React/TanStack UI. It is
+intended for local use only: it reads bead projects from your machine and calls
+the local `bd` binary through Tauri commands.
+
+Desktop data flow:
+
+- Web mode uses TanStack Start server functions and the local `bd` adapter.
+- Desktop mode uses Tauri commands for read-only project discovery, board data,
+  bead details, comments, and knowledge.
+- Desktop writes are not enabled yet, even if web write mode is configured.
+- No bead database, `.beads` data, or Lavra memory is bundled into the app.
+
+Desktop packaging:
+
+```bash
+pnpm desktop:prepare
+pnpm desktop:build
+```
+
+`pnpm desktop:prepare` builds the TanStack Start app in SPA mode, copies the
+generated `.output/public` assets into the repo-root `dist/`, and writes
+`dist/index.html` from the generated `_shell.html`. This matters because Tauri
+serves `frontendDist` as static assets; packaging a handmade `index.html` with
+only the client script leaves the installed app on a blank screen.
+
+Tauri is configured with:
+
+```json
+"frontendDist": "../dist"
+```
+
+The path is relative to `src-tauri/tauri.conf.json`, so the installed app embeds
+the repo-root `dist/` directory.
+
+On macOS, the release build writes:
+
+```text
+src-tauri/target/release/bundle/macos/bd board.app
+src-tauri/target/release/bundle/dmg/bd board_0.1.0_aarch64.dmg
+```
+
+Windows packaging is part of the Tauri roadmap for this project, but the current
+verified artifact is the macOS build.
+
+Desktop troubleshooting:
+
+- If the app opens but shows no projects, check that `bd` is available on
+  `PATH` or set `BD_BIN`.
+- If projects live outside `~/Code`, set `BD_ROOTS` to the directories to scan.
+- If the desktop bridge fails, the home page shows a diagnostic card. When the
+  bridge is healthy, that card stays hidden.
+- If the installed app opens to a blank screen, rerun `pnpm desktop:build` and
+  confirm `dist/index.html` exists and was generated from `_shell.html`.
 
 ## Configuration
 
@@ -60,6 +118,8 @@ pnpm exec eslint --max-warnings=0
 pnpm test
 pnpm audit:prod
 pnpm validate
+pnpm desktop:prepare
+pnpm desktop:build
 ```
 
 ## Architecture
@@ -83,6 +143,13 @@ src/
     bead-card.tsx
     bead-detail-modal.tsx
     create-bead-dialog.tsx
+scripts/
+  prepare-desktop-build.mjs
+src-tauri/
+  tauri.conf.json
+  src/
+    desktop.rs
+    lib.rs
 ```
 
 The app does not store its own database. It shells out to `bd` with `node:child_process` and parses JSON output.
