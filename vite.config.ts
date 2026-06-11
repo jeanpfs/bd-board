@@ -9,7 +9,11 @@ const config = defineConfig({
   plugins: [
     nitro({ rollupConfig: { external: [/^@sentry\//] } }),
     tailwindcss(),
-    tanstackStart(),
+    tanstackStart({
+      spa: {
+        enabled: true,
+      },
+    }),
     viteReact(),
   ],
 })
