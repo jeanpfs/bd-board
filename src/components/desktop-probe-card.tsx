@@ -6,7 +6,6 @@ import { loadDesktopProbe } from '@/lib/desktop'
 import type { DesktopProbe } from '@/lib/desktop'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
 
 type ProbeState =
   | { kind: 'hidden' }
@@ -46,7 +45,12 @@ export function DesktopProbeCard() {
     }
   }, [])
 
-  if (state.kind === 'hidden') return null
+  if (
+    state.kind === 'hidden' ||
+    state.kind === 'loading' ||
+    state.kind === 'ready'
+  )
+    return null
 
   return (
     <Card className="gap-3 p-4">
@@ -69,52 +73,18 @@ export function DesktopProbeCard() {
         </div>
       </div>
 
-      {state.kind === 'loading' ? (
-        <div className="grid gap-2 sm:grid-cols-2">
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-16 w-full" />
-        </div>
-      ) : state.kind === 'error' ? (
-        <div className="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-          <p className="text-xs text-destructive">{state.message}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-fit gap-2"
-            onClick={() => setState({ kind: 'hidden' })}
-          >
-            <RefreshCw className="size-3.5" aria-hidden="true" />
-            Dismiss
-          </Button>
-        </div>
-      ) : (
-        <div className="grid gap-2 sm:grid-cols-2">
-          <div className="rounded-lg bg-muted/40 p-3">
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-              bd binary
-            </p>
-            <p className="mt-1 break-all text-sm font-medium">
-              {state.probe.bdBinary}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {state.probe.bdVersion}
-            </p>
-          </div>
-          <div className="rounded-lg bg-muted/40 p-3">
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-              Project roots
-            </p>
-            <p className="mt-1 text-sm font-medium">
-              {state.probe.projectRoots.length}
-            </p>
-            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-              {state.probe.rootStatuses
-                .map((root) => `${root.exists ? '✓' : '×'} ${root.path}`)
-                .join(' · ')}
-            </p>
-          </div>
-        </div>
-      )}
+      <div className="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+        <p className="text-xs text-destructive">{state.message}</p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-fit gap-2"
+          onClick={() => setState({ kind: 'hidden' })}
+        >
+          <RefreshCw className="size-3.5" aria-hidden="true" />
+          Dismiss
+        </Button>
+      </div>
     </Card>
   )
 }

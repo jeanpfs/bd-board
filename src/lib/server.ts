@@ -138,7 +138,15 @@ export async function getProjectKnowledgeFn({
 }
 
 export async function getWriteConfigFn(): Promise<{ writesEnabled: boolean }> {
-  if (isDesktopApp()) return invoke<{ writesEnabled: boolean }>('get_write_config')
+  if (isDesktopApp()) {
+    const config = await invoke<{
+      writesEnabled?: boolean
+      writes_enabled?: boolean
+    }>('get_write_config')
+    return {
+      writesEnabled: config.writesEnabled ?? config.writes_enabled ?? false,
+    }
+  }
   return webGetWriteConfig()
 }
 
