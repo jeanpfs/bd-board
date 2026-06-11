@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invoke, isTauri } from '@tauri-apps/api/core'
 
 export interface DesktopProbe {
   bdBinary: string
@@ -9,6 +9,6 @@ export interface DesktopProbe {
 
 export async function loadDesktopProbe(): Promise<DesktopProbe | null> {
   if (typeof window === 'undefined') return null
-  if (typeof window.isTauri !== 'function' || !window.isTauri()) return null
+  if (!isTauri()) return null
   return invoke<DesktopProbe>('desktop_probe')
 }

@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invoke, isTauri } from '@tauri-apps/api/core'
 import { createServerFn } from '@tanstack/react-start'
 
 import { bdAdapter } from './bd.ts'
@@ -17,11 +17,7 @@ import type { Bead, BeadDetail, Project, ProjectKnowledge } from './types.ts'
 import type { BeadUpdate } from './types.ts'
 
 function isDesktopApp(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    typeof window.isTauri === 'function' &&
-    window.isTauri()
-  )
+  return typeof window !== 'undefined' && isTauri()
 }
 
 const webGetProjects = createServerFn({ method: 'GET' }).handler(() =>

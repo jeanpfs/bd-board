@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { LaptopMinimal, RefreshCw, Terminal } from 'lucide-react'
+import { isTauri } from '@tauri-apps/api/core'
 
 import { loadDesktopProbe } from '@/lib/desktop'
 import type { DesktopProbe } from '@/lib/desktop'
@@ -21,7 +22,7 @@ export function DesktopProbeCard() {
 
     async function run() {
       if (typeof window === 'undefined') return
-      if (typeof window.isTauri !== 'function' || !window.isTauri()) return
+      if (!isTauri()) return
 
       setState({ kind: 'loading' })
 
