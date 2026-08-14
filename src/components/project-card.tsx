@@ -13,10 +13,27 @@ interface LegendItem {
   textClassName: string
 }
 
+const SEGMENT_ORDER: {
+  key: 'closed' | 'in_progress' | 'blocked' | 'open'
+  className: string
+}[] = [
+  { key: 'closed', className: 'bg-status-closed' },
+  { key: 'in_progress', className: 'bg-status-progress' },
+  { key: 'blocked', className: 'bg-status-blocked' },
+  { key: 'open', className: 'bg-status-open' },
+]
+
 export function ProjectCard({ project }: { project: Project }) {
   const { counts } = project
   const open = counts.open + counts.deferred
   const pctDone = counts.total > 0 ? (counts.closed / counts.total) * 100 : null
+
+  const barCounts = {
+    closed: counts.closed,
+    in_progress: counts.in_progress,
+    blocked: counts.blocked,
+    open,
+  }
 
   const legend: LegendItem[] = [
     {
@@ -75,6 +92,20 @@ export function ProjectCard({ project }: { project: Project }) {
 
             <ProgressRing value={pctDone} />
           </div>
+
+          {counts.total > 0 ? (
+            <span className="mt-3.5 flex h-[5px] w-full overflow-hidden rounded-full bg-white/7">
+              {SEGMENT_ORDER.filter((s) => barCounts[s.key] > 0).map((s) => (
+                <span
+                  key={s.key}
+                  className={s.className}
+                  style={{
+                    width: `${(barCounts[s.key] / counts.total) * 100}%`,
+                  }}
+                />
+              ))}
+            </span>
+          ) : null}
 
           <div className="mt-3.5 grid grid-cols-2 gap-x-3.5 gap-y-1.5">
             {legend.map((item) => (
