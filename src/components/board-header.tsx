@@ -2,6 +2,7 @@ import {
   ArrowUpDown,
   Columns3,
   Layers,
+  ListTree,
   Plus,
   Search,
   SlidersHorizontal,
@@ -21,6 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Toggle } from '@/components/ui/toggle'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { PRIORITIES, SORT_OPTIONS } from '@/lib/sort'
 
@@ -28,7 +30,7 @@ import type { LucideIcon } from 'lucide-react'
 import type { SortKey } from '@/lib/sort'
 
 export type BoardView = 'status' | 'epic' | 'priority'
-export type ProjectTab = 'board' | 'knowledge'
+export type ProjectTab = 'board' | 'knowledge' | 'hierarchy'
 
 interface BoardHeaderProps {
   search: string
@@ -43,6 +45,8 @@ interface BoardHeaderProps {
   setAssignee: (value: string) => void
   sort: SortKey
   setSort: (value: SortKey) => void
+  nested: boolean
+  setNested: (value: boolean) => void
   onCreate: () => void
 }
 
@@ -70,6 +74,8 @@ export function BoardHeader({
   setAssignee,
   sort,
   setSort,
+  nested,
+  setNested,
   onCreate,
 }: BoardHeaderProps) {
   function togglePriority(p: number, checked: boolean) {
@@ -99,6 +105,16 @@ export function BoardHeader({
             )
           })}
         </ToggleGroup>
+
+        <Toggle
+          pressed={nested}
+          onPressedChange={setNested}
+          aria-label="Nest subtasks inside their parent card"
+          className="gap-1.5"
+        >
+          <ListTree className="size-3.5" aria-hidden="true" />
+          Nested
+        </Toggle>
 
         {ready ? (
           <Badge variant="filter" onRemove={() => setReady(false)}>

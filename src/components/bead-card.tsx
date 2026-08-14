@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
   Ban,
+  ChevronDown,
+  ChevronRight,
   GripVertical,
   Layers,
   Link2,
@@ -13,24 +16,101 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { InteractiveRow } from '@/components/ui/interactive-row'
-import { EpicProgress } from '@/components/epic-progress'
+import { SubtaskProgress } from '@/components/subtask-progress'
 import { cn, initials } from '@/lib/utils'
 import { groupBeadLinks, isEpic, mapStatus } from '@/lib/types'
 import { PRIORITY_TEXT_CLASS } from '@/lib/sort'
 
 import type { LucideIcon } from 'lucide-react'
-import type { Bead } from '@/lib/types'
+import type { Bead, BeadColumn } from '@/lib/types'
 
 interface BeadCardProps {
   bead: Bead
   onOpen: (bead: Bead) => void
   overlay?: boolean
+  nested?: boolean
 }
 
 const BADGE_TONES: Record<'warning' | 'muted' | 'info', string> = {
   warning: 'bg-warn/16 text-warn',
   muted: 'bg-white/7 text-muted-foreground',
   info: 'bg-status-progress/18 text-status-progress',
+}
+
+const STATUS_DOT_CLASS: Record<BeadColumn, string> = {
+  open: 'bg-status-open',
+  in_progress: 'bg-status-progress',
+  blocked: 'bg-status-blocked',
+  closed: 'bg-status-closed',
+}
+
+function NestedChildren({
+  childBeads,
+  onOpen,
+}: {
+  childBeads: Bead[]
+  onOpen: (bead: Bead) => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="border-t border-border px-[10px] pt-1.5 pb-2">
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="h-auto w-full justify-start gap-1.5 rounded px-0 py-1 font-mono text-[10.5px] tracking-[0.02em] text-faint hover:bg-transparent hover:text-muted-foreground"
+      >
+        {open ? (
+          <ChevronDown className="size-3" aria-hidden="true" />
+        ) : (
+          <ChevronRight className="size-3" aria-hidden="true" />
+        )}
+        {childBeads.length} {childBeads.length === 1 ? 'subtask' : 'subtasks'}
+      </Button>
+
+      {open ? (
+        <ul className="mt-1 ml-[5px] flex flex-col gap-1 border-l border-border-strong pl-2.5">
+          {childBeads.map((child) => {
+            const priority = Math.max(0, Math.min(4, child.priority))
+            return (
+              <li key={child.id}>
+                <InteractiveRow
+                  variant="plain"
+                  size="flush"
+                  onClick={() => onOpen(child)}
+                  className="flex items-center gap-2 rounded-[6px] px-2 py-1.5 hover:bg-card-hover"
+                >
+                  <span
+                    className={cn(
+                      'size-1.5 shrink-0 rounded-full',
+                      STATUS_DOT_CLASS[mapStatus(child.status).column],
+                    )}
+                    aria-hidden="true"
+                  />
+                  <span className="font-mono text-[10.5px] text-muted-foreground">
+                    {child.id}
+                  </span>
+                  <span
+                    className={cn(
+                      'rounded-[4px] px-1 py-px font-mono text-[9px] leading-[1.4] font-semibold tabular-nums ring-1 ring-inset ring-current',
+                      PRIORITY_TEXT_CLASS[priority],
+                    )}
+                  >
+                    P{priority}
+                  </span>
+                  <span className="truncate text-[11.5px] text-foreground">
+                    {child.title}
+                  </span>
+                </InteractiveRow>
+              </li>
+            )
+          })}
+        </ul>
+      ) : null}
+    </div>
+  )
 }
 
 function LinkStat({
@@ -56,7 +136,12 @@ function LinkStat({
   )
 }
 
-export function BeadCard({ bead, onOpen, overlay = false }: BeadCardProps) {
+export function BeadCard({
+  bead,
+  onOpen,
+  overlay = false,
+  nested = false,
+}: BeadCardProps) {
   const {
     attributes,
     listeners,
@@ -142,7 +227,9 @@ export function BeadCard({ bead, onOpen, overlay = false }: BeadCardProps) {
           {bead.title}
         </span>
 
-        {epic ? <EpicProgress childBeads={childBeads} /> : null}
+        {childBeads.length > 0 ? (
+          <SubtaskProgress childBeads={childBeads} />
+        ) : null}
 
         <span className="flex items-center gap-1.5">
           {labels.slice(0, 2).map((label) => (
@@ -203,6 +290,10 @@ export function BeadCard({ bead, onOpen, overlay = false }: BeadCardProps) {
           </span>
         </span>
       </InteractiveRow>
+
+      {nested && childBeads.length > 0 ? (
+        <NestedChildren childBeads={childBeads} onOpen={onOpen} />
+      ) : null}
     </div>
   )
 }
