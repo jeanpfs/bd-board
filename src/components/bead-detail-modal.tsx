@@ -754,7 +754,7 @@ export function BeadDetailModal({
           onOpenChange(next)
         }}
       >
-        <DialogContent className="grid max-h-[86vh] w-[94vw] max-w-3xl grid-cols-1 gap-0 overflow-hidden rounded-[14px] bg-background p-0 shadow-pop sm:max-w-3xl lg:max-w-[1080px] lg:grid-cols-[minmax(0,1fr)_268px]">
+        <DialogContent className="grid max-h-[86vh] w-[94vw] max-w-3xl grid-cols-1 grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden rounded-[14px] bg-background p-0 shadow-pop sm:max-w-3xl lg:max-w-[1080px] lg:grid-cols-[minmax(0,1fr)_268px]">
           {bead ? (
             <>
               <div className="flex min-h-0 min-w-0 flex-col">
