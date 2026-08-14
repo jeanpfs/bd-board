@@ -12,7 +12,7 @@ import {
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { EpicProgress } from '@/components/epic-progress'
-import { cn } from '@/lib/utils'
+import { cn, initials } from '@/lib/utils'
 import { groupBeadLinks, isEpic, mapStatus } from '@/lib/types'
 
 import type { LucideIcon } from 'lucide-react'
@@ -36,16 +36,6 @@ const BADGE_TONES: Record<'warning' | 'muted' | 'info', string> = {
   warning: 'bg-warn/16 text-warn',
   muted: 'bg-white/7 text-muted-foreground',
   info: 'bg-status-progress/18 text-status-progress',
-}
-
-function initials(name: string): string {
-  const parts = name
-    .trim()
-    .split(/[\s_@.-]+/)
-    .filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[1][0]).toUpperCase()
 }
 
 function LinkStat({

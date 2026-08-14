@@ -6,6 +6,7 @@ import Markdown from 'react-markdown'
 import {
   AlignLeft,
   AlertTriangle,
+  Ban,
   ChevronRight,
   CircleCheck,
   CornerUpLeft,
@@ -16,6 +17,7 @@ import {
   MessageSquare,
   Pencil,
   Trash2,
+  Waypoints,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -27,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -39,7 +42,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn } from '@/lib/utils'
+import { cn, initials } from '@/lib/utils'
 import { COLUMNS, groupBeadLinks, isEpic, mapStatus } from '@/lib/types'
 import {
   addCommentFn,
@@ -71,11 +74,26 @@ const COLUMN_LABEL: Record<BeadColumn, string> = {
   closed: 'Closed',
 }
 
-const COLUMN_BADGE: Record<BeadColumn, string> = {
-  open: 'bg-status-open/15 text-status-open',
-  in_progress: 'bg-status-progress/18 text-status-progress',
-  blocked: 'bg-status-blocked/18 text-status-blocked',
-  closed: 'bg-status-closed/18 text-status-closed',
+const PRIORITY_TEXT: Record<number, string> = {
+  0: 'text-status-blocked',
+  1: 'text-warn',
+  2: 'text-muted-foreground',
+  3: 'text-faint',
+  4: 'text-faint',
+}
+
+const PRIORITY_WORD: Record<number, string> = {
+  0: 'Critical',
+  1: 'High',
+  2: 'Normal',
+  3: 'Low',
+  4: 'Backlog',
+}
+
+const BADGE_TONE: Record<'warning' | 'muted' | 'info', string> = {
+  warning: 'bg-warn/16 text-warn',
+  muted: 'bg-white/7 text-muted-foreground',
+  info: 'bg-status-progress/18 text-status-progress',
 }
 
 const DOT_CLASS: Record<BeadColumn, string> = {
@@ -759,17 +777,9 @@ export function BeadDetailModal({
             <>
               <div className="flex min-h-0 min-w-0 flex-col">
                 <DialogHeader className="space-y-0 border-b border-border bg-canvas px-[22px] pt-4 pb-3.5 text-left">
-                  <div className="flex flex-wrap items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5 pr-16">
                     <span className="font-mono text-xs text-muted-foreground">
                       {bead.id}
-                    </span>
-                    <span
-                      className={cn(
-                        'rounded-[4px] px-1.5 py-px text-[10px] font-semibold tracking-[0.06em] uppercase',
-                        COLUMN_BADGE[column],
-                      )}
-                    >
-                      {COLUMN_LABEL[column]}
                     </span>
                     {isEpic(bead) ? (
                       <span className="inline-flex items-center gap-1 rounded-[4px] bg-primary/30 px-1.5 py-px text-[10px] font-semibold tracking-[0.06em] text-primary-text uppercase ring-1 ring-inset ring-ring/45">
@@ -781,6 +791,45 @@ export function BeadDetailModal({
                         {bead.issue_type}
                       </span>
                     )}
+                    <span
+                      className={cn(
+                        'rounded-[4px] px-1 py-px font-mono text-[10px] font-semibold tabular-nums ring-1 ring-inset ring-current',
+                        PRIORITY_TEXT[Math.max(0, Math.min(4, bead.priority))],
+                      )}
+                    >
+                      P{Math.max(0, Math.min(4, bead.priority))}
+                    </span>
+                    {mapStatus(bead.status).badge ? (
+                      <span
+                        className={cn(
+                          'rounded-[4px] px-1.5 py-px text-[10px] font-semibold tracking-[0.06em] uppercase',
+                          BADGE_TONE[mapStatus(bead.status).badge!.tone],
+                        )}
+                      >
+                        {mapStatus(bead.status).badge!.label}
+                      </span>
+                    ) : null}
+
+                    {canWrite ? (
+                      <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditOpen(true)}
+                        >
+                          <Pencil className="size-3.5" aria-hidden="true" />
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDeleteOpen(true)}
+                        >
+                          <Trash2 className="size-3.5" aria-hidden="true" />
+                          Delete
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
 
                   <DialogTitle className="mt-2.5 text-[20px] leading-[1.28] font-semibold tracking-[-0.015em] text-balance">
@@ -1008,16 +1057,50 @@ export function BeadDetailModal({
                   ) : null}
                 </MetaField>
 
-                <MetaField label="Priority">
-                  P{Math.max(0, Math.min(4, bead.priority))}
+                <MetaField label="Assignee">
+                  {bead.assignee ? (
+                    <>
+                      <Avatar size="sm" className="size-[19px] bg-white/9">
+                        <AvatarFallback className="bg-transparent text-[9px] font-semibold text-foreground">
+                          {initials(bead.assignee)}
+                        </AvatarFallback>
+                      </Avatar>
+                      {bead.assignee}
+                    </>
+                  ) : (
+                    <span className="text-faint">Unassigned</span>
+                  )}
                 </MetaField>
 
-                {bead.assignee ? (
-                  <MetaField label="Assignee">{bead.assignee}</MetaField>
-                ) : null}
+                <MetaField label="Priority">
+                  {(() => {
+                    const p = Math.max(0, Math.min(4, bead.priority))
+                    return (
+                      <>
+                        <span
+                          className={cn(
+                            'rounded-[4px] px-1 py-px font-mono text-[10px] font-semibold tabular-nums ring-1 ring-inset ring-current',
+                            PRIORITY_TEXT[p],
+                          )}
+                        >
+                          P{p}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {PRIORITY_WORD[p]}
+                        </span>
+                      </>
+                    )
+                  })()}
+                </MetaField>
 
-                {bead.labels && bead.labels.length > 0 ? (
-                  <MetaField label="Labels">
+                <MetaField label="Type">
+                  <span className="font-mono text-[12.5px]">
+                    {bead.issue_type}
+                  </span>
+                </MetaField>
+
+                <MetaField label="Labels">
+                  {bead.labels && bead.labels.length > 0 ? (
                     <span className="flex flex-wrap gap-1.5">
                       {bead.labels.map((label) => (
                         <span
@@ -1028,35 +1111,53 @@ export function BeadDetailModal({
                         </span>
                       ))}
                     </span>
-                  </MetaField>
-                ) : null}
+                  ) : (
+                    <span className="text-faint">None</span>
+                  )}
+                </MetaField>
 
-                <hr className="my-[18px] border-border" />
+                <hr className="my-4 border-border" />
 
-                {canWrite ? (
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setEditOpen(true)}
-                    >
-                      <Pencil className="size-3.5" aria-hidden="true" />
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => setDeleteOpen(true)}
-                    >
-                      <Trash2 className="size-3.5" aria-hidden="true" />
-                      Delete
-                    </Button>
-                  </div>
-                ) : writeConfigQuery.isSuccess ? (
-                  <span className="inline-flex w-fit items-center rounded-full bg-white/6 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-                    Read-only
+                <MetaField label="Updated">
+                  <span className="font-mono text-[12.5px] text-muted-foreground">
+                    {relativeDate(bead.updated_at)}
                   </span>
-                ) : null}
+                </MetaField>
+
+                <MetaField label="Edges">
+                  <span className="flex items-center gap-3 text-[12.5px] text-muted-foreground">
+                    <span
+                      className="inline-flex items-center gap-1"
+                      title={`${blockedBy.length} blocked by`}
+                    >
+                      <Ban className="size-3" aria-hidden="true" />
+                      {blockedBy.length}
+                    </span>
+                    <span
+                      className="inline-flex items-center gap-1"
+                      title={`${blocking.length} blocking`}
+                    >
+                      <Waypoints className="size-3" aria-hidden="true" />
+                      {blocking.length}
+                    </span>
+                    <span
+                      className="inline-flex items-center gap-1"
+                      title={`${related.length} related`}
+                    >
+                      <Link2 className="size-3" aria-hidden="true" />
+                      {related.length}
+                    </span>
+                  </span>
+                </MetaField>
+
+                <hr className="my-4 border-border" />
+
+                <span className="mb-[7px] block font-mono text-[10px] font-medium tracking-[0.09em] text-faint uppercase">
+                  bd command
+                </span>
+                <p className="rounded-[7px] bg-black/35 px-[11px] py-[9px] font-mono text-[11.5px] leading-[1.55] text-muted-foreground ring-1 ring-inset ring-border">
+                  bd show {bead.id} --json
+                </p>
               </div>
             </>
           ) : (
