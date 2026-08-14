@@ -42,7 +42,7 @@ interface BoardSearch {
   sort?: SortKey
 }
 
-const BOARD_VIEWS = new Set(['status', 'epic'])
+const BOARD_VIEWS = new Set(['status', 'epic', 'priority'])
 const PROJECT_TABS = new Set(['board', 'knowledge'])
 const SORT_KEYS = new Set(['priority', 'recent', 'title'])
 
@@ -298,13 +298,14 @@ function BoardPage() {
           onOpenBead={openBead}
           onOpenKnowledge={openKnowledge}
         />
-      ) : view === 'epic' ? (
+      ) : view === 'epic' || view === 'priority' ? (
         <BoardSwimlanes
           beads={beads}
           search={search}
           priorities={priorities}
           ready={ready}
           sort={sort}
+          groupBy={view}
           onOpen={openBead}
           applyDrop={applyDrop}
         />

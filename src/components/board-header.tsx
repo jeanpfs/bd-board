@@ -27,7 +27,7 @@ import { PRIORITIES, SORT_OPTIONS } from '@/lib/sort'
 import type { LucideIcon } from 'lucide-react'
 import type { SortKey } from '@/lib/sort'
 
-export type BoardView = 'status' | 'epic'
+export type BoardView = 'status' | 'epic' | 'priority'
 export type ProjectTab = 'board' | 'knowledge'
 
 interface BoardHeaderProps {
@@ -46,8 +46,9 @@ interface BoardHeaderProps {
 }
 
 const VIEWS: { key: BoardView; label: string; icon: LucideIcon }[] = [
-  { key: 'status', label: 'Status', icon: Columns3 },
   { key: 'epic', label: 'Epics', icon: Layers },
+  { key: 'priority', label: 'Priority', icon: SlidersHorizontal },
+  { key: 'status', label: 'Status', icon: Columns3 },
 ]
 
 const PRIORITY_HINT: Record<number, string> = {

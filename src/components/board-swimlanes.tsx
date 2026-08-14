@@ -21,11 +21,20 @@ import { EpicProgress } from '@/components/epic-progress'
 import { StatusColumnHeader } from '@/components/status-column-header'
 import { cn } from '@/lib/utils'
 import { isEpic, mapStatus } from '@/lib/types'
-import { beadMatches, compareBeads } from '@/lib/sort'
+import {
+  PRIORITIES,
+  PRIORITY_TEXT_CLASS,
+  PRIORITY_WORD,
+  beadMatches,
+  compareBeads,
+} from '@/lib/sort'
 
+import type { ReactNode } from 'react'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import type { SortKey } from '@/lib/sort'
 import type { Bead, BeadColumn } from '@/lib/types'
+
+export type SwimlaneGroup = 'epic' | 'priority'
 
 interface BoardSwimlanesProps {
   beads: Bead[]
@@ -33,8 +42,14 @@ interface BoardSwimlanesProps {
   priorities: number[]
   ready: boolean
   sort: SortKey
+  groupBy: SwimlaneGroup
   onOpen: (bead: Bead) => void
   applyDrop: (activeId: string, toColumn: BeadColumn) => void
+}
+
+const PRIORITY_HINT: Record<number, string> = {
+  0: 'highest',
+  4: 'lowest',
 }
 
 const COLUMN_KEYS: BeadColumn[] = ['open', 'in_progress', 'blocked', 'closed']
@@ -104,7 +119,7 @@ function SwimLane({
   defaultOpen = true,
 }: {
   epic?: Bead
-  title?: string
+  title?: ReactNode
   childBeads: Bead[]
   sort: SortKey
   onOpen: (bead: Bead) => void
@@ -231,51 +246,93 @@ function SwimLane({
   )
 }
 
+interface Lane {
+  key: string
+  epic?: Bead
+  title?: ReactNode
+  children: Bead[]
+}
+
 export function BoardSwimlanes({
   beads,
   search,
   priorities,
   ready,
   sort,
+  groupBy,
   onOpen,
   applyDrop,
 }: BoardSwimlanesProps) {
-  const { lanes, noEpic, totals, hasAny } = useMemo(() => {
+  const { lanes, totals, hasAny } = useMemo(() => {
     const matches = (b: Bead) => beadMatches(b, search, priorities, ready)
-    const epics = beads.filter(isEpic)
-    const epicIds = new Set(epics.map((e) => e.id))
+    const work = beads.filter((b) => !isEpic(b) && matches(b))
 
-    const childrenByEpic = new Map<string, Bead[]>()
-    for (const b of beads) {
-      if (b.parent && epicIds.has(b.parent) && matches(b)) {
-        const list = childrenByEpic.get(b.parent) ?? []
-        list.push(b)
-        childrenByEpic.set(b.parent, list)
+    let builtLanes: Lane[]
+    if (groupBy === 'priority') {
+      builtLanes = PRIORITIES.map((p) => ({
+        key: `p${p}`,
+        title: (
+          <>
+            <span
+              className={cn(
+                'rounded-[4px] px-1.5 py-px font-mono text-[11px] font-semibold ring-1 ring-inset ring-current',
+                PRIORITY_TEXT_CLASS[p],
+              )}
+            >
+              P{p}
+            </span>
+            <span className="text-foreground">{PRIORITY_WORD[p]}</span>
+            {PRIORITY_HINT[p] ? (
+              <span className="text-[11.5px] text-faint">
+                · {PRIORITY_HINT[p]}
+              </span>
+            ) : null}
+          </>
+        ),
+        children: work.filter((b) => b.priority === p),
+      })).filter((lane) => lane.children.length > 0)
+    } else {
+      const epics = beads.filter(isEpic)
+      const epicIds = new Set(epics.map((e) => e.id))
+
+      const childrenByEpic = new Map<string, Bead[]>()
+      for (const b of work) {
+        if (b.parent && epicIds.has(b.parent)) {
+          const list = childrenByEpic.get(b.parent) ?? []
+          list.push(b)
+          childrenByEpic.set(b.parent, list)
+        }
       }
+
+      const epicOrder = [...epics].sort(compareBeads('priority'))
+      const epicLanes = epicOrder
+        .map((epic) => ({
+          key: epic.id,
+          epic,
+          children: childrenByEpic.get(epic.id) ?? [],
+        }))
+        .filter((lane) => lane.children.length > 0)
+
+      const orphans = work.filter((b) => !b.parent || !epicIds.has(b.parent))
+
+      builtLanes =
+        orphans.length > 0
+          ? [
+              { key: 'no-epic', title: 'No epic', children: orphans },
+              ...epicLanes,
+            ]
+          : epicLanes
     }
-
-    const epicOrder = [...epics].sort(compareBeads('priority'))
-    const builtLanes = epicOrder
-      .map((epic) => ({ epic, children: childrenByEpic.get(epic.id) ?? [] }))
-      .filter((lane) => lane.children.length > 0)
-
-    const orphans = beads.filter(
-      (b) => !isEpic(b) && (!b.parent || !epicIds.has(b.parent)) && matches(b),
-    )
 
     const totalByColumn = emptyByColumn()
-    for (const b of beads) {
-      if (isEpic(b) || !matches(b)) continue
-      totalByColumn[mapStatus(b.status).column].push(b)
-    }
+    for (const b of work) totalByColumn[mapStatus(b.status).column].push(b)
 
     return {
       lanes: builtLanes,
-      noEpic: orphans,
       totals: totalByColumn,
-      hasAny: builtLanes.length > 0 || orphans.length > 0,
+      hasAny: builtLanes.length > 0,
     }
-  }, [beads, search, priorities, ready])
+  }, [beads, search, priorities, ready, groupBy])
 
   if (!hasAny) {
     return (
@@ -301,20 +358,11 @@ export function BoardSwimlanes({
       </div>
 
       <div className="flex flex-col gap-3.5">
-        {noEpic.length > 0 ? (
-          <SwimLane
-            title="No epic"
-            childBeads={noEpic}
-            sort={sort}
-            onOpen={onOpen}
-            applyDrop={applyDrop}
-            defaultOpen
-          />
-        ) : null}
         {lanes.map((lane) => (
           <SwimLane
-            key={lane.epic.id}
+            key={lane.key}
             epic={lane.epic}
+            title={lane.title}
             childBeads={lane.children}
             sort={sort}
             onOpen={onOpen}
