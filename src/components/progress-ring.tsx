@@ -15,7 +15,14 @@ export function ProgressRing({
   const offset = circumference * (1 - pct / 100)
 
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
+    <div
+      className="relative shrink-0"
+      style={{ width: size, height: size }}
+      role="img"
+      aria-label={
+        value === null ? 'No completion data' : `${Math.round(pct)}% complete`
+      }
+    >
       <svg
         width={size}
         height={size}
@@ -29,7 +36,7 @@ export function ProgressRing({
           r={radius}
           fill="none"
           strokeWidth={stroke}
-          className="stroke-foreground/10"
+          className="stroke-white/8"
         />
         {value !== null ? (
           <circle
@@ -45,7 +52,10 @@ export function ProgressRing({
           />
         ) : null}
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold tabular-nums text-foreground">
+      <span
+        className="absolute inset-0 flex items-center justify-center font-mono text-xs font-[550] tabular-nums text-foreground"
+        aria-hidden="true"
+      >
         {value === null ? '—' : `${Math.round(pct)}%`}
       </span>
     </div>
