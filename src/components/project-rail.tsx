@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { BookOpen, Columns3, Folder, X } from 'lucide-react'
 
 import { AppIcon } from '@/components/app-icon'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { getBeads, getProjects, isDesktopApp } from '@/lib/server'
 import { getStoredIdentity, setStoredIdentity } from '@/lib/identity'
@@ -218,15 +219,16 @@ export function ProjectRail() {
                       {mineCount}
                     </span>
                   </Link>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
                     onClick={() => chooseIdentity('')}
                     aria-label="Forget who I am"
                     title={`Signed in as ${identity}`}
-                    className="flex size-5 shrink-0 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none group-hover/mine:opacity-100"
+                    className="size-5 shrink-0 text-faint opacity-0 hover:bg-transparent hover:text-foreground focus-visible:opacity-100 group-hover/mine:opacity-100"
                   >
                     <X className="size-3" aria-hidden="true" />
-                  </button>
+                  </Button>
                 </li>
               ) : assigneeOptions.length > 0 ? (
                 <li className="px-2">
