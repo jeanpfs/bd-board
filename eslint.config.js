@@ -15,6 +15,25 @@ export default [
     },
   },
   {
+    files: ['src/**/*.tsx'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "JSXOpeningElement[name.name='button']",
+          message:
+            'Raw <button> is not allowed outside src/components/ui/. Use <Button>, <Badge>, or <InteractiveRow> from @/components/ui instead.',
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/components/ui/**/*.tsx'],
+    rules: {
+      'no-restricted-syntax': 'off',
+    },
+  },
+  {
     ignores: [
       '.agents/**',
       '.beads/**',
