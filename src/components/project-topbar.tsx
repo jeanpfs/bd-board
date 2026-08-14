@@ -1,6 +1,6 @@
 import { Link, useParams, useSearch } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { BookOpen, Columns3 } from 'lucide-react'
+import { BookOpen, Columns3, ListTree } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { getProjects } from '@/lib/server'
@@ -10,6 +10,7 @@ import type { ProjectTab } from '@/components/board-header'
 
 const TABS: { key: ProjectTab; label: string; icon: LucideIcon }[] = [
   { key: 'board', label: 'Board', icon: Columns3 },
+  { key: 'hierarchy', label: 'Hierarchy', icon: ListTree },
   { key: 'knowledge', label: 'Knowledge', icon: BookOpen },
 ]
 

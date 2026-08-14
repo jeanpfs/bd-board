@@ -17,6 +17,7 @@ import {
   Loader2,
   MessageSquare,
   Pencil,
+  Plus,
   Trash2,
   Waypoints,
 } from 'lucide-react'
@@ -31,6 +32,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { CreateBeadDialog } from '@/components/create-bead-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { InteractiveRow } from '@/components/ui/interactive-row'
@@ -227,10 +229,12 @@ function SectionHeader({
   icon: Icon,
   label,
   trailing,
+  actions,
 }: {
   icon: LucideIcon
   label: string
   trailing?: ReactNode
+  actions?: ReactNode
 }) {
   return (
     <div className="mb-2.5 flex items-center gap-1.5 text-muted-foreground">
@@ -238,9 +242,14 @@ function SectionHeader({
       <h3 className="font-mono text-[10.5px] font-medium tracking-[0.09em] uppercase">
         {label}
       </h3>
-      {trailing != null ? (
-        <span className="ml-auto font-mono text-[11px] tabular-nums text-faint">
-          {trailing}
+      {trailing != null || actions ? (
+        <span className="ml-auto flex items-center gap-2">
+          {trailing != null ? (
+            <span className="font-mono text-[11px] tabular-nums text-faint">
+              {trailing}
+            </span>
+          ) : null}
+          {actions}
         </span>
       ) : null}
     </div>
@@ -716,6 +725,7 @@ export function BeadDetailModal({
   const [comment, setComment] = useState('')
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [subtaskOpen, setSubtaskOpen] = useState(false)
 
   const detailQuery = useQuery({
     queryKey: ['bead', project, bead?.id],
@@ -880,6 +890,17 @@ export function BeadDetailModal({
                           icon={ListTree}
                           label="Subtasks"
                           trailing={`${doneChildren}/${childBeads.length} completed`}
+                          actions={
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 gap-1 px-1.5 text-[11px]"
+                              onClick={() => setSubtaskOpen(true)}
+                            >
+                              <Plus className="size-3" aria-hidden="true" />
+                              Subtask
+                            </Button>
+                          }
                         />
                         {childBeads.length === 0 ? (
                           <p className="text-xs text-muted-foreground/70">
@@ -1257,6 +1278,16 @@ export function BeadDetailModal({
           open={deleteOpen}
           onOpenChange={setDeleteOpen}
           onDeleted={() => onOpenChange(false)}
+        />
+      ) : null}
+
+      {bead ? (
+        <CreateBeadDialog
+          project={project}
+          epics={[]}
+          open={subtaskOpen}
+          onOpenChange={setSubtaskOpen}
+          lockedParent={{ id: bead.id, title: bead.title }}
         />
       ) : null}
     </>

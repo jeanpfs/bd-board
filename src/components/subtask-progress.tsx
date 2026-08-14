@@ -2,7 +2,7 @@ import { mapStatus } from '@/lib/types'
 
 import type { Bead, BeadColumn } from '@/lib/types'
 
-interface EpicProgressProps {
+interface SubtaskProgressProps {
   childBeads: Bead[]
   showDots?: boolean
   className?: string
@@ -19,17 +19,17 @@ function columnOf(bead: Bead): BeadColumn {
   return mapStatus(bead.status).column
 }
 
-export function EpicProgress({
+export function SubtaskProgress({
   childBeads,
   showDots = true,
   className,
-}: EpicProgressProps) {
+}: SubtaskProgressProps) {
   const total = childBeads.length
 
   if (total === 0) {
     return (
       <span className="block text-[0.7rem] text-muted-foreground/70">
-        no child tasks
+        no subtasks
       </span>
     )
   }

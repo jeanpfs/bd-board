@@ -17,7 +17,7 @@ import {
 import { ChevronDown, ChevronRight, Layers } from 'lucide-react'
 
 import { BeadCard } from '@/components/bead-card'
-import { EpicProgress } from '@/components/epic-progress'
+import { SubtaskProgress } from '@/components/subtask-progress'
 import { StatusColumnHeader } from '@/components/status-column-header'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -45,6 +45,7 @@ interface BoardSwimlanesProps {
   assignee: string
   sort: SortKey
   groupBy: SwimlaneGroup
+  nested?: boolean
   onOpen: (bead: Bead) => void
   applyDrop: (activeId: string, toColumn: BeadColumn) => void
 }
@@ -81,10 +82,12 @@ function LaneCell({
   column,
   beads,
   onOpen,
+  nested,
 }: {
   column: BeadColumn
   beads: Bead[]
   onOpen: (bead: Bead) => void
+  nested: boolean
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column })
   const ids = useMemo(() => beads.map((b) => b.id), [beads])
@@ -99,7 +102,7 @@ function LaneCell({
     >
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
         {beads.map((bead) => (
-          <BeadCard key={bead.id} bead={bead} onOpen={onOpen} />
+          <BeadCard key={bead.id} bead={bead} onOpen={onOpen} nested={nested} />
         ))}
       </SortableContext>
       {beads.length === 0 ? (
@@ -116,6 +119,7 @@ function SwimLane({
   title,
   childBeads,
   sort,
+  nested,
   onOpen,
   applyDrop,
   defaultOpen = true,
@@ -124,6 +128,7 @@ function SwimLane({
   title?: ReactNode
   childBeads: Bead[]
   sort: SortKey
+  nested: boolean
   onOpen: (bead: Bead) => void
   applyDrop: (activeId: string, toColumn: BeadColumn) => void
   defaultOpen?: boolean
@@ -210,7 +215,7 @@ function SwimLane({
         <span className="ml-auto flex shrink-0 items-center gap-3">
           {epic ? (
             <span className="hidden w-30 sm:block">
-              <EpicProgress childBeads={childBeads} showDots={false} />
+              <SubtaskProgress childBeads={childBeads} showDots={false} />
             </span>
           ) : null}
           <span className="font-mono text-[11.5px] tabular-nums text-muted-foreground">
@@ -234,6 +239,7 @@ function SwimLane({
                 column={key}
                 beads={byColumn[key]}
                 onOpen={onOpen}
+                nested={nested}
               />
             ))}
           </div>
@@ -263,13 +269,23 @@ export function BoardSwimlanes({
   assignee,
   sort,
   groupBy,
+  nested = false,
   onOpen,
   applyDrop,
 }: BoardSwimlanesProps) {
   const { lanes, totals, hasAny } = useMemo(() => {
     const matches = (b: Bead) =>
       beadMatches(b, search, priorities, ready, assignee)
-    const work = beads.filter((b) => !isEpic(b) && matches(b))
+    const epicIds = new Set(beads.filter(isEpic).map((e) => e.id))
+    // In nested mode, children of a non-epic parent are pulled out of the
+    // lane grid and shown inline inside their parent's card instead — but an
+    // epic's direct children keep grouping into the epic's lane as usual,
+    // since epics are lane headers here, not cards, and have nowhere to nest into.
+    const isNestedAway = (b: Bead) =>
+      nested && !!b.parent && !epicIds.has(b.parent)
+    const work = beads.filter(
+      (b) => !isEpic(b) && matches(b) && !isNestedAway(b),
+    )
 
     let builtLanes: Lane[]
     if (groupBy === 'priority') {
@@ -297,7 +313,6 @@ export function BoardSwimlanes({
       })).filter((lane) => lane.children.length > 0)
     } else {
       const epics = beads.filter(isEpic)
-      const epicIds = new Set(epics.map((e) => e.id))
 
       const childrenByEpic = new Map<string, Bead[]>()
       for (const b of work) {
@@ -336,7 +351,7 @@ export function BoardSwimlanes({
       totals: totalByColumn,
       hasAny: builtLanes.length > 0,
     }
-  }, [beads, search, priorities, ready, assignee, groupBy])
+  }, [beads, search, priorities, ready, assignee, groupBy, nested])
 
   if (!hasAny) {
     return (
@@ -369,6 +384,7 @@ export function BoardSwimlanes({
             title={lane.title}
             childBeads={lane.children}
             sort={sort}
+            nested={nested}
             onOpen={onOpen}
             applyDrop={applyDrop}
           />

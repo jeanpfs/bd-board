@@ -31,6 +31,9 @@ interface CreateBeadDialogProps {
   epics: Bead[]
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** When set, the bead is created as a subtask of this bead: the parent
+   * picker is hidden and locked to this id instead of being user-selectable. */
+  lockedParent?: { id: string; title: string }
 }
 
 const TYPES = [
@@ -47,18 +50,21 @@ export function CreateBeadDialog({
   epics,
   open,
   onOpenChange,
+  lockedParent,
 }: CreateBeadDialogProps) {
   const queryClient = useQueryClient()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [type, setType] = useState('task')
-  const [parent, setParent] = useState(NO_PARENT)
+  const [parent, setParent] = useState(
+    lockedParent ? lockedParent.id : NO_PARENT,
+  )
 
   function reset() {
     setTitle('')
     setDescription('')
     setType('task')
-    setParent(NO_PARENT)
+    setParent(lockedParent ? lockedParent.id : NO_PARENT)
   }
 
   const mutation = useMutation({
@@ -69,7 +75,11 @@ export function CreateBeadDialog({
           title: title.trim(),
           description: description.trim() || undefined,
           type,
-          parent: type !== 'epic' && parent !== NO_PARENT ? parent : undefined,
+          parent: lockedParent
+            ? lockedParent.id
+            : type !== 'epic' && parent !== NO_PARENT
+              ? parent
+              : undefined,
         },
       }),
     onSuccess: (res) => {
@@ -95,10 +105,23 @@ export function CreateBeadDialog({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New bead</DialogTitle>
+          <DialogTitle>{lockedParent ? 'New subtask' : 'New bead'}</DialogTitle>
           <DialogDescription>
-            Creates an issue in project{' '}
-            <span className="font-mono text-foreground">{project}</span>.
+            {lockedParent ? (
+              <>
+                Creates a subtask of{' '}
+                <span className="font-mono text-foreground">
+                  {lockedParent.id}
+                </span>{' '}
+                in project{' '}
+                <span className="font-mono text-foreground">{project}</span>.
+              </>
+            ) : (
+              <>
+                Creates an issue in project{' '}
+                <span className="font-mono text-foreground">{project}</span>.
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -142,38 +165,52 @@ export function CreateBeadDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TYPES.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
+                  {TYPES.filter((t) => !lockedParent || t.value !== 'epic').map(
+                    (t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ),
+                  )}
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="bead-parent">Parent epic</Label>
-              <Select
-                value={parent}
-                onValueChange={setParent}
-                disabled={type === 'epic'}
-              >
-                <SelectTrigger id="bead-parent" className="w-full">
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent className="max-w-72">
-                  <SelectItem value={NO_PARENT}>None</SelectItem>
-                  {epics.map((epic) => (
-                    <SelectItem key={epic.id} value={epic.id}>
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {epic.id}
-                      </span>
-                      <span className="ml-1.5 truncate">{epic.title}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {lockedParent ? (
+              <div className="flex flex-col gap-1.5">
+                <Label>Parent</Label>
+                <div className="flex h-9 items-center rounded-md border border-input bg-muted/40 px-3 text-sm text-muted-foreground">
+                  <span className="truncate">
+                    <span className="font-mono text-xs">{lockedParent.id}</span>{' '}
+                    {lockedParent.title}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="bead-parent">Parent epic</Label>
+                <Select
+                  value={parent}
+                  onValueChange={setParent}
+                  disabled={type === 'epic'}
+                >
+                  <SelectTrigger id="bead-parent" className="w-full">
+                    <SelectValue placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent className="max-w-72">
+                    <SelectItem value={NO_PARENT}>None</SelectItem>
+                    {epics.map((epic) => (
+                      <SelectItem key={epic.id} value={epic.id}>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {epic.id}
+                        </span>
+                        <span className="ml-1.5 truncate">{epic.title}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           <DialogFooter>

@@ -16,6 +16,7 @@ interface KanbanColumnProps {
   beads: Bead[]
   onOpen: (bead: Bead) => void
   initialLimit?: number
+  nested?: boolean
 }
 
 export function KanbanColumn({
@@ -24,6 +25,7 @@ export function KanbanColumn({
   beads,
   onOpen,
   initialLimit = 40,
+  nested = false,
 }: KanbanColumnProps) {
   const [expanded, setExpanded] = useState(false)
   const { setNodeRef, isOver } = useDroppable({ id: column })
@@ -63,7 +65,12 @@ export function KanbanColumn({
                 strategy={verticalListSortingStrategy}
               >
                 {visible.map((bead) => (
-                  <BeadCard key={bead.id} bead={bead} onOpen={onOpen} />
+                  <BeadCard
+                    key={bead.id}
+                    bead={bead}
+                    onOpen={onOpen}
+                    nested={nested}
+                  />
                 ))}
               </SortableContext>
 

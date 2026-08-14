@@ -18,6 +18,7 @@ import { BoardSwimlanes } from '@/components/board-swimlanes'
 import { KanbanColumn } from '@/components/kanban-column'
 import { BeadCard } from '@/components/bead-card'
 import { BeadDetailModal } from '@/components/bead-detail-modal'
+import { HierarchyView } from '@/components/hierarchy-view'
 import { KnowledgeDetailModal } from '@/components/knowledge-detail-modal'
 import { CreateBeadDialog } from '@/components/create-bead-dialog'
 import { ProjectKnowledgePanel } from '@/components/project-knowledge-panel'
@@ -41,10 +42,11 @@ interface BoardSearch {
   tab?: ProjectTab
   view?: BoardView
   sort?: SortKey
+  nested?: string
 }
 
 const BOARD_VIEWS = new Set(['status', 'epic', 'priority'])
-const PROJECT_TABS = new Set(['board', 'knowledge'])
+const PROJECT_TABS = new Set(['board', 'knowledge', 'hierarchy'])
 const SORT_KEYS = new Set(['priority', 'recent', 'title'])
 
 function parsePriorityParam(value?: string): number[] {
@@ -98,6 +100,7 @@ export const Route = createFileRoute('/p/$project')({
       typeof search.sort === 'string' && SORT_KEYS.has(search.sort)
         ? (search.sort as SortKey)
         : undefined,
+    nested: search.nested === '1' ? '1' : undefined,
   }),
   component: BoardPage,
 })
@@ -132,6 +135,7 @@ function BoardPage() {
   const ready = boardSearch.ready === '1'
   const assignee = boardSearch.assignee ?? ''
   const sort = boardSearch.sort ?? 'priority'
+  const nested = boardSearch.nested === '1'
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -159,10 +163,12 @@ function BoardPage() {
 
   const filtered = useMemo(
     () =>
-      beads.filter((bead) =>
-        beadMatches(bead, search, priorities, ready, assignee),
+      beads.filter(
+        (bead) =>
+          beadMatches(bead, search, priorities, ready, assignee) &&
+          (!nested || !bead.parent),
       ),
-    [beads, search, priorities, ready, assignee],
+    [beads, search, priorities, ready, assignee, nested],
   )
 
   const columns = useMemo(() => {
@@ -281,6 +287,10 @@ function BoardPage() {
           }
           sort={sort}
           setSort={(value) => patchBoardSearch({ sort: value })}
+          nested={nested}
+          setNested={(value) =>
+            patchBoardSearch({ nested: value ? '1' : undefined })
+          }
           onCreate={() => setCreateOpen(true)}
         />
       ) : null}
@@ -303,6 +313,8 @@ function BoardPage() {
           onOpenBead={openBead}
           onOpenKnowledge={openKnowledge}
         />
+      ) : tab === 'hierarchy' ? (
+        <HierarchyView beads={beads} onOpen={openBead} />
       ) : view === 'epic' || view === 'priority' ? (
         <BoardSwimlanes
           beads={beads}
@@ -312,6 +324,7 @@ function BoardPage() {
           assignee={assignee}
           sort={sort}
           groupBy={view}
+          nested={nested}
           onOpen={openBead}
           applyDrop={applyDrop}
         />
@@ -331,6 +344,7 @@ function BoardPage() {
                 label={COLUMN_LABEL[c.key]}
                 beads={columns[c.key]}
                 onOpen={openBead}
+                nested={nested}
               />
             ))}
           </div>
