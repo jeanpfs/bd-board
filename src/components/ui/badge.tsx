@@ -33,7 +33,8 @@ const badgeVariants = cva(
 )
 
 interface BadgeProps
-  extends React.HTMLAttributes<HTMLElement>,
+  extends
+    React.HTMLAttributes<HTMLElement>,
     VariantProps<typeof badgeVariants> {
   asChild?: boolean
   onClick?: React.MouseEventHandler
@@ -50,7 +51,11 @@ function Badge({
   children,
   ...props
 }: BadgeProps) {
-  const Comp: React.ElementType = asChild ? Slot.Root : onClick ? 'button' : 'span'
+  const Comp: React.ElementType = asChild
+    ? Slot.Root
+    : onClick
+      ? 'button'
+      : 'span'
 
   return (
     <Comp

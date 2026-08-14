@@ -27,7 +27,8 @@ const interactiveRowVariants = cva(
 )
 
 interface InteractiveRowProps
-  extends React.ComponentProps<'button'>,
+  extends
+    React.ComponentProps<'button'>,
     VariantProps<typeof interactiveRowVariants> {
   active?: boolean
 }
