@@ -38,6 +38,7 @@ interface BadgeProps
   asChild?: boolean
   onClick?: React.MouseEventHandler
   onRemove?: () => void
+  disabled?: boolean
 }
 
 function Badge({
