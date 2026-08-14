@@ -7,6 +7,7 @@ import {
   AlignLeft,
   AlertTriangle,
   Ban,
+  BookOpen,
   ChevronRight,
   CircleCheck,
   CornerUpLeft,
@@ -45,9 +46,16 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn, initials } from '@/lib/utils'
 import { COLUMNS, groupBeadLinks, isEpic, mapStatus } from '@/lib/types'
 import {
+  KNOWLEDGE_TYPE_BG_CLASS as K_BG_CLASS,
+  KNOWLEDGE_TYPE_DOT_CLASS as K_DOT_CLASS,
+  KNOWLEDGE_TYPE_LABEL,
+  KNOWLEDGE_TYPE_TEXT_CLASS as K_TEXT_CLASS,
+} from '@/lib/knowledge'
+import {
   addCommentFn,
   deleteBeadFn,
   getBeadDetailFn,
+  getProjectKnowledgeFn,
   getWriteConfigFn,
   previewDeleteBeadFn,
   updateBeadFn,
@@ -65,6 +73,7 @@ interface BeadDetailModalProps {
   onOpenChange: (open: boolean) => void
   onOpenBead: (bead: Bead) => void
   resolveBead: (id: string) => Bead | undefined
+  onOpenKnowledge: (id: string) => void
 }
 
 const COLUMN_LABEL: Record<BeadColumn, string> = {
@@ -101,6 +110,13 @@ const DOT_CLASS: Record<BeadColumn, string> = {
   in_progress: 'bg-status-progress',
   blocked: 'bg-status-blocked',
   closed: 'bg-status-closed',
+}
+
+const COLUMN_TEXT: Record<BeadColumn, string> = {
+  open: 'text-status-open',
+  in_progress: 'text-status-progress',
+  blocked: 'text-status-blocked',
+  closed: 'text-status-closed',
 }
 
 const EDIT_TYPES = [
@@ -172,8 +188,17 @@ function LinkedBeadList({
               </span>
               <span className="ml-auto flex shrink-0 items-center gap-1.5">
                 {note ? (
-                  <span className="rounded-[4px] bg-white/7 px-1.5 py-px font-mono text-[10px] tracking-[0.06em] text-muted-foreground uppercase">
+                  <span className="font-mono text-[10.5px] tracking-[0.05em] text-muted-foreground uppercase">
                     {note}
+                  </span>
+                ) : column ? (
+                  <span
+                    className={cn(
+                      'font-mono text-[10.5px] tracking-[0.05em] uppercase',
+                      COLUMN_TEXT[column],
+                    )}
+                  >
+                    {COLUMN_LABEL[column]}
                   </span>
                 ) : null}
                 {target ? (
@@ -702,6 +727,7 @@ export function BeadDetailModal({
   onOpenChange,
   onOpenBead,
   resolveBead,
+  onOpenKnowledge,
 }: BeadDetailModalProps) {
   const queryClient = useQueryClient()
   const [comment, setComment] = useState('')
@@ -720,6 +746,20 @@ export function BeadDetailModal({
     queryFn: () => getWriteConfigFn(),
     staleTime: Infinity,
   })
+
+  const knowledgeQuery = useQuery({
+    queryKey: ['project-knowledge', project],
+    queryFn: () => getProjectKnowledgeFn({ data: { project } }),
+    enabled: open && !!bead,
+    staleTime: 4000,
+  })
+  const beadKnowledge = useMemo(
+    () =>
+      (knowledgeQuery.data?.knowledge ?? []).filter(
+        (entry) => entry.bead_id === bead?.id,
+      ),
+    [knowledgeQuery.data, bead?.id],
+  )
 
   const detail = detailQuery.data
   const column: BeadColumn = bead ? mapStatus(bead.status).column : 'open'
@@ -913,6 +953,60 @@ export function BeadDetailModal({
                             resolveBead={resolveBead}
                             onOpenBead={onOpenBead}
                           />
+                        </div>
+                      </section>
+                    ) : null}
+
+                    {beadKnowledge.length > 0 ? (
+                      <section>
+                        <SectionHeader
+                          icon={BookOpen}
+                          label="Knowledge recorded here"
+                          trailing={beadKnowledge.length}
+                        />
+                        <div className="flex flex-col gap-1.5">
+                          {beadKnowledge.map((entry) => (
+                            <button
+                              key={entry.id}
+                              type="button"
+                              onClick={() => onOpenKnowledge(entry.id)}
+                              className="flex gap-[11px] rounded-[9px] bg-card px-3 py-2.5 text-left ring-1 ring-inset ring-border transition-colors hover:bg-card-hover hover:ring-ring/40"
+                            >
+                              <span
+                                className={cn(
+                                  'w-0.5 shrink-0 self-stretch rounded-full',
+                                  K_DOT_CLASS[entry.type],
+                                )}
+                                aria-hidden="true"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span
+                                    className={cn(
+                                      'inline-flex items-center gap-[5px] rounded-[4px] px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-[0.08em] uppercase',
+                                      K_BG_CLASS[entry.type],
+                                      K_TEXT_CLASS[entry.type],
+                                    )}
+                                  >
+                                    <span
+                                      className={cn(
+                                        'size-[5px] shrink-0 rounded-full',
+                                        K_DOT_CLASS[entry.type],
+                                      )}
+                                      aria-hidden="true"
+                                    />
+                                    {KNOWLEDGE_TYPE_LABEL[entry.type]}
+                                  </span>
+                                  <span className="ml-auto font-mono text-[10.5px] text-faint">
+                                    {relativeDate(entry.created_at)}
+                                  </span>
+                                </div>
+                                <p className="mt-1.5 line-clamp-2 text-[12.75px] leading-[1.58] text-foreground/90">
+                                  {entry.content}
+                                </p>
+                              </div>
+                            </button>
+                          ))}
                         </div>
                       </section>
                     ) : null}

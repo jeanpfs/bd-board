@@ -22,7 +22,11 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getProjectKnowledgeFn } from '@/lib/server'
-import { KNOWLEDGE_TYPE_LABEL, KNOWLEDGE_TYPES } from '@/lib/knowledge'
+import {
+  KNOWLEDGE_TYPE_DOT_CLASS,
+  KNOWLEDGE_TYPE_LABEL,
+  KNOWLEDGE_TYPES,
+} from '@/lib/knowledge'
 import { cn } from '@/lib/utils'
 
 import type {
@@ -39,6 +43,7 @@ interface ProjectKnowledgePanelProps {
   project: string
   beadsById: Map<string, Bead>
   onOpenBead: (bead: Bead) => void
+  onOpenKnowledge: (id: string) => void
 }
 
 const TYPE_BADGE: Record<KnowledgeType, string> = {
@@ -53,16 +58,6 @@ const TYPE_BADGE: Record<KnowledgeType, string> = {
     'bg-k-must-check/15 text-k-must-check ring-1 ring-inset ring-k-must-check/38',
   deviation:
     'bg-k-deviation/15 text-k-deviation ring-1 ring-inset ring-k-deviation/38',
-}
-
-const KNOWLEDGE_DOT: Record<KnowledgeType, string> = {
-  learned: 'bg-k-learned',
-  decision: 'bg-k-decision',
-  fact: 'bg-k-fact',
-  pattern: 'bg-k-pattern',
-  investigation: 'bg-k-investigation',
-  'must-check': 'bg-k-must-check',
-  deviation: 'bg-k-deviation',
 }
 
 function relativeDate(value?: string): string {
@@ -131,6 +126,7 @@ export function ProjectKnowledgePanel({
   project,
   beadsById,
   onOpenBead,
+  onOpenKnowledge,
 }: ProjectKnowledgePanelProps) {
   const [search, setSearch] = useState('')
   const [type, setType] = useState<TypeFilter>('all')
@@ -254,39 +250,45 @@ export function ProjectKnowledgePanel({
                   return (
                     <li
                       key={entry.id}
-                      className="flex gap-[11px] rounded-[9px] bg-card px-3 py-2.5 ring-1 ring-inset ring-border transition-colors hover:bg-card-hover"
+                      className="flex gap-[11px] rounded-[9px] bg-card ring-1 ring-inset ring-border transition-colors hover:bg-card-hover"
                     >
                       <span
                         className={cn(
                           'w-0.5 shrink-0 self-stretch rounded-full',
-                          KNOWLEDGE_DOT[entry.type],
+                          KNOWLEDGE_TYPE_DOT_CLASS[entry.type],
                         )}
                         aria-hidden="true"
                       />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <TypeBadge type={entry.type} />
-                          <OpenBeadButton
-                            bead={bead}
-                            beadId={entry.bead_id}
-                            onOpenBead={onOpenBead}
-                          />
-                          {entry.created_at ? (
-                            <span className="text-[11.25px] text-faint">
-                              {relativeDate(entry.created_at)}
-                            </span>
-                          ) : null}
-                        </div>
+                      <div className="flex min-w-0 flex-1 items-start gap-2 px-3 py-2.5">
+                        <button
+                          type="button"
+                          onClick={() => onOpenKnowledge(entry.id)}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <TypeBadge type={entry.type} />
+                            {entry.created_at ? (
+                              <span className="text-[11.25px] text-faint">
+                                {relativeDate(entry.created_at)}
+                              </span>
+                            ) : null}
+                          </div>
 
-                        <p className="mt-1.5 text-[12.75px] leading-[1.58] whitespace-pre-wrap text-foreground/90">
-                          {entry.content}
-                        </p>
-
-                        {entry.bead_title ? (
-                          <p className="mt-1.5 truncate text-[11.25px] text-faint">
-                            {entry.bead_title}
+                          <p className="mt-1.5 text-[12.75px] leading-[1.58] whitespace-pre-wrap text-foreground/90">
+                            {entry.content}
                           </p>
-                        ) : null}
+
+                          {entry.bead_title ? (
+                            <p className="mt-1.5 truncate text-[11.25px] text-faint">
+                              {entry.bead_title}
+                            </p>
+                          ) : null}
+                        </button>
+                        <OpenBeadButton
+                          bead={bead}
+                          beadId={entry.bead_id}
+                          onOpenBead={onOpenBead}
+                        />
                       </div>
                     </li>
                   )

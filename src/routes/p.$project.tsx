@@ -18,6 +18,7 @@ import { BoardSwimlanes } from '@/components/board-swimlanes'
 import { KanbanColumn } from '@/components/kanban-column'
 import { BeadCard } from '@/components/bead-card'
 import { BeadDetailModal } from '@/components/bead-detail-modal'
+import { KnowledgeDetailModal } from '@/components/knowledge-detail-modal'
 import { CreateBeadDialog } from '@/components/create-bead-dialog'
 import { ProjectKnowledgePanel } from '@/components/project-knowledge-panel'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,7 @@ import type { Bead, BeadColumn } from '@/lib/types'
 
 interface BoardSearch {
   bead?: string
+  k?: string
   q?: string
   p?: string
   ready?: string
@@ -68,6 +70,10 @@ export const Route = createFileRoute('/p/$project')({
     bead:
       typeof search.bead === 'string' && search.bead.length > 0
         ? search.bead
+        : undefined,
+    k:
+      typeof search.k === 'string' && search.k.length > 0
+        ? search.k
         : undefined,
     q: typeof search.q === 'string' && search.q.trim() ? search.q : undefined,
     p:
@@ -110,6 +116,7 @@ function BoardPage() {
   const [activeBead, setActiveBead] = useState<Bead | null>(null)
 
   const beadParam = boardSearch.bead
+  const knowledgeParam = boardSearch.k
   const search = boardSearch.q ?? ''
   const tab = boardSearch.tab ?? 'board'
   const view = boardSearch.view ?? 'epic'
@@ -174,7 +181,22 @@ function BoardPage() {
   const modalOpen = beadParam !== undefined
 
   function openBead(bead: Bead) {
-    navigate({ to: '.', search: (prev) => ({ ...prev, bead: bead.id }) })
+    navigate({
+      to: '.',
+      search: (prev) => ({ ...prev, bead: bead.id, k: undefined }),
+    })
+  }
+
+  function openKnowledge(id: string) {
+    navigate({
+      to: '.',
+      search: (prev) => ({ ...prev, k: id, bead: undefined }),
+    })
+  }
+
+  function setKnowledgeOpen(next: boolean) {
+    if (!next)
+      navigate({ to: '.', search: (prev) => ({ ...prev, k: undefined }) })
   }
 
   function patchBoardSearch(patch: Partial<BoardSearch>) {
@@ -274,6 +296,7 @@ function BoardPage() {
           project={project}
           beadsById={beadsById}
           onOpenBead={openBead}
+          onOpenKnowledge={openKnowledge}
         />
       ) : view === 'epic' ? (
         <BoardSwimlanes
@@ -319,6 +342,16 @@ function BoardPage() {
         onOpenChange={setModalOpen}
         onOpenBead={openBead}
         resolveBead={(id) => beadsById.get(id)}
+        onOpenKnowledge={openKnowledge}
+      />
+      <KnowledgeDetailModal
+        project={project}
+        knowledgeId={knowledgeParam ?? null}
+        open={knowledgeParam !== undefined}
+        onOpenChange={setKnowledgeOpen}
+        beadsById={beadsById}
+        onOpenBead={openBead}
+        onOpenKnowledge={openKnowledge}
       />
       <CreateBeadDialog
         project={project}
