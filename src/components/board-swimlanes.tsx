@@ -31,6 +31,7 @@ interface BoardSwimlanesProps {
   beads: Bead[]
   search: string
   priorities: number[]
+  ready: boolean
   sort: SortKey
   onOpen: (bead: Bead) => void
   applyDrop: (activeId: string, toColumn: BeadColumn) => void
@@ -234,12 +235,13 @@ export function BoardSwimlanes({
   beads,
   search,
   priorities,
+  ready,
   sort,
   onOpen,
   applyDrop,
 }: BoardSwimlanesProps) {
   const { lanes, noEpic, totals, hasAny } = useMemo(() => {
-    const matches = (b: Bead) => beadMatches(b, search, priorities)
+    const matches = (b: Bead) => beadMatches(b, search, priorities, ready)
     const epics = beads.filter(isEpic)
     const epicIds = new Set(epics.map((e) => e.id))
 
@@ -273,7 +275,7 @@ export function BoardSwimlanes({
       totals: totalByColumn,
       hasAny: builtLanes.length > 0 || orphans.length > 0,
     }
-  }, [beads, search, priorities])
+  }, [beads, search, priorities, ready])
 
   if (!hasAny) {
     return (

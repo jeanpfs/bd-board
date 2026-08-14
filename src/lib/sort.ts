@@ -1,3 +1,5 @@
+import { groupBeadLinks, mapStatus } from './types'
+
 import type { Bead } from './types'
 
 export type SortKey = 'priority' | 'recent' | 'title'
@@ -39,11 +41,21 @@ export function compareBeads(sort: SortKey): (a: Bead, b: Bead) => number {
   }
 }
 
+/** Ready = open and not waiting on an unresolved dependency. */
+export function isReady(bead: Bead): boolean {
+  return (
+    mapStatus(bead.status).column === 'open' &&
+    groupBeadLinks(bead.links).blockedBy.length === 0
+  )
+}
+
 export function beadMatches(
   bead: Bead,
   search: string,
   priorities: number[],
+  ready = false,
 ): boolean {
+  if (ready && !isReady(bead)) return false
   if (
     priorities.length > 0 &&
     !priorities.includes(clampPriority(bead.priority))

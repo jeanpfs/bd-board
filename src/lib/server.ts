@@ -21,7 +21,7 @@ import type {
   ProjectKnowledge,
 } from './types.ts'
 
-function isDesktopApp(): boolean {
+export function isDesktopApp(): boolean {
   return typeof window !== 'undefined' && isTauri()
 }
 

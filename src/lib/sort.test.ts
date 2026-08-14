@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { beadMatches, clampPriority, compareBeads, priorityLabel } from './sort'
+import {
+  beadMatches,
+  clampPriority,
+  compareBeads,
+  isReady,
+  priorityLabel,
+} from './sort'
 
 import type { Bead } from './types'
 
@@ -91,5 +97,37 @@ describe('beadMatches', () => {
   it('filters priorities', () => {
     expect(beadMatches(bead({ priority: 0 }), '', [0, 1])).toBe(true)
     expect(beadMatches(bead({ priority: 4 }), '', [0, 1])).toBe(false)
+  })
+
+  it('filters to ready beads when requested', () => {
+    const openUnblocked = bead({ status: 'open' })
+    const openBlocked = bead({
+      status: 'open',
+      links: [{ id: 'bd-board-dep', type: 'blocks', direction: 'outgoing' }],
+    })
+    const inProgress = bead({ status: 'in_progress' })
+
+    expect(beadMatches(openUnblocked, '', [], true)).toBe(true)
+    expect(beadMatches(openBlocked, '', [], true)).toBe(false)
+    expect(beadMatches(inProgress, '', [], true)).toBe(false)
+    expect(beadMatches(openBlocked, '', [], false)).toBe(true)
+  })
+})
+
+describe('isReady', () => {
+  it('is true only for open beads with no unresolved blocked-by link', () => {
+    expect(isReady(bead({ status: 'open' }))).toBe(true)
+    expect(
+      isReady(
+        bead({
+          status: 'open',
+          links: [
+            { id: 'bd-board-dep', type: 'blocks', direction: 'outgoing' },
+          ],
+        }),
+      ),
+    ).toBe(false)
+    expect(isReady(bead({ status: 'blocked' }))).toBe(false)
+    expect(isReady(bead({ status: 'closed' }))).toBe(false)
   })
 })

@@ -33,6 +33,7 @@ interface BoardSearch {
   bead?: string
   q?: string
   p?: string
+  ready?: string
   tab?: ProjectTab
   view?: BoardView
   sort?: SortKey
@@ -72,6 +73,7 @@ export const Route = createFileRoute('/p/$project')({
       typeof search.p === 'string'
         ? serializePriorities(parsePriorityParam(search.p))
         : undefined,
+    ready: search.ready === '1' ? '1' : undefined,
     tab:
       typeof search.tab === 'string' && PROJECT_TABS.has(search.tab)
         ? (search.tab as ProjectTab)
@@ -114,6 +116,7 @@ function BoardPage() {
     () => parsePriorityParam(boardSearch.p),
     [boardSearch.p],
   )
+  const ready = boardSearch.ready === '1'
   const sort = boardSearch.sort ?? 'priority'
 
   const sensors = useSensors(
@@ -148,8 +151,8 @@ function BoardPage() {
   const epics = useMemo(() => beads.filter(isEpic), [beads])
 
   const filtered = useMemo(
-    () => beads.filter((bead) => beadMatches(bead, search, priorities)),
-    [beads, search, priorities],
+    () => beads.filter((bead) => beadMatches(bead, search, priorities, ready)),
+    [beads, search, priorities, ready],
   )
 
   const columns = useMemo(() => {
@@ -231,26 +234,28 @@ function BoardPage() {
 
   return (
     <div className="flex h-[calc(100dvh-6rem)] min-h-0 flex-col">
-      <BoardHeader
-        project={project}
-        beads={tab === 'board' ? filtered : beads}
-        tab={tab}
-        setTab={(value) => patchBoardSearch({ tab: value })}
-        search={search}
-        setSearch={(value) =>
-          patchBoardSearch({ q: value.trim() ? value : undefined })
-        }
-        view={view}
-        setView={(value) => patchBoardSearch({ view: value })}
-        priorities={priorities}
-        setPriorities={(values) =>
-          patchBoardSearch({ p: serializePriorities(values) })
-        }
-        sort={sort}
-        setSort={(value) => patchBoardSearch({ sort: value })}
-        onCreate={() => setCreateOpen(true)}
-        canWrite={canWrite}
-      />
+      {tab === 'board' ? (
+        <BoardHeader
+          search={search}
+          setSearch={(value) =>
+            patchBoardSearch({ q: value.trim() ? value : undefined })
+          }
+          view={view}
+          setView={(value) => patchBoardSearch({ view: value })}
+          priorities={priorities}
+          setPriorities={(values) =>
+            patchBoardSearch({ p: serializePriorities(values) })
+          }
+          ready={ready}
+          setReady={(value) =>
+            patchBoardSearch({ ready: value ? '1' : undefined })
+          }
+          sort={sort}
+          setSort={(value) => patchBoardSearch({ sort: value })}
+          onCreate={() => setCreateOpen(true)}
+          canWrite={canWrite}
+        />
+      ) : null}
 
       {beadsQuery.isLoading ? (
         <BoardSkeleton />
@@ -274,6 +279,7 @@ function BoardPage() {
           beads={beads}
           search={search}
           priorities={priorities}
+          ready={ready}
           sort={sort}
           onOpen={openBead}
           applyDrop={applyDrop}
