@@ -33,6 +33,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { InteractiveRow } from '@/components/ui/interactive-row'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -144,13 +145,11 @@ function LinkedBeadList({
         const column = target ? mapStatus(target.status).column : null
         return (
           <li key={`${id}:${note ?? ''}`}>
-            <button
-              type="button"
+            <InteractiveRow
               disabled={!target}
               onClick={() => {
                 if (target) onOpenBead(target)
               }}
-              className="flex w-full items-center gap-2.5 rounded-[8px] bg-card px-[10px] py-2 text-left ring-1 ring-inset ring-border transition-colors hover:bg-card-hover hover:ring-ring/40 disabled:cursor-default disabled:hover:bg-card disabled:hover:ring-border"
             >
               <span
                 className={cn(
@@ -192,7 +191,7 @@ function LinkedBeadList({
                   />
                 ) : null}
               </span>
-            </button>
+            </InteractiveRow>
           </li>
         )
       })}
@@ -857,10 +856,10 @@ export function BeadDetailModal({
                   </DialogDescription>
 
                   {parentBead ? (
-                    <button
-                      type="button"
+                    <Button
+                      variant="link"
                       onClick={() => onOpenBead(parentBead)}
-                      className="mt-2 inline-flex w-fit max-w-full items-center gap-1.5 rounded text-xs text-muted-foreground transition-colors hover:text-primary-text"
+                      className="mt-2 h-auto w-fit max-w-full gap-1.5 p-0 text-xs text-muted-foreground"
                     >
                       <CornerUpLeft
                         className="size-3 shrink-0"
@@ -869,7 +868,7 @@ export function BeadDetailModal({
                       {isEpic(parentBead) ? 'Epic' : 'Parent'}:{' '}
                       <span className="font-mono">{parentBead.id}</span>
                       <span className="truncate">{parentBead.title}</span>
-                    </button>
+                    </Button>
                   ) : null}
                 </DialogHeader>
 
@@ -943,11 +942,10 @@ export function BeadDetailModal({
                         />
                         <div className="flex flex-col gap-1.5">
                           {beadKnowledge.map((entry) => (
-                            <button
+                            <InteractiveRow
                               key={entry.id}
-                              type="button"
+                              size="cozy"
                               onClick={() => onOpenKnowledge(entry.id)}
-                              className="flex gap-[11px] rounded-[9px] bg-card px-3 py-2.5 text-left ring-1 ring-inset ring-border transition-colors hover:bg-card-hover hover:ring-ring/40"
                             >
                               <span
                                 className={cn(
@@ -982,7 +980,7 @@ export function BeadDetailModal({
                                   {entry.content}
                                 </p>
                               </div>
-                            </button>
+                            </InteractiveRow>
                           ))}
                         </div>
                       </section>
