@@ -18,7 +18,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { InteractiveRow } from '@/components/ui/interactive-row'
 import { getProjectKnowledgeFn } from '@/lib/server'
 import {
   KNOWLEDGE_TYPES,
@@ -87,14 +89,11 @@ function KRow({
   onOpen: () => void
 }) {
   return (
-    <button
-      type="button"
+    <InteractiveRow
+      size="cozy"
       onClick={onOpen}
       disabled={active}
-      className={cn(
-        'flex w-full gap-[11px] rounded-[9px] bg-card px-3 py-2.5 text-left ring-1 ring-inset ring-border transition-colors',
-        active ? 'ring-ring/45' : 'hover:bg-card-hover hover:ring-ring/40',
-      )}
+      active={active}
     >
       <span
         className={cn(
@@ -109,7 +108,7 @@ function KRow({
           {entry.content}
         </p>
       </div>
-    </button>
+    </InteractiveRow>
   )
 }
 
@@ -220,11 +219,11 @@ export function KnowledgeDetailModal({
                   Knowledge entry recorded on {entry.bead_id}
                 </DialogDescription>
 
-                <button
-                  type="button"
+                <Button
+                  variant="link"
                   onClick={() => bead && onOpenBead(bead)}
                   disabled={!bead}
-                  className="mt-2 inline-flex w-fit max-w-full items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-primary-text disabled:hover:text-muted-foreground"
+                  className="mt-2 h-auto w-fit max-w-full gap-1.5 p-0 text-xs text-muted-foreground"
                 >
                   <CornerDownRight
                     className="size-3 shrink-0"
@@ -233,7 +232,7 @@ export function KnowledgeDetailModal({
                   Recorded on
                   <span className="font-mono">{entry.bead_id}</span>
                   <span className="truncate">{entry.bead_title}</span>
-                </button>
+                </Button>
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-[22px] py-[22px]">
@@ -272,11 +271,7 @@ export function KnowledgeDetailModal({
                       </h3>
                     </div>
                     {bead && beadColumn !== null && beadPriority !== null ? (
-                      <button
-                        type="button"
-                        onClick={() => onOpenBead(bead)}
-                        className="flex w-full items-center gap-2.5 rounded-[8px] bg-card px-[10px] py-2 text-left ring-1 ring-inset ring-border transition-colors hover:bg-card-hover hover:ring-ring/40"
-                      >
+                      <InteractiveRow onClick={() => onOpenBead(bead)}>
                         <span
                           className={cn(
                             'size-2 shrink-0 rounded-full',
@@ -298,7 +293,7 @@ export function KnowledgeDetailModal({
                         >
                           P{beadPriority}
                         </span>
-                      </button>
+                      </InteractiveRow>
                     ) : (
                       <p className="text-xs text-muted-foreground/70">
                         Source bead no longer exists.
@@ -461,14 +456,14 @@ export function KnowledgeDetailModal({
                     const target = firstOfType.get(t)
                     const isCurrent = t === entry.type
                     return (
-                      <button
+                      <Badge
                         key={t}
-                        type="button"
+                        variant="outline"
                         disabled={!target || isCurrent}
                         onClick={() => target && onOpenKnowledge(target)}
                         title={`${KNOWLEDGE_TYPE_LABEL[t]} · ${typeCounts.get(t) ?? 0}`}
                         className={cn(
-                          'inline-flex items-center gap-[5px] rounded-[4px] px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-[0.08em] uppercase',
+                          'border-transparent font-mono text-[10px] tracking-[0.08em] uppercase disabled:pointer-events-none disabled:opacity-100',
                           K_BG_CLASS[t],
                           K_TEXT_CLASS[t],
                           isCurrent && 'ring-1 ring-inset ring-current',
@@ -482,7 +477,7 @@ export function KnowledgeDetailModal({
                           aria-hidden="true"
                         />
                         {KNOWLEDGE_TYPE_LABEL[t]} {typeCounts.get(t) ?? 0}
-                      </button>
+                      </Badge>
                     )
                   })}
                 </div>
