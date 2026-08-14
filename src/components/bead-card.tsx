@@ -10,7 +10,6 @@ import {
   Waypoints,
 } from 'lucide-react'
 
-import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { EpicProgress } from '@/components/epic-progress'
 import { cn } from '@/lib/utils'
@@ -26,17 +25,17 @@ interface BeadCardProps {
 }
 
 const PRIORITY_STYLES: Record<number, string> = {
-  0: 'border-status-blocked/40 text-status-blocked',
-  1: 'border-chart-4/40 text-chart-4',
-  2: 'border-border text-muted-foreground',
-  3: 'border-border text-muted-foreground/80',
-  4: 'border-border text-muted-foreground/60',
+  0: 'text-status-blocked',
+  1: 'text-warn',
+  2: 'text-muted-foreground',
+  3: 'text-faint',
+  4: 'text-faint',
 }
 
 const BADGE_TONES: Record<'warning' | 'muted' | 'info', string> = {
-  warning: 'border-chart-4/40 bg-chart-4/10 text-chart-4',
-  muted: 'border-border bg-muted text-muted-foreground',
-  info: 'border-status-progress/40 bg-status-progress/10 text-status-progress',
+  warning: 'bg-warn/16 text-warn',
+  muted: 'bg-white/7 text-muted-foreground',
+  info: 'bg-status-progress/18 text-status-progress',
 }
 
 function initials(name: string): string {
@@ -99,8 +98,8 @@ export function BeadCard({ bead, onOpen, overlay = false }: BeadCardProps) {
       ref={overlay ? undefined : setNodeRef}
       style={style}
       className={cn(
-        'group/card relative rounded-lg bg-card ring-1 ring-foreground/10 transition-colors hover:bg-accent/40 hover:ring-primary/30',
-        epic && 'border-l-2 border-l-primary',
+        'group/card relative rounded-[8px] bg-card shadow-card ring-1 ring-inset ring-border transition-[background-color,box-shadow,transform] duration-[120ms] ease-out hover:-translate-y-px hover:bg-card-hover hover:shadow-[0_4px_14px_-4px_oklch(0_0_0/55%)] hover:ring-ring/45',
+        epic && 'rounded-l-[4px] border-l-2 border-l-primary-text',
         isDragging && !overlay && 'opacity-40',
         overlay && 'shadow-lg ring-primary/40',
       )}
@@ -120,22 +119,22 @@ export function BeadCard({ bead, onOpen, overlay = false }: BeadCardProps) {
       <button
         type="button"
         onClick={() => onOpen(bead)}
-        className="flex w-full cursor-pointer flex-col gap-2 rounded-lg p-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        className="flex w-full cursor-pointer flex-col gap-[7px] rounded-[8px] px-[10px] py-[9px] text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
       >
         <span className="flex items-center gap-1.5 pr-5">
-          <span className="font-mono text-[0.7rem] leading-none text-muted-foreground">
+          <span className="font-mono text-[11px] tracking-[0.01em] text-muted-foreground">
             {bead.id}
           </span>
           <span
             className={cn(
-              'rounded border px-1 py-px text-[0.6rem] font-semibold leading-none tabular-nums',
+              'rounded-[4px] px-1 py-px font-mono text-[10px] leading-[1.5] font-semibold tabular-nums ring-1 ring-inset ring-current',
               PRIORITY_STYLES[priority],
             )}
           >
             P{priority}
           </span>
           {epic ? (
-            <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wide text-primary ring-1 ring-inset ring-primary/25">
+            <span className="inline-flex items-center gap-1 rounded-[4px] bg-primary/30 px-1.5 py-px text-[10px] font-semibold tracking-[0.06em] text-primary-text uppercase ring-1 ring-inset ring-ring/45">
               <Layers className="size-2.5" aria-hidden="true" />
               Epic
             </span>
@@ -143,7 +142,7 @@ export function BeadCard({ bead, onOpen, overlay = false }: BeadCardProps) {
           {badge ? (
             <span
               className={cn(
-                'rounded border px-1.5 py-px text-[0.6rem] font-medium leading-none',
+                'rounded-[4px] px-1.5 py-px text-[10px] font-semibold tracking-[0.06em] uppercase',
                 BADGE_TONES[badge.tone],
               )}
             >
@@ -152,24 +151,23 @@ export function BeadCard({ bead, onOpen, overlay = false }: BeadCardProps) {
           ) : null}
         </span>
 
-        <span className="line-clamp-2 text-sm leading-snug text-foreground">
+        <span className="line-clamp-2 text-[12.75px] leading-[1.45] text-foreground">
           {bead.title}
         </span>
 
         {epic ? <EpicProgress childBeads={childBeads} /> : null}
 
-        <span className="flex items-center gap-2">
-          {labels.slice(0, 3).map((label) => (
-            <Badge
+        <span className="flex items-center gap-1.5">
+          {labels.slice(0, 2).map((label) => (
+            <span
               key={label}
-              variant="outline"
-              className="h-4 max-w-[7rem] truncate px-1.5 text-[0.6rem] font-normal"
+              className="max-w-[92px] truncate rounded-[4px] px-[5px] text-[10.5px] leading-[1.6] text-muted-foreground ring-1 ring-inset ring-border-strong"
             >
               {label}
-            </Badge>
+            </span>
           ))}
 
-          <span className="ml-auto flex items-center gap-2 text-[0.7rem] text-muted-foreground">
+          <span className="ml-auto flex items-center gap-2 font-mono text-[11px] text-muted-foreground tabular-nums">
             {childCount > 0 ? (
               <LinkStat
                 icon={ListTree}
@@ -206,8 +204,11 @@ export function BeadCard({ bead, onOpen, overlay = false }: BeadCardProps) {
               </span>
             ) : null}
             {bead.assignee ? (
-              <Avatar size="sm" className="size-5">
-                <AvatarFallback className="text-[0.55rem]">
+              <Avatar
+                size="sm"
+                className="size-[19px] bg-white/9 ring-1 ring-inset ring-border-strong"
+              >
+                <AvatarFallback className="bg-transparent text-[9px] font-semibold tracking-[0.03em] text-foreground">
                   {initials(bead.assignee)}
                 </AvatarFallback>
               </Avatar>

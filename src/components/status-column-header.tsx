@@ -16,13 +16,6 @@ const DOT_CLASS: Record<BeadColumn, string> = {
   closed: 'bg-status-closed',
 }
 
-const SURFACE_CLASS: Record<BeadColumn, string> = {
-  open: 'border-status-open/20 bg-status-open/10',
-  in_progress: 'border-status-progress/25 bg-status-progress/10',
-  blocked: 'border-status-blocked/25 bg-status-blocked/10',
-  closed: 'border-status-closed/25 bg-status-closed/10',
-}
-
 const COUNT_CLASS: Record<BeadColumn, string> = {
   open: 'text-status-open',
   in_progress: 'text-status-progress',
@@ -39,21 +32,20 @@ export function StatusColumnHeader({
   return (
     <div
       className={cn(
-        'flex min-h-10 min-w-0 items-center gap-2 rounded-lg border px-3 py-2 shadow-sm shadow-black/5',
-        SURFACE_CLASS[column],
+        'flex min-w-0 items-center gap-2 rounded-[8px] bg-canvas px-2.5 py-[7px] ring-1 ring-inset ring-border',
         className,
       )}
     >
       <span
-        className={cn('size-2 shrink-0 rounded-full', DOT_CLASS[column])}
+        className={cn('size-[7px] shrink-0 rounded-full', DOT_CLASS[column])}
         aria-hidden="true"
       />
-      <h2 className="truncate text-sm font-semibold tracking-tight text-foreground">
+      <h2 className="truncate text-[12.5px] font-semibold tracking-[-0.005em] text-foreground">
         {label}
       </h2>
       <span
         className={cn(
-          'ml-auto rounded-md bg-background/75 px-1.5 py-0.5 text-xs font-medium tabular-nums ring-1 ring-inset ring-foreground/10',
+          'ml-auto font-mono text-[11.5px] font-medium tabular-nums',
           COUNT_CLASS[column],
         )}
       >

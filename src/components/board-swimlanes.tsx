@@ -76,7 +76,7 @@ function LaneCell({
     <div
       ref={setNodeRef}
       className={cn(
-        'flex min-h-20 min-w-0 flex-col gap-2 rounded-lg bg-muted/20 p-2 ring-1 ring-inset ring-foreground/5 transition-colors',
+        'flex min-h-19 min-w-0 flex-col gap-2 rounded-[10px] bg-canvas p-2 ring-1 ring-inset ring-white/5 transition-colors',
         isOver && 'bg-primary/5 ring-primary/30',
       )}
     >
@@ -86,7 +86,7 @@ function LaneCell({
         ))}
       </SortableContext>
       {beads.length === 0 ? (
-        <span className="flex flex-1 items-center justify-center py-3 text-[0.7rem] text-muted-foreground/30">
+        <span className="flex flex-1 items-center justify-center py-3 font-mono text-[11px] text-white/22">
           —
         </span>
       ) : null}
@@ -152,13 +152,13 @@ function SwimLane({
 
   return (
     <section className="flex flex-col gap-2">
-      <header className="flex items-center gap-2 rounded-lg bg-card/60 px-2 py-1.5 ring-1 ring-inset ring-foreground/10">
+      <header className="flex items-center gap-2 rounded-[8px] bg-canvas py-1.5 pr-2.5 pl-1.5 ring-1 ring-inset ring-border">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-label={open ? 'Recolher faixa' : 'Expandir faixa'}
-          className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
+          className="flex size-[22px] shrink-0 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-white/8 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
         >
           {open ? (
             <ChevronDown className="size-4" aria-hidden="true" />
@@ -174,29 +174,29 @@ function SwimLane({
             className="flex min-w-0 items-center gap-2 rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           >
             <Layers
-              className="size-3.5 shrink-0 text-primary"
+              className="size-3.5 shrink-0 text-primary-text"
               aria-hidden="true"
             />
-            <span className="font-mono text-[0.7rem] text-muted-foreground">
+            <span className="font-mono text-[11px] text-muted-foreground">
               {epic.id}
             </span>
-            <span className="truncate text-sm font-medium text-foreground hover:text-primary">
+            <span className="truncate text-[13px] font-medium tracking-[-0.005em] text-foreground hover:text-primary-text">
               {epic.title}
             </span>
           </button>
         ) : (
-          <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <span className="flex items-center gap-2 text-[13px] font-medium text-muted-foreground">
             {title}
           </span>
         )}
 
         <span className="ml-auto flex shrink-0 items-center gap-3">
           {epic ? (
-            <span className="hidden w-40 sm:block">
+            <span className="hidden w-30 sm:block">
               <EpicProgress childBeads={childBeads} showDots={false} />
             </span>
           ) : null}
-          <span className="text-xs tabular-nums text-muted-foreground">
+          <span className="font-mono text-[11.5px] tabular-nums text-muted-foreground">
             {done}/{childBeads.length}
           </span>
         </span>
@@ -289,7 +289,7 @@ export function BoardSwimlanes({
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto pb-2">
-      <div className="sticky top-0 z-10 grid grid-cols-1 gap-3 bg-background/95 pt-2 pb-3 backdrop-blur md:grid-cols-2 xl:grid-cols-4 supports-[backdrop-filter]:bg-background/80">
+      <div className="sticky top-0 z-10 grid grid-cols-1 gap-3 bg-background/92 pt-3 pb-2.5 backdrop-blur-[8px] md:grid-cols-2 xl:grid-cols-4">
         {COLUMN_KEYS.map((key) => (
           <StatusColumnHeader
             key={key}
@@ -300,7 +300,7 @@ export function BoardSwimlanes({
         ))}
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3.5">
         {noEpic.length > 0 ? (
           <SwimLane
             title="No epic"
