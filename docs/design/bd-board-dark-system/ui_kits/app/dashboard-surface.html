@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>bd board kit · Dashboard surface</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../assets/bd-dark.css" />
+    <style>
+      body {
+        display: flex;
+        flex-direction: column;
+        height: 100dvh;
+      }
+
+      .kit-bar {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 10px;
+        border-bottom: 1px solid var(--border);
+        padding: 0 16px;
+        height: 48px;
+      }
+
+      .kit-bar a {
+        margin-left: auto;
+        font-size: 12.5px;
+        color: var(--muted-foreground);
+      }
+
+      .kit-bar a:hover {
+        color: var(--foreground);
+      }
+
+      .page {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 24px 24px 48px;
+        width: 100%;
+      }
+
+      .page-head h1 {
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+
+      .page-head p {
+        margin-top: 4px;
+        font-size: 13px;
+        color: var(--muted-foreground);
+      }
+
+      .probe {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 20px 0;
+        border-radius: 10px;
+        background: var(--canvas);
+        padding: 10px 14px;
+        font-size: 12.5px;
+        color: var(--muted-foreground);
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+
+      .probe .sep {
+        color: oklch(1 0 0 / 14%);
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+
+      .stat-tile {
+        border-radius: 12px;
+        background: var(--card);
+        padding: 14px 16px;
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+
+      .stat-tile .k {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+        color: var(--muted-foreground);
+      }
+
+      .stat-tile .v {
+        margin-top: 8px;
+        font-size: 28px;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .stat-tile .d {
+        margin-top: 6px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--faint);
+      }
+
+      .section-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .pcard {
+        display: block;
+        border-radius: 12px;
+        background: var(--card);
+        padding: 16px;
+        box-shadow: inset 0 0 0 1px var(--border), var(--shadow-card);
+        transition:
+          background-color 140ms ease,
+          box-shadow 140ms ease,
+          transform 140ms ease;
+      }
+
+      .pcard:hover {
+        background: var(--card-hover);
+        box-shadow:
+          inset 0 0 0 1px oklch(0.66 0.18 268 / 45%),
+          0 8px 22px -8px oklch(0 0 0 / 60%);
+        transform: translateY(-2px);
+      }
+
+      .pcard h3 {
+        font-size: 15px;
+        font-weight: 550;
+        letter-spacing: -0.01em;
+      }
+
+      .pcard .path {
+        margin-top: 3px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--faint);
+      }
+
+      .pcard .arrow {
+        margin-left: auto;
+        color: transparent;
+        transition: color 140ms ease;
+      }
+
+      .pcard:hover .arrow {
+        color: var(--primary-text);
+      }
+
+      .legend {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px 14px;
+        margin-top: 14px;
+      }
+
+      .legend span.r {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+        color: var(--muted-foreground);
+      }
+
+      .legend b {
+        font-family: var(--font-mono);
+        font-weight: 550;
+        font-variant-numeric: tabular-nums;
+      }
+
+      @media (max-width: 1080px) {
+        .grid,
+        .stats {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 720px) {
+        .grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="kit-bar">
+      <span class="brand-mark" aria-hidden="true">bd</span>
+      <strong style="font-size: 13px; font-weight: 550">Dashboard surface</strong>
+      <span class="faint" style="font-size: 12.5px">stat tiles · stacked bars · completion rings</span>
+      <a href="index.html">← Kit index</a>
+    </header>
+
+    <div class="canvas" style="padding: 0">
+      <div class="page" data-od-id="kit-dashboard">
+        <div class="page-head">
+          <h1>Projects</h1>
+          <p id="sub"></p>
+        </div>
+
+        <div class="probe" data-od-id="kit-probe">
+          <span style="color: var(--status-closed)" id="probe-icon"></span>
+          <span>Desktop shell connected — reading through the local <span class="mono">bd</span> binary.</span>
+          <span class="sep">|</span>
+          <span class="mono" id="probe-count"></span>
+          <span class="sep">|</span>
+          <span class="mono">refreshed 15s ago</span>
+        </div>
+
+        <div class="stats" id="stats"></div>
+
+        <div class="section-bar">
+          <span class="eyebrow">All projects</span>
+          <span class="faint mono" style="font-size: 11px" id="count-note"></span>
+          <div style="margin-left: auto" class="segmented" role="group" aria-label="Sort projects">
+            <button type="button" data-psort="beads" aria-pressed="true">Beads</button>
+            <button type="button" data-psort="open" aria-pressed="false">Open work</button>
+            <button type="button" data-psort="name" aria-pressed="false">Name</button>
+          </div>
+        </div>
+
+        <div class="grid" id="grid"></div>
+      </div>
+    </div>
+
+    <script src="../../assets/board-data.js"></script>
+    <script>
+      const el = (id) => document.getElementById(id)
+      const pstate = { sort: 'beads' }
+      const openOf = (p) => p.counts.open + p.counts.deferred
+
+      const SUMMARY = [
+        { key: 'open', label: 'Open', hint: 'includes deferred' },
+        { key: 'in_progress', label: 'In progress', hint: 'active work' },
+        { key: 'blocked', label: 'Blocked', hint: 'waiting on edges' },
+        { key: 'closed', label: 'Closed', hint: 'all time' },
+      ]
+
+      function ring(pct) {
+        const r = 21
+        const c = 2 * Math.PI * r
+        const on = (pct / 100) * c
+        return `
+          <svg width="52" height="52" viewBox="0 0 52 52" role="img" aria-label="${Math.round(pct)}% closed" style="flex:none">
+            <circle cx="26" cy="26" r="${r}" fill="none" stroke="oklch(1 0 0 / 8%)" stroke-width="4" />
+            <circle cx="26" cy="26" r="${r}" fill="none" stroke="var(--status-closed)" stroke-width="4"
+              stroke-linecap="round" stroke-dasharray="${on.toFixed(1)} ${(c - on).toFixed(1)}"
+              transform="rotate(-90 26 26)" />
+            <text x="26" y="30" text-anchor="middle"
+              style="font-family: var(--font-mono); font-size: 12px; font-weight: 550; fill: var(--foreground)">${Math.round(pct)}</text>
+          </svg>`
+      }
+
+      const agg = PROJECTS.reduce(
+        (a, p) => ({
+          open: a.open + openOf(p),
+          in_progress: a.in_progress + p.counts.in_progress,
+          blocked: a.blocked + p.counts.blocked,
+          closed: a.closed + p.counts.closed,
+        }),
+        { open: 0, in_progress: 0, blocked: 0, closed: 0 },
+      )
+      const grand = PROJECTS.reduce((s, p) => s + p.counts.total, 0)
+
+      el('stats').innerHTML = SUMMARY.map(
+        (m) => `
+        <div class="stat-tile">
+          <span class="k"><span class="rail-dot" style="background: var(--status-${m.key})"></span>${m.label}</span>
+          <div class="v" style="color: var(--status-${m.key})">${agg[m.key]}</div>
+          <div class="d">${Math.round((agg[m.key] / grand) * 100)}% of all beads · ${m.hint}</div>
+        </div>`,
+      ).join('')
+
+      el('sub').textContent = `${PROJECTS.length} projects · ${grand} beads · ${
+        agg.in_progress + agg.blocked
+      } need a decision today`
+      el('probe-icon').innerHTML = icon('check', 14)
+      el('probe-count').textContent = `${PROJECTS.length} databases discovered`
+
+      function renderGrid() {
+        const list = [...PROJECTS].sort((a, b) => {
+          if (pstate.sort === 'name') return a.name.localeCompare(b.name)
+          if (pstate.sort === 'open') return openOf(b) - openOf(a)
+          return b.counts.total - a.counts.total
+        })
+
+        el('count-note').textContent = `${list.length}/${PROJECTS.length} shown`
+
+        el('grid').innerHTML = list
+          .map((p) => {
+            const c = p.counts
+            const seg = (k, n) =>
+              n > 0 ? `<span class="seg-${k}" style="width:${(n / c.total) * 100}%"></span>` : ''
+            return `
+              <a class="pcard" href="${p.database === 'bdb' ? 'board-canvas.html' : '#'}" data-od-id="project-${p.database}">
+                <div style="display:flex;align-items:flex-start;gap:12px">
+                  <div style="min-width:0">
+                    <h3>${p.name}</h3>
+                    <p class="path">${p.dir}</p>
+                  </div>
+                  <span class="arrow">${icon('chevronRight', 15)}</span>
+                </div>
+                <div class="bar" style="margin-top:14px">
+                  ${seg('closed', c.closed)}${seg('in_progress', c.in_progress)}${seg('blocked', c.blocked)}${seg('open', openOf(p))}
+                </div>
+                <div style="display:flex;align-items:flex-end;gap:14px">
+                  <div class="legend" style="flex:1">
+                    <span class="r"><span class="rail-dot" style="background: var(--status-open)"></span><b style="color: var(--status-open)">${openOf(p)}</b> Open</span>
+                    <span class="r"><span class="rail-dot" style="background: var(--status-progress)"></span><b style="color: var(--status-progress)">${c.in_progress}</b> In progress</span>
+                    <span class="r"><span class="rail-dot" style="background: var(--status-blocked)"></span><b style="color: var(--status-blocked)">${c.blocked}</b> Blocked</span>
+                    <span class="r"><span class="rail-dot" style="background: var(--status-closed)"></span><b style="color: var(--status-closed)">${c.closed}</b> Closed</span>
+                  </div>
+                  <span style="margin-top:14px">${ring(c.total ? (c.closed / c.total) * 100 : 0)}</span>
+                </div>
+              </a>`
+          })
+          .join('')
+      }
+
+      document.querySelectorAll('[data-psort]').forEach((b) => {
+        b.addEventListener('click', () => {
+          pstate.sort = b.dataset.psort
+          document
+            .querySelectorAll('[data-psort]')
+            .forEach((x) => x.setAttribute('aria-pressed', String(x === b)))
+          renderGrid()
+        })
+      })
+
+      renderGrid()
+    </script>
+  </body>
+</html>

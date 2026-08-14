@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Preview · Cards, rows and data marks</title>
+    <link rel="stylesheet" href="../assets/bd-dark.css" />
+    <link rel="stylesheet" href="preview.css" />
+    <style>
+      .cell {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        border-radius: var(--radius-2xl);
+        background: var(--canvas);
+        padding: 8px;
+        box-shadow: inset 0 0 0 1px oklch(1 0 0 / 5%);
+      }
+
+      .stat-tile {
+        border-radius: var(--radius-3xl);
+        background: var(--card);
+        padding: 14px 16px;
+        box-shadow: var(--ring-inset);
+      }
+
+      .stat-tile .k {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+        color: var(--muted-foreground);
+      }
+
+      .stat-tile .v {
+        margin-top: 8px;
+        font-size: 28px;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .stat-tile .d {
+        margin-top: 6px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--faint);
+      }
+
+      .pcard {
+        display: block;
+        border-radius: var(--radius-3xl);
+        background: var(--card);
+        padding: 16px;
+        box-shadow: var(--ring-inset), var(--shadow-card);
+      }
+
+      .pcard h3 {
+        font-size: 15px;
+        font-weight: 550;
+        letter-spacing: -0.01em;
+      }
+
+      .pcard .path {
+        margin-top: 3px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--faint);
+      }
+
+      .legend {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px 14px;
+        margin-top: 14px;
+      }
+
+      .legend span.r {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+        color: var(--muted-foreground);
+      }
+
+      .legend b {
+        font-family: var(--font-mono);
+        font-weight: 550;
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card" data-od-id="card-components-cards">
+      <header>
+        <span class="eyebrow">Preview 07 · Components</span>
+        <h1>Cards, rows and data marks</h1>
+        <p>
+          Rendered from the preserved source stylesheet and the preserved sample
+          dataset — these are the real bead cards, not redrawn approximations.
+          The dataset mirrors bd-board's own roadmap, which is why the titles
+          read like work instead of lorem.
+        </p>
+        <span class="src">assets/bd-dark.css + assets/board-data.js — both preserved, loaded live</span>
+      </header>
+
+      <section class="block" data-od-id="bead-cards">
+        <span class="eyebrow">Bead card — the atom of the board</span>
+        <div class="grid-3" id="beads"></div>
+        <p class="note">
+          Three rows, always in this order: <b>id · priority · state tag ·
+          age</b>, then a 2-line clamped title, then labels and a mono stat
+          cluster — subtasks, blocked-by (red), blocking, related, comments,
+          assignee monogram. An epic adds a 2px
+          <span class="mono">--primary-text</span> left border and a stacked
+          progress bar over its children.
+        </p>
+      </section>
+
+      <section class="block" data-od-id="lane">
+        <span class="eyebrow">Lane cell — a column inside a swimlane</span>
+        <div class="grid-4">
+          <div class="cell" id="cell-open"></div>
+          <div class="cell" id="cell-progress"></div>
+          <div class="cell" id="cell-blocked"></div>
+          <div class="cell"><span class="lane-empty">—</span></div>
+        </div>
+        <p class="note">
+          A lane cell is a recessed <span class="mono">--canvas</span> well at
+          <span class="mono">10px</span> radius with a 5% ring, so cards read as
+          sitting <em>in</em> a column rather than floating on the page. Empty
+          cells show an em dash at 22% white, never a blank box.
+        </p>
+      </section>
+
+      <section class="block" data-od-id="knowledge-rows">
+        <span class="eyebrow">Knowledge row — hue stripe, chip, excerpt, source</span>
+        <div id="knowledge"></div>
+        <p class="note">
+          The stripe and the chip both derive from the entry's single hue
+          token via <span class="mono">color-mix</span>. Hovering tints the ring
+          with that hue — <b>not</b> with the accent, because the accent means
+          "the app", and this colour means "this kind of knowledge".
+        </p>
+      </section>
+
+      <section class="block" data-od-id="dashboard-marks">
+        <span class="eyebrow">Dashboard marks — stat tile and project card</span>
+        <div class="grid-4" id="stats"></div>
+        <div class="grid-2" style="margin-top: 12px" id="projects"></div>
+        <p class="note">
+          The stat tile's value takes the <b>status colour</b>, and the mono
+          footnote always states the share of the whole, so a large number never
+          reads as significant on its own. The project card pairs a stacked bar
+          with a completion ring: the same data twice, once as composition and
+          once as a single number.
+        </p>
+      </section>
+
+      <section class="block" data-od-id="sheet-rows">
+        <span class="eyebrow">Sheet rows — dependency link, comment, command</span>
+        <div class="panel">
+          <div id="links"></div>
+
+          <div class="comment" style="margin-top: 14px">
+            <div class="comment-head">
+              <span class="avatar" style="width: 18px; height: 18px; font-size: 8.5px">JP</span>
+              <b>jean</b><span>·</span><span>2 hours ago</span>
+            </div>
+            <p>
+              Silent fallback is the actual bug here. Make it throw in desktop
+              mode instead — I would rather see the error than ship a build where
+              writes quietly do nothing.
+            </p>
+          </div>
+
+          <p class="cmd-preview" style="margin-top: 14px">bd comment bdb-3k1 "MUST-CHECK: …"</p>
+          <p class="note">
+            Every mutating surface previews the <span class="mono">bd</span>
+            command it will run. That is a trust device, not decoration: the app
+            shells out to a real binary against real repositories, and it says so
+            before it does.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <!-- board-data.js already exports the same icon set and an icon(name, size)
+         renderer; loading build/icons.js alongside it would redeclare ICON. -->
+    <script src="../assets/board-data.js"></script>
+    <script>
+      const stat = (name, count, title, cls = '') =>
+        `<span class="stat ${cls}" title="${title}">${icon(name, 12)}${count}</span>`
+
+      function progressBar(kids) {
+        const counts = { closed: 0, in_progress: 0, blocked: 0, open: 0 }
+        for (const k of kids) counts[mapStatus(k.status).column]++
+        const total = kids.length || 1
+        return `<span class="bar">${['closed', 'in_progress', 'blocked', 'open']
+          .filter((k) => counts[k] > 0)
+          .map((k) => `<span class="seg-${k}" style="width:${(counts[k] / total) * 100}%"></span>`)
+          .join('')}</span>`
+      }
+
+      function beadCard(b) {
+        const st = mapStatus(b.status)
+        const links = groupBeadLinks(b.links)
+        const kids = childrenOf(b.id)
+        const p = Math.max(0, Math.min(4, b.priority))
+        return `
+          <span class="bead ${isEpic(b) ? 'is-epic' : ''}" style="cursor: default">
+            <span class="bead-top">
+              <span class="bead-id">${b.id}</span>
+              <span class="p-chip p${p}">P${p}</span>
+              ${isEpic(b) ? '<span class="tag tag-epic">Epic</span>' : ''}
+              ${st.badge ? `<span class="tag tag-${st.badge.tone}">${st.badge.label}</span>` : ''}
+              <span class="bead-stats" style="gap:6px">
+                <span class="faint mono" style="font-size:10.5px">${b.updated_at}</span>
+              </span>
+            </span>
+            <span class="bead-title">${b.title}</span>
+            ${isEpic(b) && kids.length ? progressBar(kids) : ''}
+            <span class="bead-foot">
+              ${(b.labels ?? []).slice(0, 2).map((l) => `<span class="label-chip">${l}</span>`).join('')}
+              <span class="bead-stats">
+                ${kids.length ? stat('tree', kids.length, `${kids.length} subtasks`) : ''}
+                ${links.blockedBy.length ? stat('ban', links.blockedBy.length, 'blocked by', 'is-blocked') : ''}
+                ${links.blocking.length ? stat('waypoints', links.blocking.length, 'blocking') : ''}
+                ${links.related.length ? stat('link', links.related.length, 'related') : ''}
+                ${b.comment_count ? stat('comment', b.comment_count, 'comments') : ''}
+                ${b.assignee ? `<span class="avatar" title="${b.assignee}">${initials(b.assignee)}</span>` : ''}
+              </span>
+            </span>
+          </span>`
+      }
+
+      const pick = (...ids) => ids.map(beadById).filter(Boolean)
+
+      document.getElementById('beads').innerHTML =
+        pick('bdb-e0f', 'bdb-u1n', 'bdb-v4e').map(beadCard).join('')
+
+      document.getElementById('cell-open').innerHTML =
+        pick('bdb-2qw', 'bdb-h4w').map(beadCard).join('')
+      document.getElementById('cell-progress').innerHTML =
+        pick('bdb-3k1').map(beadCard).join('')
+      document.getElementById('cell-blocked').innerHTML =
+        pick('bdb-7hs').map(beadCard).join('')
+
+      document.getElementById('knowledge').innerHTML = KNOWLEDGE.slice(0, 3)
+        .map(
+          (k) => `
+          <span class="k-row k-${k.type}">
+            <span class="stripe"></span>
+            <span class="body">
+              <span style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+                <span class="ktag"><span class="k-dot"></span>${KNOWLEDGE_TYPE_LABEL[k.type]}</span>
+                <span class="mono faint" style="font-size:10.5px">${k.id}</span>
+                <span class="mono faint" style="font-size:10.5px;margin-left:auto">${k.created_at} ago</span>
+              </span>
+              <span class="txt">${k.content}</span>
+              <span class="src">
+                ${icon('corner', 11)}
+                <span class="mono">${k.bead_id}</span>
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.bead_title ?? ''}</span>
+                <span class="avatar" style="width:16px;height:16px;font-size:8px;margin-left:auto">${initials(k.author)}</span>
+              </span>
+            </span>
+          </span>`,
+        )
+        .join('')
+
+      const agg = PROJECTS.reduce(
+        (a, p) => ({
+          open: a.open + p.counts.open + p.counts.deferred,
+          in_progress: a.in_progress + p.counts.in_progress,
+          blocked: a.blocked + p.counts.blocked,
+          closed: a.closed + p.counts.closed,
+        }),
+        { open: 0, in_progress: 0, blocked: 0, closed: 0 },
+      )
+      const grand = PROJECTS.reduce((s, p) => s + p.counts.total, 0)
+
+      document.getElementById('stats').innerHTML = [
+        { key: 'open', label: 'Open', hint: 'includes deferred' },
+        { key: 'in_progress', label: 'In progress', hint: 'active work' },
+        { key: 'blocked', label: 'Blocked', hint: 'waiting on edges' },
+        { key: 'closed', label: 'Closed', hint: 'all time' },
+      ]
+        .map(
+          (m) => `
+          <div class="stat-tile">
+            <span class="k"><span class="rail-dot" style="background: var(--status-${m.key})"></span>${m.label}</span>
+            <div class="v" style="color: var(--status-${m.key})">${agg[m.key]}</div>
+            <div class="d">${Math.round((agg[m.key] / grand) * 100)}% of all beads · ${m.hint}</div>
+          </div>`,
+        )
+        .join('')
+
+      function ring(pct) {
+        const r = 21
+        const c = 2 * Math.PI * r
+        const on = (pct / 100) * c
+        return `
+          <svg width="52" height="52" viewBox="0 0 52 52" role="img" aria-label="${Math.round(pct)}% closed" style="flex:none">
+            <circle cx="26" cy="26" r="${r}" fill="none" stroke="oklch(1 0 0 / 8%)" stroke-width="4" />
+            <circle cx="26" cy="26" r="${r}" fill="none" stroke="var(--status-closed)" stroke-width="4"
+              stroke-linecap="round" stroke-dasharray="${on.toFixed(1)} ${(c - on).toFixed(1)}"
+              transform="rotate(-90 26 26)" />
+            <text x="26" y="30" text-anchor="middle"
+              style="font-family: var(--font-mono); font-size: 12px; font-weight: 550; fill: var(--foreground)">${Math.round(pct)}</text>
+          </svg>`
+      }
+
+      document.getElementById('projects').innerHTML = PROJECTS.slice(0, 2)
+        .map((p) => {
+          const c = p.counts
+          const seg = (k, n) =>
+            n > 0 ? `<span class="seg-${k}" style="width:${(n / c.total) * 100}%"></span>` : ''
+          return `
+            <span class="pcard">
+              <span style="display:flex;align-items:flex-start;gap:12px">
+                <span style="min-width:0">
+                  <h3>${p.name}</h3>
+                  <p class="path">${p.dir}</p>
+                </span>
+                <span style="margin-left:auto;color:var(--primary-text)">${icon('chevronRight', 15)}</span>
+              </span>
+              <span class="bar" style="margin-top:14px">
+                ${seg('closed', c.closed)}${seg('in_progress', c.in_progress)}${seg('blocked', c.blocked)}${seg('open', c.open + c.deferred)}
+              </span>
+              <span style="display:flex;align-items:flex-end;gap:14px">
+                <span class="legend" style="flex:1">
+                  <span class="r"><span class="rail-dot" style="background: var(--status-open)"></span><b style="color: var(--status-open)">${c.open + c.deferred}</b> Open</span>
+                  <span class="r"><span class="rail-dot" style="background: var(--status-progress)"></span><b style="color: var(--status-progress)">${c.in_progress}</b> In progress</span>
+                  <span class="r"><span class="rail-dot" style="background: var(--status-blocked)"></span><b style="color: var(--status-blocked)">${c.blocked}</b> Blocked</span>
+                  <span class="r"><span class="rail-dot" style="background: var(--status-closed)"></span><b style="color: var(--status-closed)">${c.closed}</b> Closed</span>
+                </span>
+                <span style="margin-top:14px">${ring((c.closed / c.total) * 100)}</span>
+              </span>
+            </span>`
+        })
+        .join('')
+
+      document.getElementById('links').innerHTML = ['bdb-7hs', 'bdb-2qw', 'bdb-c1r']
+        .map((id) => {
+          const b = beadById(id)
+          const col = mapStatus(b.status).column
+          return `
+            <span class="link-row">
+              <span class="rail-dot" style="background: var(--status-${col})"></span>
+              <span class="mono muted" style="font-size:11px">${b.id}</span>
+              <span class="t">${b.title}</span>
+              <span class="s" style="color: var(--status-${col})">${COLUMN_LABEL[col]}</span>
+            </span>`
+        })
+        .join('')
+    </script>
+  </body>
+</html>

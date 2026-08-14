@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>bd board — applied UI kit</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../assets/bd-dark.css" />
+    <style>
+      body {
+        display: flex;
+        justify-content: center;
+        min-height: 100dvh;
+      }
+
+      .wrap {
+        width: min(1080px, 100%);
+        padding: 48px 28px 72px;
+      }
+
+      header.hero {
+        display: flex;
+        align-items: flex-end;
+        gap: 20px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .hero h1 {
+        margin-top: 12px;
+        font-size: 32px;
+        font-weight: 600;
+        letter-spacing: -0.026em;
+        line-height: 1.14;
+      }
+
+      .hero p {
+        margin-top: 10px;
+        max-width: 62ch;
+        font-size: 13.5px;
+        line-height: 1.68;
+        color: var(--muted-foreground);
+      }
+
+      .surfaces {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 26px;
+      }
+
+      .surface {
+        display: flex;
+        flex-direction: column;
+        border-radius: 12px;
+        background: var(--card);
+        padding: 18px;
+        box-shadow: inset 0 0 0 1px var(--border), var(--shadow-card);
+        transition:
+          background-color 140ms ease,
+          box-shadow 140ms ease,
+          transform 140ms ease;
+      }
+
+      .surface:hover {
+        background: var(--card-hover);
+        box-shadow:
+          inset 0 0 0 1px oklch(0.66 0.18 268 / 45%),
+          0 10px 26px -10px oklch(0 0 0 / 65%);
+        transform: translateY(-2px);
+      }
+
+      .surface .n {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--faint);
+      }
+
+      .surface h2 {
+        margin-top: 10px;
+        font-size: 16px;
+        font-weight: 550;
+        letter-spacing: -0.012em;
+      }
+
+      .surface p {
+        margin-top: 8px;
+        flex: 1;
+        font-size: 12.75px;
+        line-height: 1.62;
+        color: var(--muted-foreground);
+      }
+
+      .surface .uses {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-top: 12px;
+      }
+
+      .surface .file {
+        margin-top: 12px;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--faint);
+      }
+
+      .surface .go {
+        margin-top: 8px;
+        font-size: 12.5px;
+        font-weight: 550;
+        color: var(--primary-text);
+      }
+
+      section.wire {
+        margin-top: 40px;
+      }
+
+      .wire pre {
+        overflow-x: auto;
+        margin: 12px 0 0;
+        border-radius: 9px;
+        background: oklch(0 0 0 / 35%);
+        padding: 14px 16px;
+        font-family: var(--font-mono);
+        font-size: 11.75px;
+        line-height: 1.75;
+        color: var(--muted-foreground);
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+
+      .wire pre b {
+        font-weight: 500;
+        color: oklch(0.86 0.06 268);
+      }
+
+      .rules {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 28px;
+        margin-top: 14px;
+      }
+
+      .rules li {
+        position: relative;
+        padding-left: 16px;
+        font-size: 12.75px;
+        line-height: 1.62;
+        color: var(--muted-foreground);
+      }
+
+      .rules li::before {
+        position: absolute;
+        left: 0;
+        top: 9px;
+        content: '';
+        width: 5px;
+        height: 5px;
+        border-radius: 999px;
+        background: var(--primary-text);
+      }
+
+      .rules b {
+        font-weight: 550;
+        color: var(--foreground);
+      }
+
+      @media (max-width: 860px) {
+        .surfaces,
+        .rules {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="hero" data-od-id="kit-hero">
+        <div>
+          <span class="eyebrow">bd board · applied UI kit</span>
+          <h1>Five working surfaces on the real stylesheet</h1>
+          <p>
+            Every file here loads the preserved
+            <span class="mono">assets/bd-dark.css</span> and the preserved
+            <span class="mono">assets/board-data.js</span> — so these are the
+            product's own component rules running against its own dataset, not a
+            re-implementation that can drift. Copy a surface, delete the
+            <span class="mono">kit-*</span> annotations, and you have the screen.
+          </p>
+        </div>
+        <span class="brand-mark" style="width: 44px; height: 44px; font-size: 17px; border-radius: 12px">bd</span>
+      </header>
+
+      <div class="surfaces">
+        <a class="surface" href="app-shell.html" data-od-id="kit-app-shell">
+          <span class="n">01 · chrome</span>
+          <h2>Application shell</h2>
+          <p>
+            Rail, topbar, tabs and filter bar with an annotated canvas slot. Rail
+            selection, view tabs and quick filters are wired, and the mode badge
+            toggles between write mode and read-only.
+          </p>
+          <span class="uses">
+            <span class="label-chip">.shell</span>
+            <span class="label-chip">.rail</span>
+            <span class="label-chip">.topbar</span>
+            <span class="label-chip">.filterbar</span>
+          </span>
+          <span class="file">app-shell.html</span>
+          <span class="go">Open shell →</span>
+        </a>
+
+        <a class="surface" href="board-canvas.html" data-od-id="kit-board-canvas">
+          <span class="n">02 · primary surface</span>
+          <h2>Board canvas</h2>
+          <p>
+            Swimlanes grouped by epic, priority or status; sticky column headers;
+            collapsible lanes; ready/blocked/mine quick filters; and
+            <span class="mono">/</span> search — all against the real bead graph.
+          </p>
+          <span class="uses">
+            <span class="label-chip">.lane</span>
+            <span class="label-chip">.col-head</span>
+            <span class="label-chip">.bead</span>
+            <span class="label-chip">.bar</span>
+          </span>
+          <span class="file">board-canvas.html</span>
+          <span class="go">Open board →</span>
+        </a>
+
+        <a class="surface" href="detail-sheet.html" data-od-id="kit-detail-sheet">
+          <span class="n">03 · object detail</span>
+          <h2>Detail sheet</h2>
+          <p>
+            One sheet, two object types — switch between a bead and a knowledge
+            entry in place. Includes the status select with its command preview,
+            live commenting, and the typed-confirmation delete.
+          </p>
+          <span class="uses">
+            <span class="label-chip">.sheet</span>
+            <span class="label-chip">.meta</span>
+            <span class="label-chip">.k-row</span>
+            <span class="label-chip">.confirm</span>
+          </span>
+          <span class="file">detail-sheet.html</span>
+          <span class="go">Open sheet →</span>
+        </a>
+
+        <a class="surface" href="dashboard-surface.html" data-od-id="kit-dashboard">
+          <span class="n">04 · dashboard</span>
+          <h2>Dashboard surface</h2>
+          <p>
+            Aggregate stat tiles, the connection probe strip, and a sortable
+            project grid pairing a stacked status bar with a completion ring.
+            The only surface in the system that carries charts.
+          </p>
+          <span class="uses">
+            <span class="label-chip">.stat-tile</span>
+            <span class="label-chip">.pcard</span>
+            <span class="label-chip">.probe</span>
+            <span class="label-chip">ring</span>
+          </span>
+          <span class="file">dashboard-surface.html</span>
+          <span class="go">Open dashboard →</span>
+        </a>
+
+        <a class="surface" href="controls-and-inputs.html" style="grid-column: 1 / -1" data-od-id="kit-controls">
+          <span class="n">05 · inventory</span>
+          <h2>Controls and inputs</h2>
+          <p>
+            Every control, wired: buttons across all four variants, search with
+            the <span class="mono">/</span> shortcut, segmented groups, filter
+            chips, popover menus with outside-click dismissal, the select with
+            its live command preview, and the disabled-until-valid submit.
+          </p>
+          <span class="uses">
+            <span class="label-chip">.btn</span>
+            <span class="label-chip">.search</span>
+            <span class="label-chip">.segmented</span>
+            <span class="label-chip">.chip-filter</span>
+            <span class="label-chip">.menu</span>
+            <span class="label-chip">select</span>
+          </span>
+          <span class="file">controls-and-inputs.html</span>
+          <span class="go">Open controls →</span>
+        </a>
+      </div>
+
+      <section class="wire" data-od-id="kit-components">
+        <span class="eyebrow">Component partials — copy one piece at a time</span>
+        <ul class="rules" style="margin-top: 12px">
+          <li>
+            <a href="components/sidebar.html" style="color: var(--primary-text); font-weight: 550">Sidebar</a> —
+            the 232px project rail: brand row, three nav groups, version foot.
+          </li>
+          <li>
+            <a href="components/topbar.html" style="color: var(--primary-text); font-weight: 550">Topbar</a> —
+            breadcrumbs, view tabs, mode badge, and the filter bar beneath it.
+          </li>
+          <li>
+            <a href="components/status-column.html" style="color: var(--primary-text); font-weight: 550">Status column</a> —
+            sticky column headers over collapsible swimlanes. Scroll to test.
+          </li>
+          <li>
+            <a href="components/bead-card.html" style="color: var(--primary-text); font-weight: 550">Bead card</a> —
+            the atom of the board, with its anatomy and hover rule.
+          </li>
+          <li style="grid-column: 1 / -1">
+            <a href="components/composer.html" style="color: var(--primary-text); font-weight: 550">Composer</a> —
+            the comment field with its live <span class="mono">bd</span> command
+            preview, which is also how a knowledge entry gets written.
+          </li>
+        </ul>
+      </section>
+
+      <section class="wire" data-od-id="kit-wiring">
+        <span class="eyebrow">Wiring a new screen</span>
+        <pre>&lt;link rel="preconnect" href="https://fonts.googleapis.com" /&gt;
+&lt;link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /&gt;
+&lt;link href="https://fonts.googleapis.com/css2?family=<b>Geist</b>:wght@300..700&amp;family=<b>Geist+Mono</b>:wght@400..600&amp;display=swap" rel="stylesheet" /&gt;
+&lt;link rel="stylesheet" href="../../<b>assets/bd-dark.css</b>" /&gt;
+
+&lt;body&gt;
+  &lt;div class="<b>shell</b>"&gt;
+    &lt;aside class="<b>rail</b>"&gt;…&lt;/aside&gt;
+    &lt;div class="<b>main</b>"&gt;
+      &lt;header class="<b>topbar</b>"&gt;…&lt;/header&gt;
+      &lt;div class="<b>filterbar</b>"&gt;…&lt;/div&gt;
+      &lt;div class="<b>canvas</b>"&gt;…&lt;/div&gt;   &lt;!-- the only scrolling region --&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;script src="../../<b>assets/board-data.js</b>"&gt;&lt;/script&gt;
+&lt;/body&gt;</pre>
+      </section>
+
+      <section class="wire" data-od-id="kit-rules">
+        <span class="eyebrow">Non-negotiables when extending the kit</span>
+        <ul class="rules">
+          <li>
+            <b>Two accent tokens, two roles.</b>
+            <span class="mono">--primary</span> fills,
+            <span class="mono">--primary-text</span> writes. Never swap them.
+          </li>
+          <li>
+            <b>Hover darkens the fill.</b> Lightening the primary drops white
+            text to 3.99:1. Go to <span class="mono">L 0.47</span> and add a ring.
+          </li>
+          <li>
+            <b>One filled button per surface.</b> Everything else is outline,
+            ghost or a text link.
+          </li>
+          <li>
+            <b>Outlines are inset rings</b>, not
+            <span class="mono">border</span>, so they compose with elevation.
+          </li>
+          <li>
+            <b>Hue is never the only channel.</b> Every dot, chip and tag also
+            carries its label.
+          </li>
+          <li>
+            <b>Mono is the machine register.</b> Ids, counts, durations and
+            <span class="mono">bd</span> commands — always tabular.
+          </li>
+          <li>
+            <b>Preview the command.</b> Any surface that mutates shows the
+            <span class="mono">bd</span> call it will make.
+          </li>
+          <li>
+            <b>Only <span class="mono">.canvas</span> scrolls.</b> Rail, topbar
+            and filter bar are <span class="mono">flex: none</span>.
+          </li>
+        </ul>
+        <p style="margin-top: 18px; font-size: 12.5px; color: var(--muted-foreground)">
+          Full rules in <a href="../../DESIGN.md" style="color: var(--primary-text); font-weight: 550">DESIGN.md</a> ·
+          reusable tokens in <a href="../../colors_and_type.css" style="color: var(--primary-text); font-weight: 550">colors_and_type.css</a> and
+          <a href="../../tokens.css" style="color: var(--primary-text); font-weight: 550">tokens.css</a> ·
+          review cards in <a href="../../preview/index.html" style="color: var(--primary-text); font-weight: 550">preview/</a>
+        </p>
+      </section>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="pt-BR" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>bd board — redesign dark</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/bd-dark.css" />
+    <style>
+      body {
+        display: flex;
+        min-height: 100dvh;
+        justify-content: center;
+      }
+
+      .wrap {
+        width: min(1120px, 100%);
+        padding: 56px 28px 72px;
+      }
+
+      header.hero {
+        display: flex;
+        align-items: flex-end;
+        gap: 20px;
+        padding-bottom: 26px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .hero h1 {
+        margin-top: 12px;
+        font-size: 34px;
+        font-weight: 600;
+        letter-spacing: -0.028em;
+        line-height: 1.12;
+      }
+
+      .hero p {
+        margin-top: 10px;
+        max-width: 58ch;
+        font-size: 14px;
+        line-height: 1.65;
+        color: var(--muted-foreground);
+      }
+
+      .screens {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 26px;
+      }
+
+      @media (max-width: 1100px) {
+        .screens {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      .screen {
+        display: flex;
+        flex-direction: column;
+        border-radius: 12px;
+        background: var(--card);
+        padding: 16px;
+        box-shadow:
+          inset 0 0 0 1px var(--border),
+          var(--shadow-card);
+        transition:
+          background-color 140ms ease,
+          box-shadow 140ms ease,
+          transform 140ms ease;
+      }
+
+      .screen:hover {
+        background: var(--card-hover);
+        box-shadow:
+          inset 0 0 0 1px oklch(0.66 0.18 268 / 45%),
+          0 10px 26px -10px oklch(0 0 0 / 65%);
+        transform: translateY(-2px);
+      }
+
+      .screen .n {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--faint);
+      }
+
+      .screen h2 {
+        margin-top: 10px;
+        font-size: 16px;
+        font-weight: 550;
+        letter-spacing: -0.012em;
+      }
+
+      .screen p {
+        margin-top: 7px;
+        flex: 1;
+        font-size: 12.75px;
+        line-height: 1.6;
+        color: var(--muted-foreground);
+      }
+
+      .screen .go {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 14px;
+        font-size: 12.5px;
+        font-weight: 550;
+        color: var(--primary-text);
+      }
+
+      .screen .file {
+        margin-top: 10px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--faint);
+      }
+
+      section.notes {
+        margin-top: 40px;
+      }
+
+      .tokens {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 14px;
+      }
+
+      .token-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-radius: 10px;
+        background: var(--canvas);
+        padding: 10px 12px;
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+
+      .swatch {
+        width: 30px;
+        height: 30px;
+        flex: none;
+        border-radius: 7px;
+        box-shadow: inset 0 0 0 1px oklch(1 0 0 / 14%);
+      }
+
+      .token-row .name {
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+      }
+
+      .token-row .val {
+        font-size: 11px;
+        color: var(--faint);
+      }
+
+      .decisions {
+        margin-top: 14px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 28px;
+      }
+
+      .decisions li {
+        position: relative;
+        padding-left: 16px;
+        font-size: 13px;
+        line-height: 1.62;
+        color: var(--muted-foreground);
+      }
+
+      .decisions li::before {
+        position: absolute;
+        left: 0;
+        top: 9px;
+        content: '';
+        width: 5px;
+        height: 5px;
+        border-radius: 999px;
+        background: var(--primary-text);
+      }
+
+      .decisions b {
+        font-weight: 550;
+        color: var(--foreground);
+      }
+
+      @media (max-width: 900px) {
+        .screens,
+        .tokens,
+        .decisions {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="hero" data-od-id="hero">
+        <div>
+          <span class="eyebrow">bd-board · redesign dark</span>
+          <h1>Quatro telas, um sistema escuro denso</h1>
+          <p>
+            Redesign em dark do bd-board sobre os tokens oklch que já existem em
+            <span class="mono">src/styles.css</span>: mesma família de matiz,
+            base mais profunda, contraste corrigido e o acento dividido em
+            preenchimento e texto. A referência Quarry entra como estrutura
+            (rail + topbar + tabs + colunas), não como cópia.
+          </p>
+        </div>
+        <span class="brand-mark" style="width: 44px; height: 44px; font-size: 17px; border-radius: 12px">bd</span>
+      </header>
+
+      <div class="screens">
+        <a class="screen" href="board.html" data-od-id="screen-board">
+          <span class="n">01</span>
+          <h2>Board</h2>
+          <p>
+            Tela principal. Swimlanes por epic ou por prioridade, colunas por
+            status, filtros rápidos (<span class="mono">ready</span>, blocked,
+            mine), busca com <span class="mono">/</span>, e a aba Knowledge do
+            projeto.
+          </p>
+          <span class="file">board.html</span>
+          <span class="go">Abrir board →</span>
+        </a>
+
+        <a class="screen" href="bead-detail.html?id=bdb-3k1" data-od-id="screen-detail">
+          <span class="n">02</span>
+          <h2>Detalhe do bead</h2>
+          <p>
+            Sheet sobre o board, agora em duas colunas: conteúdo à esquerda,
+            metadados e edges à direita. Inclui subtasks, dependências,
+            comentários e a exclusão com confirmação digitada.
+          </p>
+          <span class="file">bead-detail.html</span>
+          <span class="go">Abrir detalhe →</span>
+        </a>
+
+        <a class="screen" href="projects.html" data-od-id="screen-projects">
+          <span class="n">03</span>
+          <h2>Projects</h2>
+          <p>
+            Dashboard multi-projeto: agregados por status, barra empilhada e
+            anel de conclusão por repositório, filtro e ordenação — o mesmo
+            rail das outras telas.
+          </p>
+          <span class="file">projects.html</span>
+          <span class="go">Abrir projects →</span>
+        </a>
+
+        <a
+          class="screen"
+          href="knowledge-detail.html?id=bdb-3k1%23k4"
+          data-od-id="screen-knowledge"
+        >
+          <span class="n">04</span>
+          <h2>Detalhe do knowledge</h2>
+          <p>
+            Mesmo sheet do bead. Mostra o comentário verbatim, o bead de origem
+            e o que foi registrado nos beads ligados a ele — o conhecimento anda
+            pelo grafo de dependência.
+          </p>
+          <span class="file">knowledge-detail.html</span>
+          <span class="go">Abrir knowledge →</span>
+        </a>
+      </div>
+
+      <section class="notes" data-od-id="token-notes">
+        <span class="eyebrow">O que mudou nos tokens</span>
+        <div class="tokens">
+          <div class="token-row">
+            <span class="swatch" style="background: oklch(0.155 0.006 270)"></span>
+            <span>
+              <span class="name">--background</span><br />
+              <span class="val">0.165 → 0.155 · mais um degrau de elevação</span>
+            </span>
+          </div>
+          <div class="token-row">
+            <span class="swatch" style="background: oklch(0.54 0.19 268)"></span>
+            <span>
+              <span class="name">--primary</span><br />
+              <span class="val">fill · texto branco a 5.15:1 (era 4.34:1)</span>
+            </span>
+          </div>
+          <div class="token-row">
+            <span class="swatch" style="background: oklch(0.72 0.16 268)"></span>
+            <span>
+              <span class="name">--primary-text</span><br />
+              <span class="val">novo · acento como texto, 6.59:1</span>
+            </span>
+          </div>
+        </div>
+
+        <ul class="decisions">
+          <li>
+            <b>Acento dividido.</b> O token único do repo é usado ao mesmo tempo
+            como fundo de botão e como cor de texto; nos dois papéis ele não
+            passa em 4.5:1. Agora são dois tokens com um papel cada.
+          </li>
+          <li>
+            <b>Hover escurece.</b> Clarear o primário no hover derrubaria o
+            contraste do texto branco para 3.99:1, então o hover vai para
+            <span class="mono">L 0.47</span> mais um anel — o contraste sobe.
+          </li>
+          <li>
+            <b>Mono como registro.</b> Geist Mono carrega id, contagem e rótulo
+            de seção; Geist Sans carrega leitura. É o par que o repo já instala.
+          </li>
+          <li>
+            <b>Sem fotos.</b> Assignee é monograma sobre superfície neutra —
+            coerente com um app local que lê nomes do <span class="mono">bd</span>,
+            não um diretório de pessoas.
+          </li>
+        </ul>
+      </section>
+    </div>
+  </body>
+</html>

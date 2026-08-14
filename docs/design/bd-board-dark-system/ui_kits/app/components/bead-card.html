@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>bd board kit · Bead card</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../../assets/bd-dark.css" />
+    <style>
+      body {
+        display: flex;
+        gap: 28px;
+        align-items: flex-start;
+        min-height: 100dvh;
+        padding: 28px;
+        flex-wrap: wrap;
+      }
+
+      .mount {
+        display: flex;
+        width: 300px;
+        flex: none;
+        flex-direction: column;
+        gap: 8px;
+        border-radius: 10px;
+        background: var(--canvas);
+        padding: 8px;
+        box-shadow: inset 0 0 0 1px oklch(1 0 0 / 5%);
+      }
+
+      .doc {
+        max-width: 54ch;
+        flex: 1;
+        min-width: 320px;
+      }
+
+      .doc h1 {
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+      }
+
+      .doc p {
+        margin-top: 10px;
+        font-size: 12.75px;
+        line-height: 1.65;
+        color: var(--muted-foreground);
+      }
+
+      .doc code {
+        border-radius: 4px;
+        background: oklch(1 0 0 / 8%);
+        padding: 1px 5px;
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        color: oklch(0.86 0.06 268);
+      }
+
+      .anatomy {
+        margin-top: 16px;
+        border-radius: 9px;
+        background: oklch(0 0 0 / 35%);
+        padding: 12px 14px;
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        line-height: 1.8;
+        color: var(--muted-foreground);
+        box-shadow: inset 0 0 0 1px var(--border);
+        white-space: pre;
+        overflow-x: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- component: bead card — the atom of the board, inside a lane cell -->
+    <div class="mount" id="mount" data-od-id="component-bead-card"></div>
+
+    <div class="doc">
+      <span class="eyebrow">Component · bead card</span>
+      <h1>Bead card</h1>
+      <p>
+        <code>--card</code> at 8px radius with <code>9px 10px</code> padding, an
+        inset ring and <code>--shadow-card</code>. Always three rows, always in
+        the same order, so a column of them scans vertically.
+      </p>
+      <div class="anatomy">.bead
+├ .bead-top     id · P-chip · state tag · relative age
+├ .bead-title   12.75px, 2-line clamp
+└ .bead-foot    label chips · stat cluster · assignee monogram</div>
+      <p>
+        The stat cluster is mono and tabular: subtasks, blocked-by (in
+        <code>--status-blocked</code>), blocking, related, comments. Counts that
+        are zero are omitted entirely rather than shown as <code>0</code>.
+      </p>
+      <p>
+        An <b>epic</b> adds <code>.is-epic</code> — a 2px
+        <code>--primary-text</code> left border with tightened left corners — and
+        a stacked progress bar summarising its children.
+      </p>
+      <p>
+        Hover changes three things together: surface
+        <code>0.208 → 0.246</code>, ring <code>9% white → accent 45%</code>, and
+        a <code>−1px</code> lift. The text is untouched.
+      </p>
+      <p>
+        Cards live inside a <code>.lane-cell</code> — a recessed
+        <code>--canvas</code> well at 10px radius — so they read as sitting
+        <i>in</i> a column rather than floating on the page. An empty cell shows
+        an em dash, never a blank box.
+      </p>
+    </div>
+
+    <script src="../../../assets/board-data.js"></script>
+    <script>
+      const stat = (name, count, label, cls = '') =>
+        `<span class="stat ${cls}" title="${label}">${icon(name, 12)}${count}</span>`
+
+      function progressBar(kids) {
+        const counts = { closed: 0, in_progress: 0, blocked: 0, open: 0 }
+        for (const k of kids) counts[mapStatus(k.status).column]++
+        const total = kids.length || 1
+        return `<span class="bar">${['closed', 'in_progress', 'blocked', 'open']
+          .filter((k) => counts[k] > 0)
+          .map((k) => `<span class="seg-${k}" style="width:${(counts[k] / total) * 100}%"></span>`)
+          .join('')}</span>`
+      }
+
+      function beadCard(b) {
+        const st = mapStatus(b.status)
+        const links = groupBeadLinks(b.links)
+        const kids = childrenOf(b.id)
+        const p = Math.max(0, Math.min(4, b.priority))
+        return `
+          <a class="bead ${isEpic(b) ? 'is-epic' : ''}" href="../detail-sheet.html?id=${b.id}">
+            <span class="bead-top">
+              <span class="bead-id">${b.id}</span>
+              <span class="p-chip p${p}">P${p}</span>
+              ${isEpic(b) ? '<span class="tag tag-epic">Epic</span>' : ''}
+              ${st.badge ? `<span class="tag tag-${st.badge.tone}">${st.badge.label}</span>` : ''}
+              <span class="bead-stats" style="gap:6px">
+                <span class="faint mono" style="font-size:10.5px">${b.updated_at}</span>
+              </span>
+            </span>
+            <span class="bead-title">${b.title}</span>
+            ${isEpic(b) && kids.length ? progressBar(kids) : ''}
+            <span class="bead-foot">
+              ${(b.labels ?? []).slice(0, 2).map((l) => `<span class="label-chip">${l}</span>`).join('')}
+              <span class="bead-stats">
+                ${kids.length ? stat('tree', kids.length, `${kids.length} subtasks`) : ''}
+                ${links.blockedBy.length ? stat('ban', links.blockedBy.length, 'blocked by', 'is-blocked') : ''}
+                ${links.blocking.length ? stat('waypoints', links.blocking.length, 'blocking') : ''}
+                ${links.related.length ? stat('link', links.related.length, 'related') : ''}
+                ${b.comment_count ? stat('comment', b.comment_count, 'comments') : ''}
+                ${b.assignee ? `<span class="avatar" title="${b.assignee}">${initials(b.assignee)}</span>` : ''}
+              </span>
+            </span>
+          </a>`
+      }
+
+      document.getElementById('mount').innerHTML = ['bdb-e0f', 'bdb-3k1', 'bdb-u1n', 'bdb-x8k']
+        .map(beadById)
+        .filter(Boolean)
+        .map(beadCard)
+        .join('')
+    </script>
+  </body>
+</html>

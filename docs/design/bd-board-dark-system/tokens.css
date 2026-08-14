@@ -1,0 +1,131 @@
+/* bd board — spacing, radius, elevation, layout and motion tokens
+   ---------------------------------------------------------------------------
+   Companion to colors_and_type.css. Import both, in this order:
+
+     @import url('./colors_and_type.css');
+     @import url('./tokens.css');
+
+   Values are measured from the source project's assets/bd-dark.css and the
+   four screen files. Where the source hard-codes a number inline, the token
+   below records the number the source actually used, not a rounded ideal.
+   --------------------------------------------------------------------------- */
+
+:root {
+  /* ---------------------------------------------------------------------
+     SPACING — a 2px-based dense scale. This is a tool for people who keep
+     it open all day, so the steps are close together and the useful range
+     tops out early. Anything above 28px is page chrome, not component gap.
+     --------------------------------------------------------------------- */
+  --space-1: 2px; /* segmented track padding, chip inner nudge */
+  --space-2: 4px; /* menu separator margin */
+  --space-3: 5px; /* icon-to-label in a tag */
+  --space-4: 6px; /* chip gap, bead-top gap, button icon gap */
+  --space-5: 7px; /* card padding-y, sec-head gap */
+  --space-6: 8px; /* rail item padding-x, lane grid inner gap */
+  --space-7: 10px; /* card padding-x, menu padding */
+  --space-8: 12px; /* board column gap, rail brand padding */
+  --space-9: 14px; /* lane stack gap, project grid gap */
+  --space-10: 16px; /* canvas padding-x, topbar padding-x */
+  --space-11: 18px; /* rail group separation, meta padding */
+  --space-12: 20px; /* confirm box padding */
+  --space-13: 22px; /* sheet body padding */
+  --space-14: 24px; /* canvas padding-bottom */
+  --space-15: 26px; /* sheet body section gap */
+  --space-16: 28px; /* sheet viewport inset */
+
+  /* ---------------------------------------------------------------------
+     RADIUS — the base token from the repo, plus the ladder actually used.
+     Radius tracks size: the smaller the object, the tighter the corner.
+     --------------------------------------------------------------------- */
+  --radius: 0.625rem; /* 10px — the repo's base token */
+  --radius-chip: 4px; /* p-chip, tag, label-chip, inline code, kbd */
+  --radius-xs: 5px; /* lane toggle */
+  --radius-sm: 6px; /* menu item, segmented button, focus ring */
+  --radius-md: 7px; /* button, input, select, brand mark, cmd preview */
+  --radius-lg: 8px; /* bead card, column head, lane head, link row */
+  --radius-xl: 9px; /* knowledge row, comment, textarea, raw block */
+  --radius-2xl: 10px; /* menu, lane cell, aside panel */
+  --radius-3xl: 12px; /* stat tile, project card, confirm box */
+  --radius-4xl: 14px; /* detail sheet */
+  --radius-pill: 999px; /* dots, filter chips, progress bar, avatar */
+
+  /* ---------------------------------------------------------------------
+     ELEVATION — two shadows, and one structural rule: card outlines are
+     INSET rings, not `border`. A ring composes with the drop shadow and
+     with the hover accent ring without changing the box's layout size.
+     --------------------------------------------------------------------- */
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 40%);
+  --shadow-pop:
+    0 16px 48px -12px oklch(0 0 0 / 70%), 0 0 0 1px var(--border-strong);
+
+  --ring-inset: inset 0 0 0 1px var(--border);
+  --ring-inset-strong: inset 0 0 0 1px var(--border-strong);
+  --ring-accent: inset 0 0 0 1px oklch(0.66 0.18 268 / 45%);
+
+  --lift-card: 0 4px 14px -4px oklch(0 0 0 / 55%); /* bead hover */
+  --lift-panel: 0 8px 22px -8px oklch(0 0 0 / 60%); /* project card hover */
+
+  /* Translucent white washes — the only "fill" used for interactive states. */
+  --wash-1: oklch(1 0 0 / 5%); /* input rest, segmented track */
+  --wash-2: oklch(1 0 0 / 6%); /* outline/chip hover */
+  --wash-3: oklch(1 0 0 / 7%); /* ghost hover, tag-deferred, bar track */
+  --wash-4: oklch(1 0 0 / 8%); /* pressed nav, input focus, inline code */
+  --wash-5: oklch(1 0 0 / 9%); /* avatar plate */
+  --scrim: oklch(0.09 0.005 270 / 72%); /* modal backdrop */
+  --inkwell: oklch(0 0 0 / 35%); /* command preview block */
+
+  /* ---------------------------------------------------------------------
+     LAYOUT — fixed structural measures shared by every screen.
+     --------------------------------------------------------------------- */
+  --rail: 232px; /* left project rail */
+  --topbar-h: 48px; /* topbar and rail brand row are the same height */
+  --control-h: 30px; /* button, input, select */
+  --control-h-sm: 26px; /* filter chip */
+  --control-h-xs: 24px; /* segmented button */
+  --sheet-meta: 268px; /* detail sheet metadata column */
+  --sheet-max-w: 1080px;
+  --sheet-max-h: 860px;
+  --page-max-w: 1240px; /* projects dashboard content column */
+  --board-columns: 4; /* open · in progress · blocked · closed */
+
+  /* Breakpoints, as used in the source media queries. */
+  --bp-dense: 1240px; /* .hide-sm drops the inline lane progress bar */
+  --bp-aside: 1100px; /* knowledge aside stacks under the list */
+  --bp-grid: 1080px; /* project grid 3 → 2 columns */
+  --bp-sheet: 900px; /* detail sheet metadata column moves below */
+  --bp-narrow: 720px; /* project grid 2 → 1 column */
+
+  /* ---------------------------------------------------------------------
+     MOTION — short, functional, and always on colour/elevation/position,
+     never on layout size.
+     --------------------------------------------------------------------- */
+  --dur-control: 120ms; /* nav, buttons, chips, menus, inputs */
+  --dur-card: 140ms; /* cards that also lift */
+  --dur-disclose: 160ms; /* lane chevron rotation */
+  --dur-data: 400ms; /* progress bar segment width */
+  --ease: ease;
+  --lift-y: -1px; /* bead card */
+  --lift-y-panel: -2px; /* project card, overview card */
+}
+
+/* The system is dark-only and assumes border-box everywhere. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Focus is never removed, only replaced. Every focusable element in the
+   source shows this ring. */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

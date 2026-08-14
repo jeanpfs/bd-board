@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Preview · Radius, elevation and motion</title>
+    <link rel="stylesheet" href="../assets/bd-dark.css" />
+    <link rel="stylesheet" href="preview.css" />
+    <style>
+      .rad {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        align-items: center;
+        border-radius: var(--radius-2xl);
+        background: var(--canvas);
+        padding: 16px 12px;
+        box-shadow: var(--ring-inset);
+      }
+
+      .rad .box {
+        width: 68px;
+        height: 46px;
+        background: var(--card);
+        box-shadow: var(--ring-inset-strong);
+      }
+
+      .rad b {
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        font-weight: 550;
+      }
+
+      .rad span {
+        font-size: 11px;
+        line-height: 1.45;
+        color: var(--muted-foreground);
+        text-align: center;
+      }
+
+      .elev {
+        border-radius: var(--radius-3xl);
+        background: var(--card);
+        padding: 16px 18px;
+      }
+
+      .elev b {
+        display: block;
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        font-weight: 550;
+      }
+
+      .elev span {
+        display: block;
+        margin-top: 7px;
+        font-size: 11.5px;
+        line-height: 1.55;
+        color: var(--muted-foreground);
+      }
+
+      .hoverdemo {
+        display: flex;
+        gap: 12px;
+      }
+
+      .hoverdemo .bead {
+        width: 240px;
+      }
+
+      .timing {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border-top: 1px solid var(--border);
+        padding: 11px 0;
+      }
+
+      .timing:first-of-type {
+        border-top: 0;
+      }
+
+      .timing .d {
+        width: 74px;
+        flex: none;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+        color: var(--foreground);
+      }
+
+      .timing .track {
+        width: 120px;
+        height: 5px;
+        flex: none;
+        overflow: hidden;
+        border-radius: 999px;
+        background: oklch(1 0 0 / 8%);
+      }
+
+      .timing .track i {
+        display: block;
+        height: 100%;
+        border-radius: 999px;
+        background: var(--primary-text);
+      }
+
+      .timing .u {
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: var(--muted-foreground);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card" data-od-id="card-radius-shadows">
+      <header>
+        <span class="eyebrow">Preview 05 · Radius, elevation, motion</span>
+        <h1>Corners track size, outlines are rings</h1>
+        <p>
+          The radius ladder is not decorative: it runs from 4px on a priority
+          chip to 14px on the detail sheet, and the step is a function of the
+          object's size. Every outline is an inset box-shadow, so it composes
+          with elevation and hover without a layout shift.
+        </p>
+        <span class="src">assets/bd-dark.css · --radius, --shadow-card, --shadow-pop · tokens.css</span>
+      </header>
+
+      <section class="block" data-od-id="radius-ladder">
+        <span class="eyebrow">Radius ladder</span>
+        <div class="grid-4">
+          <div class="rad"><span class="box" style="border-radius: 4px"></span><b>4px</b><span>Priority chip, tag, label chip, inline code, kbd</span></div>
+          <div class="rad"><span class="box" style="border-radius: 6px"></span><b>6px</b><span>Menu item, segmented button, focus ring</span></div>
+          <div class="rad"><span class="box" style="border-radius: 7px"></span><b>7px</b><span>Button, input, select, brand mark, command block</span></div>
+          <div class="rad"><span class="box" style="border-radius: 8px"></span><b>8px</b><span>Bead card, column head, lane head, link row</span></div>
+          <div class="rad"><span class="box" style="border-radius: 9px"></span><b>9px</b><span>Knowledge row, comment, textarea, raw block</span></div>
+          <div class="rad"><span class="box" style="border-radius: 10px"></span><b>10px</b><span>Menu, lane cell, aside panel — the base <span class="mono">--radius</span></span></div>
+          <div class="rad"><span class="box" style="border-radius: 12px"></span><b>12px</b><span>Stat tile, project card, confirmation box</span></div>
+          <div class="rad"><span class="box" style="border-radius: 14px"></span><b>14px</b><span>Detail sheet — the largest surface in the app</span></div>
+        </div>
+        <p class="note">
+          Pills at <span class="mono">999px</span> are reserved for things that
+          are not boxes: status dots, filter chips, the progress bar, the avatar
+          plate.
+        </p>
+      </section>
+
+      <section class="block" data-od-id="elevation">
+        <span class="eyebrow">Elevation — two shadows, one ring system</span>
+        <div class="grid-2">
+          <div class="elev" style="box-shadow: var(--ring-inset), var(--shadow-card)">
+            <b>--shadow-card</b>
+            <span>
+              <span class="mono">0 1px 2px oklch(0 0 0 / 40%)</span><br />
+              Resting cards: bead, project, overview. Paired with the default
+              inset ring.
+            </span>
+          </div>
+          <div class="elev" style="background: var(--popover); box-shadow: var(--shadow-pop)">
+            <b>--shadow-pop</b>
+            <span>
+              <span class="mono">0 16px 48px −12px oklch(0 0 0 / 70%)</span> plus a
+              <span class="mono">--border-strong</span> hairline.<br />
+              Menus, the detail sheet, the delete dialog.
+            </span>
+          </div>
+        </div>
+
+        <div class="grid-3" style="margin-top: 12px">
+          <div class="elev" style="box-shadow: var(--ring-inset)"><b>--ring-inset</b><span>9% white — the default outline on every card and panel</span></div>
+          <div class="elev" style="box-shadow: var(--ring-inset-strong)"><b>--ring-inset-strong</b><span>15% white — outline buttons, selects, avatar plate</span></div>
+          <div class="elev" style="box-shadow: var(--ring-accent)"><b>--ring-accent</b><span>Accent at 45% — appears on card hover only</span></div>
+        </div>
+      </section>
+
+      <section class="block" data-od-id="hover-states">
+        <span class="eyebrow">Hover — background moves, foreground never dims</span>
+        <div class="panel">
+          <div class="hoverdemo">
+            <span class="bead" style="cursor: default">
+              <span class="bead-top">
+                <span class="bead-id">bdb-h4w</span>
+                <span class="p-chip p2">P2</span>
+                <span class="bead-stats" style="gap: 6px"><span class="faint mono" style="font-size: 10.5px">3d</span></span>
+              </span>
+              <span class="bead-title">Debounce the search input against the URL</span>
+              <span class="bead-foot">
+                <span class="label-chip">router</span>
+                <span class="bead-stats"><span class="avatar">CC</span></span>
+              </span>
+            </span>
+
+            <span class="bead" style="cursor: default; background: var(--card-hover); box-shadow: inset 0 0 0 1px oklch(0.66 0.18 268 / 45%), 0 4px 14px -4px oklch(0 0 0 / 55%); transform: translateY(-1px)">
+              <span class="bead-top">
+                <span class="bead-id">bdb-h4w</span>
+                <span class="p-chip p2">P2</span>
+                <span class="bead-stats" style="gap: 6px"><span class="faint mono" style="font-size: 10.5px">3d</span></span>
+              </span>
+              <span class="bead-title">Debounce the search input against the URL</span>
+              <span class="bead-foot">
+                <span class="label-chip">router</span>
+                <span class="bead-stats"><span class="avatar">CC</span></span>
+              </span>
+            </span>
+          </div>
+          <p class="note">
+            Rest → hover changes three things together: surface
+            <span class="mono">0.208 → 0.246</span>, ring
+            <span class="mono">9% white → accent 45%</span>, and a
+            <span class="mono">−1px</span> lift with
+            <span class="mono">--lift-card</span>. The <b>text is untouched</b>.
+            No state in this system fades a foreground toward the background —
+            disabled is the only exception, and it lives on one button.
+          </p>
+        </div>
+      </section>
+
+      <section class="block" data-od-id="motion">
+        <span class="eyebrow">Motion</span>
+        <div class="panel">
+          <div class="timing"><span class="d">120ms</span><span class="track"><i style="width: 30%"></i></span><span class="u">Nav, buttons, chips, menu items, inputs, selects — colour only</span></div>
+          <div class="timing"><span class="d">140ms</span><span class="track"><i style="width: 35%"></i></span><span class="u">Cards that also lift 1–2px: bead, project, overview</span></div>
+          <div class="timing"><span class="d">160ms</span><span class="track"><i style="width: 40%"></i></span><span class="u">Lane disclosure chevron rotation</span></div>
+          <div class="timing"><span class="d">400ms</span><span class="track"><i style="width: 100%"></i></span><span class="u">Progress bar segment width — only when the value actually changes</span></div>
+        </div>
+        <p class="note">
+          Everything is <span class="mono">ease</span>. Nothing animates layout
+          size. <span class="mono">prefers-reduced-motion: reduce</span>
+          collapses every duration to <span class="mono">0.01ms</span>, which is
+          already in <span class="mono">assets/bd-dark.css</span> — inherit it,
+          do not reimplement it.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

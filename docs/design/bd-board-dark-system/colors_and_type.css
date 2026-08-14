@@ -1,0 +1,235 @@
+/* bd board — color and typography foundations
+   ---------------------------------------------------------------------------
+   Extracted verbatim from the source project's assets/bd-dark.css (screens:
+   board.html, bead-detail.html, knowledge-detail.html, projects.html).
+
+   This file is the reusable half of the system: color + type only.
+   Spacing, radius, shadows and layout live in tokens.css.
+
+   The system is dark-only. There is no light theme in the source evidence,
+   and `html { color-scheme: dark }` is set globally. Do not invent one.
+   --------------------------------------------------------------------------- */
+
+:root {
+  /* ---------------------------------------------------------------------
+     SURFACES — one hue family (270), six elevation steps.
+     Every surface is a lightness step on the same near-neutral chroma, so
+     stacked panels read as depth instead of as different materials.
+     --------------------------------------------------------------------- */
+  --background: oklch(0.155 0.006 270); /* app canvas, topbar, sheet base */
+  --canvas: oklch(0.178 0.006 270); /* recessed wells: lane cells, probe */
+  --card: oklch(0.208 0.006 270); /* bead card, project card, link row */
+  --card-hover: oklch(0.246 0.008 272); /* +0.038 L on hover, never lighter fg */
+  --popover: oklch(0.222 0.007 270); /* menus, confirm dialog */
+  --sidebar: oklch(0.168 0.006 270); /* rail, sheet metadata column */
+
+  /* ---------------------------------------------------------------------
+     TEXT — three levels, each with a documented contrast floor.
+     --------------------------------------------------------------------- */
+  --foreground: oklch(0.945 0.004 270); /* titles, active nav, values */
+  --muted-foreground: oklch(0.685 0.012 270); /* body, inactive nav, ids */
+  /* 0.62 is the floor that still clears 4.5:1 on --popover, the lightest
+     surface --faint ever sits on. Anything quieter fails on menus. */
+  --faint: oklch(0.62 0.011 270); /* eyebrows, timestamps, placeholders */
+
+  /* ---------------------------------------------------------------------
+     ACCENT — deliberately split into two tokens with one role each.
+     The source repo used a single accent for both the button fill and the
+     accent-coloured text; it failed 4.5:1 in both roles (4.34:1).
+     --------------------------------------------------------------------- */
+  --primary: oklch(0.54 0.19 268); /* solid fill only — white text 5.15:1 */
+  --primary-hover: oklch(0.47 0.175 268); /* hover DARKENS; contrast goes up */
+  --primary-text: oklch(0.72 0.16 268); /* accent AS text/icon — 6.59:1 */
+  --primary-foreground: oklch(0.99 0.003 275); /* text on --primary */
+
+  /* ---------------------------------------------------------------------
+     LINES — borders are alpha-white rings, not opaque strokes, so they
+     survive on every surface step without a per-surface border token.
+     --------------------------------------------------------------------- */
+  --border: oklch(1 0 0 / 9%);
+  --border-strong: oklch(1 0 0 / 15%);
+  --ring: oklch(0.66 0.18 268); /* :focus-visible outline */
+
+  /* ---------------------------------------------------------------------
+     STATUS — the four board columns plus one warning hue.
+     Used for the column dot, the column count, the stacked progress bar,
+     the ring gauge and the stat tile value. Always paired with a label.
+     --------------------------------------------------------------------- */
+  --status-open: oklch(0.7 0.014 270);
+  --status-progress: oklch(0.74 0.14 248);
+  --status-blocked: oklch(0.7 0.19 22);
+  --status-closed: oklch(0.74 0.16 152);
+  --warn: oklch(0.8 0.15 85);
+
+  /* alias so var(--status-<BeadColumn>) resolves for every column key */
+  --status-in_progress: var(--status-progress);
+
+  /* ---------------------------------------------------------------------
+     KNOWLEDGE TAXONOMY — 7 categorical hues for the 7 comment prefixes.
+     Held at L 0.75 so every hue clears 7:1 on --card, and never used as the
+     only channel — each chip carries its label.
+     --------------------------------------------------------------------- */
+  --k-decision: oklch(0.75 0.15 268);
+  --k-learned: oklch(0.75 0.13 200);
+  --k-fact: oklch(0.75 0.15 152);
+  --k-pattern: oklch(0.75 0.15 300);
+  --k-investigation: oklch(0.79 0.15 90);
+  --k-must-check: oklch(0.72 0.17 22);
+  --k-deviation: oklch(0.76 0.15 40);
+
+  /* ---------------------------------------------------------------------
+     DANGER — scoped to the typed-confirmation delete flow only.
+     --------------------------------------------------------------------- */
+  --danger: oklch(0.5 0.2 22);
+  --danger-hover: oklch(0.44 0.19 22);
+  --danger-foreground: oklch(0.99 0.003 22);
+  --danger-disabled: oklch(0.3 0.05 22);
+  --danger-disabled-foreground: oklch(0.62 0.02 22);
+
+  /* ---------------------------------------------------------------------
+     TYPEFACES — a two-family pair, one job each.
+     Geist Sans carries reading. Geist Mono carries the machine register:
+     bead ids, counts, timestamps, section eyebrows and bd commands.
+     Loaded from Google Fonts; see fonts/geist.css.
+     --------------------------------------------------------------------- */
+  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo,
+    monospace;
+
+  /* Type scale, as measured across the four source screens.
+     Sub-pixel sizes (12.75, 12.5, 11.5) are intentional: the board is dense
+     and the steps between roles are deliberately narrow. */
+  --text-hero: 34px; /* overview h1 */
+  --text-page: 22px; /* projects h1 */
+  --text-metric: 28px; /* stat tile value */
+  --text-sheet: 20px; /* detail sheet title */
+  --text-card-title: 16px; /* screen card h2 */
+  --text-subtitle: 15px; /* project card h3, dialog h2 */
+  --text-body: 14px; /* html/body base */
+  --text-prose: 13.5px; /* description, acceptance criteria */
+  --text-ui: 13px; /* rail item, tab, breadcrumb, comment */
+  --text-dense: 12.75px; /* bead title, knowledge excerpt */
+  --text-control: 12.5px; /* buttons, inputs, menu items, select */
+  --text-meta: 11.5px; /* lane ratio, cmd preview, hints */
+  --text-mono-sm: 11px; /* bead id, rail count, file path */
+  --text-eyebrow: 10px; /* uppercase mono section labels */
+
+  --tracking-hero: -0.028em;
+  --tracking-page: -0.02em;
+  --tracking-sheet: -0.015em;
+  --tracking-title: -0.01em;
+  --tracking-eyebrow: 0.09em;
+  --tracking-tag: 0.06em;
+
+  --leading-title: 1.12;
+  --leading-sheet: 1.28;
+  --leading-dense: 1.45;
+  --leading-body: 1.6;
+  --leading-prose: 1.68;
+
+  /* 550 is a real instance of the Geist variable font and is used constantly
+     for "slightly emphasised" UI text. Do not round it to 500 or 600. */
+  --weight-body: 400;
+  --weight-medium: 500;
+  --weight-emphasis: 550;
+  --weight-strong: 600;
+}
+
+/* Base typography contract. Applying these three rules reproduces the
+   source project's text rendering exactly. */
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  font-feature-settings: 'cv01', 'cv03', 'ss01';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------------------------------------------------------------------------
+   sRGB FALLBACK — for engines without oklch() support, and for handoff to
+   tools that cannot parse it (older design tools, email, some native shells).
+
+   These hex values were computed from the OKLCh tokens above via OKLab →
+   linear sRGB → sRGB. They are NOT a second source of truth: several of the
+   chroma-heavy hues (--k-learned, --danger, --status-blocked) sit outside the
+   sRGB gamut and are clipped here, so they shift slightly. When both are
+   available, oklch() wins — which is exactly what this @supports block does.
+
+   If you change a token above, recompute the matching hex. Do not edit one
+   without the other.
+   --------------------------------------------------------------------------- */
+
+@supports not (color: oklch(0 0 0)) {
+  :root {
+    --background: #0b0c0f;
+    --canvas: #101114;
+    --card: #17181b;
+    --card-hover: #1f2025;
+    --popover: #1a1b1e;
+    --sidebar: #0e0f12;
+
+    --foreground: #ecedef;
+    --muted-foreground: #979aa1;
+    --faint: #83868d;
+
+    --primary: #4061db;
+    --primary-hover: #324ebb;
+    --primary-text: #7a9eff;
+    --primary-foreground: #fbfcfe;
+
+    --border: rgba(255, 255, 255, 0.09);
+    --border-strong: rgba(255, 255, 255, 0.15);
+    --ring: #6389ff;
+
+    --status-open: #9b9ea7;
+    --status-progress: #5bb1fe;
+    --status-blocked: #ff6367;
+    --status-closed: #4ac777;
+    --warn: #eab532;
+
+    --k-decision: #85a9ff;
+    --k-learned: #00c6ce;
+    --k-fact: #58c97d;
+    --k-pattern: #bd96fe;
+    --k-investigation: #e0b52c;
+    --k-must-check: #fd7273;
+    --k-deviation: #ff8d64;
+
+    --danger: #ba0329;
+    --danger-hover: #a2001b;
+    --danger-foreground: #fefbfb;
+    --danger-disabled: #442322;
+    --danger-disabled-foreground: #8c7f7f;
+  }
+}
+
+/* The machine register. Every id, count, duration and command uses it, and
+   always with tabular figures so columns of numbers do not shift. */
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-eyebrow);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.muted {
+  color: var(--muted-foreground);
+}
+
+.faint {
+  color: var(--faint);
+}

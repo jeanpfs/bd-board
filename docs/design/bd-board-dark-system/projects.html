@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>bd · board — projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/bd-dark.css" />
+    <style>
+      .page {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 24px 24px 40px;
+      }
+
+      .page-head {
+        display: flex;
+        align-items: flex-end;
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+
+      .page-head h1 {
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+
+      .page-head p {
+        margin-top: 4px;
+        font-size: 13px;
+        color: var(--muted-foreground);
+      }
+
+      .probe {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+        border-radius: 10px;
+        background: var(--canvas);
+        padding: 10px 14px;
+        font-size: 12.5px;
+        color: var(--muted-foreground);
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+
+      .probe .sep {
+        color: oklch(1 0 0 / 14%);
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+
+      .stat-tile {
+        border-radius: 12px;
+        background: var(--card);
+        padding: 14px 16px;
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+
+      .stat-tile .k {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+        color: var(--muted-foreground);
+      }
+
+      .stat-tile .v {
+        margin-top: 8px;
+        font-size: 28px;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .stat-tile .d {
+        margin-top: 6px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--faint);
+      }
+
+      .section-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .pcard {
+        display: block;
+        border-radius: 12px;
+        background: var(--card);
+        padding: 16px;
+        box-shadow:
+          inset 0 0 0 1px var(--border),
+          var(--shadow-card);
+        transition:
+          background-color 140ms ease,
+          box-shadow 140ms ease,
+          transform 140ms ease;
+      }
+
+      .pcard:hover {
+        background: var(--card-hover);
+        box-shadow:
+          inset 0 0 0 1px oklch(0.66 0.18 268 / 45%),
+          0 8px 22px -8px oklch(0 0 0 / 60%);
+        transform: translateY(-2px);
+      }
+
+      .pcard-top {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .pcard h3 {
+        font-size: 15px;
+        font-weight: 550;
+        letter-spacing: -0.01em;
+      }
+
+      .pcard .path {
+        margin-top: 3px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--faint);
+      }
+
+      .pcard .arrow {
+        margin-left: auto;
+        color: transparent;
+        transition: color 140ms ease;
+      }
+
+      .pcard:hover .arrow {
+        color: var(--primary-text);
+      }
+
+      .legend {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px 14px;
+        margin-top: 14px;
+      }
+
+      .legend span.row {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+        color: var(--muted-foreground);
+      }
+
+      .legend b {
+        font-family: var(--font-mono);
+        font-weight: 550;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .ring {
+        flex: none;
+      }
+
+      .ring text {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 550;
+        fill: var(--foreground);
+      }
+
+      @media (max-width: 1080px) {
+        .grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .stats {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 720px) {
+        .grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell" data-od-id="projects-shell">
+      <aside class="rail">
+        <div class="rail-brand">
+          <span class="brand-mark" aria-hidden="true">bd</span>
+          <span class="brand-name">bd board</span>
+        </div>
+        <div class="rail-scroll">
+          <nav class="rail-group" aria-label="Projects">
+            <p class="rail-label">Projects</p>
+            <ul id="rail-projects"></ul>
+          </nav>
+          <nav class="rail-group" aria-label="Roots">
+            <p class="rail-label">Discovery roots</p>
+            <ul>
+              <li>
+                <span class="rail-item" style="cursor: default">
+                  <span data-icon="folder"></span>
+                  <span class="mono" style="font-size: 11.5px">~/Code/*</span>
+                </span>
+              </li>
+            </ul>
+          </nav>
+        </div>
+        <div class="rail-foot">
+          <span class="mono">bd 1.2.1</span>
+          <span class="faint">·</span>
+          <span class="mono">embedded</span>
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar" data-od-id="topbar">
+          <div class="crumbs"><strong>Projects</strong></div>
+          <div class="topbar-end">
+            <div class="search">
+              <span id="search-icon"></span>
+              <input
+                id="filter"
+                type="search"
+                placeholder="Filter projects..."
+                aria-label="Filter projects"
+              />
+              <span class="kbd">/</span>
+            </div>
+            <span class="mode-badge" title="BD_BOARD_ALLOW_WRITE=true">
+              <span data-icon="bolt"></span> Write mode
+            </span>
+            <span class="avatar" title="jean.pfs2@gmail.com">JP</span>
+          </div>
+        </header>
+
+        <div class="canvas" style="padding: 0">
+          <div class="page">
+            <div class="page-head">
+              <div>
+                <h1>Projects</h1>
+                <p id="page-sub"></p>
+              </div>
+            </div>
+
+            <div class="probe" data-od-id="probe-strip">
+              <span style="color: var(--status-closed)" id="probe-icon"></span>
+              <span>Desktop shell connected — reading through the local <span class="mono">bd</span> binary.</span>
+              <span class="sep">|</span>
+              <span class="mono">6 databases discovered</span>
+              <span class="sep">|</span>
+              <span class="mono">refreshed 15s ago</span>
+            </div>
+
+            <div class="stats" id="stats" data-od-id="summary-stats"></div>
+
+            <div class="section-bar">
+              <span class="eyebrow">All projects</span>
+              <span class="faint mono" style="font-size: 11px" id="count-note"></span>
+              <div style="margin-left: auto" class="segmented" role="group" aria-label="Sort projects">
+                <button type="button" data-psort="beads" aria-pressed="true">Beads</button>
+                <button type="button" data-psort="open" aria-pressed="false">Open work</button>
+                <button type="button" data-psort="name" aria-pressed="false">Name</button>
+              </div>
+            </div>
+
+            <div class="grid" id="grid" data-od-id="project-grid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="assets/board-data.js"></script>
+    <script>
+      const SUMMARY = [
+        { key: 'open', label: 'Open', hint: 'includes deferred' },
+        { key: 'in_progress', label: 'In progress', hint: 'active work' },
+        { key: 'blocked', label: 'Blocked', hint: 'waiting on edges' },
+        { key: 'closed', label: 'Closed', hint: 'all time' },
+      ]
+
+      const pstate = { sort: 'beads', q: '' }
+
+      function openOf(p) {
+        return p.counts.open + p.counts.deferred
+      }
+
+      function ring(pct) {
+        const r = 21
+        const c = 2 * Math.PI * r
+        const on = (pct / 100) * c
+        return `
+          <svg class="ring" width="52" height="52" viewBox="0 0 52 52" role="img"
+               aria-label="${Math.round(pct)}% closed">
+            <circle cx="26" cy="26" r="${r}" fill="none" stroke="oklch(1 0 0 / 8%)" stroke-width="4" />
+            <circle cx="26" cy="26" r="${r}" fill="none" stroke="var(--status-closed)"
+              stroke-width="4" stroke-linecap="round"
+              stroke-dasharray="${on.toFixed(1)} ${(c - on).toFixed(1)}"
+              transform="rotate(-90 26 26)" />
+            <text x="26" y="30" text-anchor="middle">${Math.round(pct)}</text>
+          </svg>`
+      }
+
+      function renderStats() {
+        const agg = PROJECTS.reduce(
+          (a, p) => ({
+            open: a.open + openOf(p),
+            in_progress: a.in_progress + p.counts.in_progress,
+            blocked: a.blocked + p.counts.blocked,
+            closed: a.closed + p.counts.closed,
+          }),
+          { open: 0, in_progress: 0, blocked: 0, closed: 0 },
+        )
+        const total = PROJECTS.reduce((s, p) => s + p.counts.total, 0)
+
+        document.getElementById('stats').innerHTML = SUMMARY.map(
+          (m) => `
+          <div class="stat-tile">
+            <span class="k">
+              <span class="rail-dot" style="background: var(--status-${m.key})"></span>
+              ${m.label}
+            </span>
+            <div class="v" style="color: var(--status-${m.key})">${agg[m.key]}</div>
+            <div class="d">${Math.round((agg[m.key] / total) * 100)}% of all beads · ${m.hint}</div>
+          </div>`,
+        ).join('')
+
+        document.getElementById('page-sub').textContent =
+          `${PROJECTS.length} projects · ${total} beads · ${agg.in_progress + agg.blocked} need a decision today`
+      }
+
+      function renderGrid() {
+        const list = PROJECTS.filter(
+          (p) =>
+            !pstate.q ||
+            (p.name + p.database + p.dir).toLowerCase().includes(pstate.q),
+        ).sort((a, b) => {
+          if (pstate.sort === 'name') return a.name.localeCompare(b.name)
+          if (pstate.sort === 'open') return openOf(b) - openOf(a)
+          return b.counts.total - a.counts.total
+        })
+
+        document.getElementById('count-note').textContent =
+          `${list.length}/${PROJECTS.length} shown`
+
+        document.getElementById('grid').innerHTML = list.length
+          ? list
+              .map((p) => {
+                const c = p.counts
+                const pct = c.total ? (c.closed / c.total) * 100 : 0
+                const seg = (k, n) =>
+                  n > 0
+                    ? `<span class="seg-${k}" style="width:${(n / c.total) * 100}%"></span>`
+                    : ''
+                return `
+            <a class="pcard" href="${p.database === 'bdb' ? 'board.html' : '#'}" data-od-id="project-${p.database}">
+              <div class="pcard-top">
+                <div style="min-width: 0">
+                  <h3>${p.name}</h3>
+                  <p class="path">${p.dir}</p>
+                </div>
+                <span class="arrow">${icon('chevronRight', 15)}</span>
+              </div>
+
+              <div style="margin-top: 14px" class="bar">
+                ${seg('closed', c.closed)}${seg('in_progress', c.in_progress)}${seg('blocked', c.blocked)}${seg('open', c.open + c.deferred)}
+              </div>
+
+              <div style="display:flex; align-items:flex-end; gap:14px">
+                <div class="legend" style="flex: 1">
+                  <span class="row"><span class="rail-dot" style="background: var(--status-open)"></span>
+                    <b style="color: var(--status-open)">${openOf(p)}</b> Open</span>
+                  <span class="row"><span class="rail-dot" style="background: var(--status-progress)"></span>
+                    <b style="color: var(--status-progress)">${c.in_progress}</b> In progress</span>
+                  <span class="row"><span class="rail-dot" style="background: var(--status-blocked)"></span>
+                    <b style="color: var(--status-blocked)">${c.blocked}</b> Blocked</span>
+                  <span class="row"><span class="rail-dot" style="background: var(--status-closed)"></span>
+                    <b style="color: var(--status-closed)">${c.closed}</b> Closed</span>
+                </div>
+                <span style="margin-top: 14px">${ring(pct)}</span>
+              </div>
+            </a>`
+              })
+              .join('')
+          : `<div class="empty-state" style="grid-column: 1 / -1">No project matches “${pstate.q}”</div>`
+      }
+
+      document.getElementById('rail-projects').innerHTML = PROJECTS.map(
+        (p) => `
+        <li>
+          <a class="rail-item" href="${p.database === 'bdb' ? 'board.html' : '#'}">
+            ${icon('folder', 14)} ${p.name}<span class="count">${p.counts.total}</span>
+          </a>
+        </li>`,
+      ).join('')
+
+      document.getElementById('search-icon').innerHTML = icon('search', 13)
+      document.getElementById('probe-icon').innerHTML = icon('check', 14)
+      document.querySelectorAll('[data-icon]').forEach((n) => {
+        n.innerHTML = icon(n.dataset.icon, 14)
+      })
+
+      document.getElementById('filter').addEventListener('input', (e) => {
+        pstate.q = e.target.value.trim().toLowerCase()
+        renderGrid()
+      })
+
+      document.querySelectorAll('[data-psort]').forEach((b) => {
+        b.addEventListener('click', () => {
+          pstate.sort = b.dataset.psort
+          document
+            .querySelectorAll('[data-psort]')
+            .forEach((x) => x.setAttribute('aria-pressed', String(x === b)))
+          renderGrid()
+        })
+      })
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === '/' && document.activeElement.id !== 'filter') {
+          e.preventDefault()
+          document.getElementById('filter').focus()
+        }
+      })
+
+      renderStats()
+      renderGrid()
+    </script>
+  </body>
+</html>

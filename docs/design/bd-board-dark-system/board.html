@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>bd · board — bd-board</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/bd-dark.css" />
+    <style>
+      /* knowledge tab — only used on this screen */
+      .knowledge {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 280px;
+        gap: 20px;
+        padding-top: 16px;
+        align-items: start;
+      }
+      .k-aside {
+        position: sticky;
+        top: 16px;
+        border-radius: 10px;
+        background: var(--canvas);
+        padding: 14px;
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+      .k-stat {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 6px 0;
+        font-size: 12.5px;
+        color: var(--muted-foreground);
+        text-align: left;
+      }
+      .k-stat + .k-stat {
+        border-top: 1px solid var(--border);
+      }
+      .k-stat .n {
+        margin-left: auto;
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+      }
+      .k-stat .meter {
+        width: 46px;
+        height: 4px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: oklch(1 0 0 / 8%);
+      }
+      .k-stat .meter span {
+        display: block;
+        height: 100%;
+        background: var(--k);
+      }
+      .k-stat:hover,
+      .k-stat[aria-pressed='true'] {
+        color: var(--foreground);
+      }
+      .k-stat[aria-pressed='true'] .n {
+        color: var(--k);
+      }
+      /* an active type filter carries its own hue, not the generic accent */
+      .chip-filter[aria-pressed='true'][class*=' k-'] {
+        background: color-mix(in oklch, var(--k) 22%, transparent);
+        color: var(--k);
+        box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--k) 50%, transparent);
+      }
+      @media (max-width: 1100px) {
+        .knowledge {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell" data-od-id="board-shell">
+      <aside class="rail" data-od-id="project-rail">
+        <div class="rail-brand">
+          <span class="brand-mark" aria-hidden="true">bd</span>
+          <span class="brand-name">bd board</span>
+        </div>
+
+        <div class="rail-scroll">
+          <nav class="rail-group" aria-label="Projects" data-od-id="rail-projects">
+            <p class="rail-label">Projects</p>
+            <ul id="rail-projects"></ul>
+          </nav>
+
+          <nav class="rail-group" aria-label="Views" data-od-id="rail-views">
+            <p class="rail-label">View</p>
+            <ul>
+              <li>
+                <button class="rail-item is-active" data-tab="board" type="button">
+                  <span data-icon="columns"></span> Board
+                </button>
+              </li>
+              <li>
+                <button class="rail-item" data-tab="knowledge" type="button">
+                  <span data-icon="book"></span> Knowledge
+                  <span class="count" id="k-count"></span>
+                </button>
+              </li>
+            </ul>
+          </nav>
+
+          <nav
+            class="rail-group"
+            aria-label="Quick filters"
+            data-od-id="rail-quick-filters"
+          >
+            <p class="rail-label">Quick filters</p>
+            <ul>
+              <li>
+                <button class="rail-item" data-quick="ready" type="button">
+                  <span class="rail-dot" style="background: var(--status-closed)"></span>
+                  Ready
+                  <span class="count" id="q-ready"></span>
+                </button>
+              </li>
+              <li>
+                <button class="rail-item" data-quick="blocked" type="button">
+                  <span class="rail-dot" style="background: var(--status-blocked)"></span>
+                  Blocked
+                  <span class="count" id="q-blocked"></span>
+                </button>
+              </li>
+              <li>
+                <button class="rail-item" data-quick="mine" type="button">
+                  <span class="rail-dot" style="background: var(--status-progress)"></span>
+                  Assigned to me
+                  <span class="count" id="q-mine"></span>
+                </button>
+              </li>
+            </ul>
+          </nav>
+        </div>
+
+        <div class="rail-foot">
+          <span class="mono">bd 1.2.1</span>
+          <span class="faint">·</span>
+          <span class="mono">embedded</span>
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar" data-od-id="topbar">
+          <div class="crumbs">
+            <a href="projects.html">Projects</a>
+            <span class="sep">/</span>
+            <strong>bd-board</strong>
+            <span class="mono faint" style="font-size: 11.5px">bdb</span>
+          </div>
+
+          <div class="tabs" role="tablist" aria-label="Project view">
+            <button
+              class="tab"
+              role="tab"
+              aria-selected="true"
+              data-tab="board"
+              type="button"
+            >
+              <span data-icon="columns"></span> Board
+            </button>
+            <button
+              class="tab"
+              role="tab"
+              aria-selected="false"
+              data-tab="knowledge"
+              type="button"
+            >
+              <span data-icon="book"></span> Knowledge
+            </button>
+          </div>
+
+          <div class="topbar-end">
+            <span class="mode-badge" title="BD_BOARD_ALLOW_WRITE=true">
+              <span data-icon="bolt"></span> Write mode
+            </span>
+            <span class="avatar" title="jean.pfs2@gmail.com">JP</span>
+          </div>
+        </header>
+
+        <div class="filterbar" id="filterbar" data-od-id="filter-bar"></div>
+        <div class="canvas" id="canvas" data-od-id="board-canvas"></div>
+      </div>
+    </div>
+
+    <script src="assets/board-data.js"></script>
+    <script>
+      const ME = 'jean.pfs2@gmail.com'
+      const STORE = 'bdb.board.v1'
+
+      /* localStorage throws outright in sandboxed and file:// contexts —
+         the board must still render there. */
+      function readStore() {
+        try {
+          return JSON.parse(localStorage.getItem(STORE) || '{}')
+        } catch {
+          return {}
+        }
+      }
+
+      const state = Object.assign(
+        {
+          tab: 'board',
+          group: 'epic',
+          sort: 'priority',
+          priorities: [],
+          quick: null,
+          query: '',
+          collapsed: [],
+          kType: null,
+        },
+        readStore(),
+      )
+
+      function save() {
+        try {
+          localStorage.setItem(STORE, JSON.stringify(state))
+        } catch {
+          /* no persistence available */
+        }
+      }
+      const el = (id) => document.getElementById(id)
+
+      /* ---------- selectors ---------- */
+
+      const workBeads = () => BEADS.filter((b) => !isEpic(b))
+
+      function isReady(b) {
+        const col = mapStatus(b.status).column
+        if (col === 'closed' || col === 'blocked') return false
+        return groupBeadLinks(b.links).blockedBy.every(
+          (id) => mapStatus(beadById(id)?.status || 'closed').column === 'closed',
+        )
+      }
+
+      function passesQuick(b) {
+        if (state.quick === 'ready') return isReady(b)
+        if (state.quick === 'blocked')
+          return mapStatus(b.status).column === 'blocked'
+        if (state.quick === 'mine') return b.assignee === ME
+        return true
+      }
+
+      const matches = (b) =>
+        beadMatches(b, state.query, state.priorities) && passesQuick(b)
+
+      function byColumn(list) {
+        const grouped = { open: [], in_progress: [], blocked: [], closed: [] }
+        for (const b of list) grouped[mapStatus(b.status).column].push(b)
+        for (const k of COLUMN_KEYS) grouped[k].sort(SORTS[state.sort])
+        return grouped
+      }
+
+      /* ---------- markup ---------- */
+
+      function statChip(name, count, label, cls = '') {
+        return `<span class="stat ${cls}" title="${label}">${icon(name, 12)}${count}</span>`
+      }
+
+      function beadCard(b) {
+        const st = mapStatus(b.status)
+        const links = groupBeadLinks(b.links)
+        const kids = childrenOf(b.id)
+        const p = Math.max(0, Math.min(4, b.priority))
+        const labels = (b.labels ?? []).slice(0, 2)
+
+        return `
+          <a class="bead ${isEpic(b) ? 'is-epic' : ''}" href="bead-detail.html?id=${b.id}" data-od-id="bead-${b.id}">
+            <span class="bead-top">
+              <span class="bead-id">${b.id}</span>
+              <span class="p-chip p${p}">P${p}</span>
+              ${isEpic(b) ? `<span class="tag tag-epic">Epic</span>` : ''}
+              ${st.badge ? `<span class="tag tag-${st.badge.tone}">${st.badge.label}</span>` : ''}
+              <span class="bead-stats" style="gap: 6px">
+                <span class="faint mono" style="font-size: 10.5px">${b.updated_at}</span>
+              </span>
+            </span>
+            <span class="bead-title">${b.title}</span>
+            ${isEpic(b) && kids.length ? progressBar(kids) : ''}
+            <span class="bead-foot">
+              ${labels.map((l) => `<span class="label-chip">${l}</span>`).join('')}
+              <span class="bead-stats">
+                ${kids.length ? statChip('tree', kids.length, `${kids.length} subtasks`) : ''}
+                ${links.blockedBy.length ? statChip('ban', links.blockedBy.length, `blocked by ${links.blockedBy.length}`, 'is-blocked') : ''}
+                ${links.blocking.length ? statChip('waypoints', links.blocking.length, `blocking ${links.blocking.length}`) : ''}
+                ${links.related.length ? statChip('link', links.related.length, `${links.related.length} related`) : ''}
+                ${b.comment_count ? statChip('comment', b.comment_count, `${b.comment_count} comments`) : ''}
+                ${b.assignee ? `<span class="avatar" title="${b.assignee}">${initials(b.assignee)}</span>` : ''}
+              </span>
+            </span>
+          </a>`
+      }
+
+      function progressBar(kids, width = '') {
+        const counts = { closed: 0, in_progress: 0, blocked: 0, open: 0 }
+        for (const k of kids) counts[mapStatus(k.status).column]++
+        const total = kids.length || 1
+        const order = ['closed', 'in_progress', 'blocked', 'open']
+        return `<span class="bar" style="${width}">${order
+          .filter((k) => counts[k] > 0)
+          .map(
+            (k) =>
+              `<span class="seg-${k}" style="width:${(counts[k] / total) * 100}%"></span>`,
+          )
+          .join('')}</span>`
+      }
+
+      function columnHeaders(list) {
+        const g = byColumn(list)
+        return `<div class="col-head-row">${COLUMN_KEYS.map(
+          (k) => `
+            <div class="col-head col-${k}">
+              <span class="dot"></span>
+              <h2>${COLUMN_LABEL[k]}</h2>
+              <span class="n">${g[k].length}</span>
+            </div>`,
+        ).join('')}</div>`
+      }
+
+      function laneCells(list) {
+        const g = byColumn(list)
+        return `<div class="lane-grid">${COLUMN_KEYS.map(
+          (k) => `
+            <div class="lane-cell">
+              ${g[k].map(beadCard).join('') || '<span class="lane-empty">—</span>'}
+            </div>`,
+        ).join('')}</div>`
+      }
+
+      function lane(key, headInner, list) {
+        const open = !state.collapsed.includes(key)
+        const done = list.filter(
+          (b) => mapStatus(b.status).column === 'closed',
+        ).length
+        return `
+          <section class="lane" data-lane="${key}" data-open="${open}" data-od-id="lane-${key}">
+            <header class="lane-head">
+              <button class="lane-toggle" type="button" data-toggle="${key}"
+                aria-expanded="${open}" aria-label="${open ? 'Collapse' : 'Expand'} lane ${key}">
+                ${icon('chevron', 15)}
+              </button>
+              ${headInner}
+              <span class="lane-meta">
+                ${list.length ? `<span style="width:120px" class="hide-sm">${progressBar(list)}</span>` : ''}
+                <span class="lane-ratio">${done}/${list.length}</span>
+              </span>
+            </header>
+            ${laneCells(list)}
+          </section>`
+      }
+
+      /* ---------- board renderer ---------- */
+
+      function renderBoard() {
+        const work = workBeads().filter(matches)
+
+        if (state.group === 'status') {
+          el('canvas').innerHTML =
+            columnHeaders(work) +
+            (work.length
+              ? `<div class="lanes"><section class="lane" data-open="true">${laneCells(work)}</section></div>`
+              : emptyState())
+          return
+        }
+
+        let lanes = ''
+
+        if (state.group === 'epic') {
+          const epics = BEADS.filter(isEpic).sort(SORTS.priority)
+          const orphans = work.filter(
+            (b) => !b.parent || !beadById(b.parent) || !isEpic(beadById(b.parent)),
+          )
+          if (orphans.length)
+            lanes += lane(
+              'no-epic',
+              `<span class="lane-title"><span class="muted" style="font-size:13px;font-weight:550">No epic</span></span>`,
+              orphans,
+            )
+          for (const e of epics) {
+            const kids = work.filter((b) => b.parent === e.id)
+            if (!kids.length) continue
+            lanes += lane(
+              e.id,
+              `<a class="lane-title" href="bead-detail.html?id=${e.id}">
+                 <span style="color:var(--primary-text)">${icon('layers', 14)}</span>
+                 <span class="mono muted" style="font-size:11px">${e.id}</span>
+                 <span class="name">${e.title}</span>
+               </a>`,
+              kids,
+            )
+          }
+        }
+
+        if (state.group === 'priority') {
+          for (const p of [0, 1, 2, 3, 4]) {
+            const list = work.filter((b) => b.priority === p)
+            if (!list.length) continue
+            const hint = p === 0 ? 'highest' : p === 4 ? 'lowest' : ''
+            lanes += lane(
+              `p${p}`,
+              `<span class="lane-title">
+                 <span class="p-chip p${p}" style="font-size:11px;padding:2px 6px">P${p}</span>
+                 <span class="name">${['Critical', 'High', 'Normal', 'Low', 'Backlog'][p]}</span>
+                 ${hint ? `<span class="faint" style="font-size:11.5px">· ${hint}</span>` : ''}
+               </span>`,
+              list,
+            )
+          }
+        }
+
+        el('canvas').innerHTML =
+          columnHeaders(work) +
+          (lanes ? `<div class="lanes">${lanes}</div>` : emptyState())
+      }
+
+      function emptyState() {
+        return `<div class="empty-state">No beads match the current filters</div>`
+      }
+
+      /* ---------- knowledge renderer ---------- */
+
+      function knowledgeMatches(k) {
+        if (state.kType && k.type !== state.kType) return false
+        if (!state.query) return true
+        const q = state.query.toLowerCase()
+        return [k.content, k.bead_id, k.bead_title, k.author]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(q)
+      }
+
+      function knowledgeRow(k) {
+        return `
+          <a class="k-row k-${k.type}" href="knowledge-detail.html?id=${encodeURIComponent(k.id)}"
+             data-od-id="knowledge-${k.id}">
+            <span class="stripe"></span>
+            <span class="body">
+              <span style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+                <span class="ktag"><span class="k-dot"></span>${KNOWLEDGE_TYPE_LABEL[k.type]}</span>
+                <span class="mono faint" style="font-size:10.5px">${k.id}</span>
+                <span class="mono faint" style="font-size:10.5px;margin-left:auto">${k.created_at} ago</span>
+              </span>
+              <span class="txt">${k.content}</span>
+              <span class="src">
+                ${icon('corner', 11)}
+                <span class="mono">${k.bead_id}</span>
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.bead_title ?? ''}</span>
+                <span class="avatar" style="width:16px;height:16px;font-size:8px;margin-left:auto">${initials(k.author)}</span>
+              </span>
+            </span>
+          </a>`
+      }
+
+      function renderKnowledge() {
+        const list = KNOWLEDGE.filter(knowledgeMatches)
+        const counts = knowledgeTypeCounts()
+        const max = Math.max(1, ...Object.values(counts))
+
+        el('canvas').innerHTML = `
+          <div class="knowledge">
+            <div data-od-id="knowledge-list">
+              ${list.length ? list.map(knowledgeRow).join('') : emptyState()}
+            </div>
+            <aside class="k-aside" data-od-id="knowledge-aside">
+              <p class="eyebrow" style="margin-bottom:6px">By type</p>
+              ${KNOWLEDGE_TYPES.map((t) => {
+                const n = counts[t] ?? 0
+                return `
+                  <button class="k-stat k-${t}" type="button" data-ktype="${t}"
+                    aria-pressed="${state.kType === t}">
+                    <span class="ktag"><span class="k-dot"></span>${KNOWLEDGE_TYPE_LABEL[t]}</span>
+                    <span class="meter"><span style="width:${(n / max) * 100}%"></span></span>
+                    <span class="n">${n}</span>
+                  </button>`
+              }).join('')}
+
+              <p class="eyebrow" style="margin:16px 0 8px">Where it comes from</p>
+              <p class="muted" style="font-size:12.5px;line-height:1.6">
+                bd stores no knowledge object. These are bead comments whose text
+                opens with a recognised prefix — the board reads them back out.
+              </p>
+              <p class="cmd-preview" style="margin-top:10px">bd comment &lt;id&gt; "DECISION: …"</p>
+            </aside>
+          </div>`
+      }
+
+      /* ---------- filter bar ---------- */
+
+      const GROUPS = [
+        { key: 'epic', label: 'Epics', icon: 'layers' },
+        { key: 'priority', label: 'Priority', icon: 'sliders' },
+        { key: 'status', label: 'Status', icon: 'columns' },
+      ]
+
+      const SORT_LABEL = { priority: 'Priority', recent: 'Recent', title: 'Title' }
+
+      function renderFilterBar() {
+        if (state.tab === 'knowledge') {
+          const counts = knowledgeTypeCounts()
+          el('filterbar').innerHTML = `
+            <span class="filter-label">Type</span>
+            <button class="chip-filter" type="button" data-ktype="all"
+              aria-pressed="${!state.kType}">All ${KNOWLEDGE.length}</button>
+            ${KNOWLEDGE_TYPES.filter((t) => counts[t])
+              .map(
+                (t) => `
+                <button class="chip-filter k-${t}" type="button" data-ktype="${t}"
+                  aria-pressed="${state.kType === t}">
+                  <span class="k-dot k-color" style="background: var(--k)"></span>
+                  ${KNOWLEDGE_TYPE_LABEL[t]}
+                  <span class="mono faint">${counts[t]}</span>
+                </button>`,
+              )
+              .join('')}
+            <div style="margin-left:auto"></div>
+            ${searchMarkup('Search knowledge...')}`
+          return
+        }
+
+        el('filterbar').innerHTML = `
+          <span class="filter-label">Group by</span>
+          <div class="segmented" role="group" aria-label="Group by">
+            ${GROUPS.map(
+              (g) => `
+              <button type="button" data-group="${g.key}" aria-pressed="${state.group === g.key}">
+                ${icon(g.icon, 13)} ${g.label}
+              </button>`,
+            ).join('')}
+          </div>
+
+          <div class="pop-wrap">
+            <button class="btn btn-outline" type="button" data-pop="priority"
+              aria-expanded="false" aria-haspopup="true">
+              ${icon('sliders', 13)} Priority
+              ${state.priorities.length ? `<span class="badge-count">${state.priorities.length}</span>` : ''}
+            </button>
+            <div class="menu" id="menu-priority" hidden role="menu">
+              <p class="menu-label">Priority</p>
+              ${[0, 1, 2, 3, 4]
+                .map(
+                  (p) => `
+                <button type="button" role="menuitemcheckbox" data-p="${p}"
+                  aria-checked="${state.priorities.includes(p)}">
+                  <span class="mono p-chip p${p}" style="box-shadow:none;padding:0">P${p}</span>
+                  <span>${['Critical', 'High', 'Normal', 'Low', 'Backlog'][p]}</span>
+                  <span class="tick" data-on="${state.priorities.includes(p)}">${icon('check', 13)}</span>
+                </button>`,
+                )
+                .join('')}
+              ${
+                state.priorities.length
+                  ? `<hr /><button type="button" data-p="clear">Clear filter</button>`
+                  : ''
+              }
+            </div>
+          </div>
+
+          <div class="pop-wrap">
+            <button class="btn btn-outline" type="button" data-pop="sort"
+              aria-expanded="false" aria-haspopup="true">
+              ${icon('sort', 13)} Sort<span class="faint">·</span>${SORT_LABEL[state.sort]}
+            </button>
+            <div class="menu" id="menu-sort" hidden role="menu">
+              <p class="menu-label">Sort by</p>
+              ${Object.keys(SORT_LABEL)
+                .map(
+                  (s) => `
+                <button type="button" role="menuitemradio" data-sort="${s}"
+                  aria-checked="${state.sort === s}">
+                  ${SORT_LABEL[s]}
+                  <span class="tick" data-on="${state.sort === s}">${icon('check', 13)}</span>
+                </button>`,
+                )
+                .join('')}
+            </div>
+          </div>
+
+          ${
+            state.quick
+              ? `<button class="chip-filter" type="button" data-clear-quick aria-pressed="true">
+                   ${state.quick === 'mine' ? 'Assigned to me' : state.quick} ${icon('x', 11)}
+                 </button>`
+              : ''
+          }
+
+          <div style="margin-left:auto"></div>
+          ${searchMarkup('Search beads...')}
+          <button class="btn btn-primary" type="button" id="new-bead">
+            ${icon('plus', 14)} New bead
+          </button>`
+      }
+
+      function searchMarkup(placeholder) {
+        return `
+          <div class="search">
+            ${icon('search', 13)}
+            <input id="search" type="search" placeholder="${placeholder}"
+              value="${state.query.replace(/"/g, '&quot;')}" aria-label="${placeholder}" />
+            ${state.query ? '' : '<span class="kbd">/</span>'}
+          </div>`
+      }
+
+      /* ---------- rail ---------- */
+
+      function renderRail() {
+        el('rail-projects').innerHTML = PROJECTS.map(
+          (p) => `
+          <li>
+            <a class="rail-item ${p.database === 'bdb' ? 'is-active' : ''}"
+               href="${p.database === 'bdb' ? '#' : 'projects.html'}"
+               ${p.database === 'bdb' ? 'aria-current="page"' : ''}>
+              ${icon('folder', 14)} ${p.name}
+              <span class="count">${p.counts.total}</span>
+            </a>
+          </li>`,
+        ).join('')
+
+        const work = workBeads()
+        el('k-count').textContent = KNOWLEDGE.length
+        el('q-ready').textContent = work.filter(isReady).length
+        el('q-blocked').textContent = work.filter(
+          (b) => mapStatus(b.status).column === 'blocked',
+        ).length
+        el('q-mine').textContent = work.filter((b) => b.assignee === ME).length
+
+        document.querySelectorAll('[data-quick]').forEach((b) => {
+          b.classList.toggle('is-active', state.quick === b.dataset.quick)
+        })
+        document.querySelectorAll('.rail-item[data-tab]').forEach((b) => {
+          b.classList.toggle('is-active', state.tab === b.dataset.tab)
+        })
+        document.querySelectorAll('.tab[data-tab]').forEach((b) => {
+          b.setAttribute('aria-selected', String(state.tab === b.dataset.tab))
+        })
+      }
+
+      /* ---------- boot ---------- */
+
+      function render() {
+        renderRail()
+        renderFilterBar()
+        state.tab === 'knowledge' ? renderKnowledge() : renderBoard()
+        document.querySelectorAll('[data-icon]').forEach((n) => {
+          n.innerHTML = icon(n.dataset.icon, 14)
+        })
+        save()
+      }
+
+      function closeMenus(except) {
+        document.querySelectorAll('.menu').forEach((m) => {
+          if (m === except) return
+          m.hidden = true
+          const t = m.parentElement.querySelector('[data-pop]')
+          if (t) t.setAttribute('aria-expanded', 'false')
+        })
+      }
+
+      document.addEventListener('click', (ev) => {
+        const t = ev.target.closest('button, a')
+        if (!t) return closeMenus()
+
+        if (t.dataset.pop) {
+          const menu = el('menu-' + t.dataset.pop)
+          const next = menu.hidden
+          closeMenus(menu)
+          menu.hidden = !next
+          t.setAttribute('aria-expanded', String(next))
+          return
+        }
+
+        if (!t.closest('.menu')) closeMenus()
+
+        if (t.dataset.tab) {
+          state.tab = t.dataset.tab
+          render()
+        } else if (t.dataset.group) {
+          state.group = t.dataset.group
+          render()
+        } else if (t.dataset.sort) {
+          state.sort = t.dataset.sort
+          render()
+        } else if (t.dataset.p) {
+          const p = t.dataset.p
+          if (p === 'clear') state.priorities = []
+          else {
+            const n = Number(p)
+            state.priorities = state.priorities.includes(n)
+              ? state.priorities.filter((x) => x !== n)
+              : [...state.priorities, n].sort()
+          }
+          const wasOpen = !el('menu-priority').hidden
+          render()
+          if (wasOpen) {
+            el('menu-priority').hidden = false
+            document
+              .querySelector('[data-pop="priority"]')
+              .setAttribute('aria-expanded', 'true')
+          }
+        } else if (t.dataset.quick) {
+          state.quick = state.quick === t.dataset.quick ? null : t.dataset.quick
+          render()
+        } else if (t.hasAttribute('data-clear-quick')) {
+          state.quick = null
+          render()
+        } else if (t.dataset.ktype) {
+          const next = t.dataset.ktype
+          state.kType =
+            next === 'all' || state.kType === next ? null : next
+          render()
+        } else if (t.dataset.toggle) {
+          const key = t.dataset.toggle
+          state.collapsed = state.collapsed.includes(key)
+            ? state.collapsed.filter((k) => k !== key)
+            : [...state.collapsed, key]
+          const lane = document.querySelector(`[data-lane="${key}"]`)
+          const open = !state.collapsed.includes(key)
+          lane.dataset.open = open
+          t.setAttribute('aria-expanded', String(open))
+          save()
+        } else if (t.id === 'new-bead') {
+          t.textContent = 'Opening bd create…'
+          setTimeout(render, 900)
+        }
+      })
+
+      document.addEventListener('input', (ev) => {
+        if (ev.target.id !== 'search') return
+        state.query = ev.target.value
+        const pos = ev.target.selectionStart
+        state.tab === 'knowledge' ? renderKnowledge() : renderBoard()
+        renderFilterBar()
+        const next = el('search')
+        next.focus()
+        next.setSelectionRange(pos, pos)
+        save()
+      })
+
+      document.addEventListener('keydown', (ev) => {
+        if (ev.key === '/' && document.activeElement.id !== 'search') {
+          ev.preventDefault()
+          el('search').focus()
+        }
+        if (ev.key === 'Escape') {
+          closeMenus()
+          if (document.activeElement.id === 'search')
+            document.activeElement.blur()
+        }
+      })
+
+      render()
+    </script>
+  </body>
+</html>

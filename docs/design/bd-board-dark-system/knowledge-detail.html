@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>bd · board — knowledge entry</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/bd-dark.css" />
+    <style>
+      /* knowledge-only: the entry row and the verbatim comment block */
+      .raw {
+        border-radius: 9px;
+        background: oklch(0 0 0 / 32%);
+        padding: 12px 14px;
+        font-family: var(--font-mono);
+        font-size: 12.25px;
+        line-height: 1.68;
+        color: oklch(0.86 0.004 270);
+        box-shadow: inset 0 0 0 1px var(--border);
+        white-space: pre-wrap;
+      }
+
+      .raw b {
+        font-weight: 600;
+        color: var(--k);
+      }
+
+      .raw-note {
+        margin-top: 8px;
+        font-size: 11.5px;
+        line-height: 1.55;
+        color: var(--faint);
+      }
+
+      .sec-note {
+        margin: -4px 0 10px;
+        font-size: 12px;
+        line-height: 1.55;
+        color: var(--faint);
+      }
+
+      .type-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+
+      .type-grid a {
+        opacity: 0.55;
+        transition:
+          opacity 120ms ease,
+          transform 120ms ease;
+      }
+
+      .type-grid a:hover {
+        opacity: 1;
+      }
+
+      .type-grid a[aria-current='true'] {
+        opacity: 1;
+      }
+
+      .copied {
+        color: var(--status-closed);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- knowledge tab behind the sheet -->
+    <div class="shell" aria-hidden="true" data-od-id="knowledge-behind">
+      <aside class="rail">
+        <div class="rail-brand">
+          <span class="brand-mark">bd</span>
+          <span class="brand-name">bd board</span>
+        </div>
+        <div class="rail-scroll">
+          <p class="rail-label">Projects</p>
+          <ul id="rail-projects"></ul>
+        </div>
+      </aside>
+      <div class="main">
+        <header class="topbar">
+          <div class="crumbs">
+            <span>Projects</span><span class="sep">/</span><strong>bd-board</strong>
+          </div>
+        </header>
+        <div class="canvas" id="ghost-list" style="padding-top: 14px"></div>
+      </div>
+    </div>
+
+    <div class="backdrop"></div>
+
+    <div
+      class="sheet-wrap"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="sheet-title"
+    >
+      <article class="sheet" id="sheet" data-od-id="knowledge-sheet"></article>
+    </div>
+
+    <script src="assets/board-data.js"></script>
+    <script>
+      const params = new URLSearchParams(location.search)
+      const entry = knowledgeById(params.get('id')) ?? KNOWLEDGE[0]
+      const bead = beadById(entry.bead_id)
+      const epic = bead?.parent ? beadById(bead.parent) : null
+      const sameBead = knowledgeForBead(entry.bead_id).filter(
+        (k) => k.id !== entry.id,
+      )
+      const linked = linkedKnowledge(entry)
+      const sameType = KNOWLEDGE.filter(
+        (k) => k.type === entry.type && k.id !== entry.id,
+      )
+      const counts = knowledgeTypeCounts()
+
+      /* The claim leads; the stored comment below carries it in full. Repeating
+         the whole entry in both places just reads as a duplicated paragraph. */
+      const claim =
+        entry.content.match(/^[\s\S]*?[.!?](?=\s|$)/)?.[0] ?? entry.content
+      const hasMore = claim.length < entry.content.length
+
+      function secHead(ic, label, trail) {
+        return `<div class="sec-head">${icon(ic, 13)}<h3>${label}</h3>${
+          trail ? `<span class="trail">${trail}</span>` : ''
+        }</div>`
+      }
+
+      function kRow(k, relation) {
+        return `
+          <a class="k-row k-${k.type}" href="knowledge-detail.html?id=${encodeURIComponent(k.id)}">
+            <span class="stripe"></span>
+            <span class="body">
+              <span style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+                <span class="ktag"><span class="k-dot"></span>${KNOWLEDGE_TYPE_LABEL[k.type]}</span>
+                ${relation ? `<span class="rel-chip">${relation}</span>` : ''}
+                <span class="mono faint" style="font-size:10.5px;margin-left:auto">${k.created_at} ago</span>
+              </span>
+              <span class="txt">${k.content}</span>
+              <span class="src">
+                ${icon('corner', 11)}
+                <span class="mono">${k.bead_id}</span>
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.bead_title ?? ''}</span>
+              </span>
+            </span>
+          </a>`
+      }
+
+      const beadCol = bead ? mapStatus(bead.status).column : 'open'
+      const beadP = bead ? Math.max(0, Math.min(4, bead.priority)) : 2
+
+      document.getElementById('sheet').innerHTML = `
+        <div class="sheet-main k-${entry.type}">
+          <header class="sheet-head">
+            <div class="sheet-head-row">
+              <span class="ktag"><span class="k-dot"></span>${KNOWLEDGE_TYPE_LABEL[entry.type]}</span>
+              <span class="mono muted" style="font-size: 12px">${entry.id}</span>
+              <span style="margin-left: auto; display: flex; gap: 6px">
+                <button class="btn btn-outline" type="button" id="copy-btn">
+                  ${icon('align', 13)} <span id="copy-label">Copy raw</span>
+                </button>
+                <a class="btn btn-ghost" href="bead-detail.html?id=${entry.bead_id}">
+                  ${icon('corner', 13)} Open bead
+                </a>
+                <a class="btn btn-ghost" href="board.html" aria-label="Close knowledge entry">
+                  ${icon('x', 14)}
+                </a>
+              </span>
+            </div>
+
+            <h1 class="sheet-title" id="sheet-title">${claim}</h1>
+
+            <a class="parent-link" href="bead-detail.html?id=${entry.bead_id}">
+              ${icon('corner', 12)} Recorded on
+              <span class="mono">${entry.bead_id}</span>
+              <span>${entry.bead_title ?? ''}</span>
+            </a>
+          </header>
+
+          <div class="sheet-body">
+            <section data-od-id="k-raw">
+              ${secHead(
+                'comment',
+                hasMore ? 'Comment as stored, in full' : 'Comment as stored',
+                `${entry.created_at} ago`,
+              )}
+              <div class="raw"><b>${entry.prefix}:</b> ${entry.content}</div>
+              <p class="raw-note">
+                bd has no knowledge entity — this is an ordinary bead comment.
+                The board promotes it because the text opens with a recognised
+                prefix, matched case-insensitively.
+              </p>
+            </section>
+
+            <section data-od-id="k-source">
+              ${secHead('tree', 'Source bead')}
+              ${
+                bead
+                  ? `<a class="link-row" href="bead-detail.html?id=${bead.id}">
+                       <span class="rail-dot" style="background: var(--status-${beadCol})"></span>
+                       <span class="mono muted" style="font-size:11px">${bead.id}</span>
+                       <span class="t">${bead.title}</span>
+                       <span class="p-chip p${beadP}">P${beadP}</span>
+                       <span class="s" style="color: var(--status-${beadCol})">${COLUMN_LABEL[beadCol]}</span>
+                     </a>
+                     ${
+                       epic
+                         ? `<a class="link-row" href="bead-detail.html?id=${epic.id}">
+                              <span style="color:var(--primary-text)">${icon('layers', 13)}</span>
+                              <span class="mono muted" style="font-size:11px">${epic.id}</span>
+                              <span class="t">${epic.title}</span>
+                              <span class="s muted">Epic</span>
+                            </a>`
+                         : ''
+                     }`
+                  : '<p class="faint" style="font-size:12.5px">Source bead no longer exists.</p>'
+              }
+            </section>
+
+            ${
+              sameBead.length
+                ? `<section data-od-id="k-same-bead">
+                     ${secHead('book', 'Also recorded on this bead', sameBead.length)}
+                     ${sameBead.map((k) => kRow(k)).join('')}
+                   </section>`
+                : ''
+            }
+
+            <section data-od-id="k-graph">
+              ${secHead('waypoints', 'Along the dependency graph', linked.length || '')}
+              <p class="sec-note">
+                Knowledge sits on a bead, so it travels the graph. These entries
+                were recorded on beads this one blocks, waits on, or shares an
+                epic with — the context you inherit when you pick this work up.
+              </p>
+              ${
+                linked.length
+                  ? linked.map((l) => kRow(l.entry, l.relation)).join('')
+                  : '<p class="faint" style="font-size:12.5px">No knowledge on linked beads yet.</p>'
+              }
+            </section>
+
+            ${
+              sameType.length
+                ? `<section data-od-id="k-same-type">
+                     ${secHead('layers', `Other ${KNOWLEDGE_TYPE_LABEL[entry.type].toLowerCase()} entries`, sameType.length)}
+                     ${sameType.map((k) => kRow(k)).join('')}
+                   </section>`
+                : ''
+            }
+          </div>
+        </div>
+
+        <aside class="meta k-${entry.type}" data-od-id="k-meta">
+          <div class="meta-field">
+            <span class="eyebrow">Type</span>
+            <div class="meta-value">
+              <span class="ktag"><span class="k-dot"></span>${KNOWLEDGE_TYPE_LABEL[entry.type]}</span>
+            </div>
+            <p class="faint" style="margin-top:7px;font-size:11.5px;line-height:1.55">
+              ${KNOWLEDGE_TYPE_HINT[entry.type]}
+            </p>
+          </div>
+
+          <div class="meta-field">
+            <span class="eyebrow">Recorded by</span>
+            <div class="meta-value">
+              <span class="avatar">${initials(entry.author)}</span>
+              <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${entry.author}</span>
+            </div>
+          </div>
+
+          <div class="meta-field">
+            <span class="eyebrow">When</span>
+            <div class="meta-value mono muted" style="font-size:12.5px">${entry.created_at} ago</div>
+          </div>
+
+          <div class="meta-field">
+            <span class="eyebrow">Source bead</span>
+            <div class="meta-value">
+              <span class="rail-dot" style="background: var(--status-${beadCol})"></span>
+              <a class="mono" style="font-size:12.5px" href="bead-detail.html?id=${entry.bead_id}">${entry.bead_id}</a>
+              <span class="p-chip p${beadP}" style="margin-left:auto">P${beadP}</span>
+            </div>
+          </div>
+
+          ${
+            bead && (bead.labels ?? []).length
+              ? `<div class="meta-field">
+                   <span class="eyebrow">Bead labels</span>
+                   <div class="meta-value" style="flex-wrap:wrap;gap:5px">
+                     ${bead.labels.map((l) => `<span class="label-chip">${l}</span>`).join('')}
+                   </div>
+                 </div>`
+              : ''
+          }
+
+          <hr class="meta-sep" />
+
+          <div class="meta-field">
+            <span class="eyebrow">Prefix</span>
+            <div class="meta-value mono k-color" style="font-size:12.5px">${entry.prefix}:</div>
+          </div>
+
+          <div class="meta-field">
+            <span class="eyebrow">All types</span>
+            <div class="type-grid">
+              ${KNOWLEDGE_TYPES.map((t) => {
+                const first = KNOWLEDGE.find((k) => k.type === t)
+                const target = first
+                  ? `knowledge-detail.html?id=${encodeURIComponent(first.id)}`
+                  : 'board.html'
+                return `<a class="ktag k-${t}" href="${target}"
+                          aria-current="${t === entry.type}"
+                          title="${KNOWLEDGE_TYPE_LABEL[t]} · ${counts[t] ?? 0}">
+                          <span class="k-dot"></span>${KNOWLEDGE_TYPE_LABEL[t]} ${counts[t] ?? 0}
+                        </a>`
+              }).join('')}
+            </div>
+          </div>
+
+          <hr class="meta-sep" />
+
+          <p class="eyebrow" style="margin-bottom:7px">Written with</p>
+          <p class="cmd-preview">bd comment ${entry.bead_id} "${entry.prefix}: …"</p>
+          <p class="eyebrow" style="margin:14px 0 7px">Read back with</p>
+          <p class="cmd-preview">bd show ${entry.bead_id} --json</p>
+        </aside>`
+
+      /* ---------- knowledge list behind ---------- */
+
+      document.getElementById('rail-projects').innerHTML = PROJECTS.slice(0, 4)
+        .map(
+          (pr) => `<li><span class="rail-item ${pr.database === 'bdb' ? 'is-active' : ''}">
+            ${icon('folder', 14)} ${pr.name}<span class="count">${pr.counts.total}</span></span></li>`,
+        )
+        .join('')
+
+      document.getElementById('ghost-list').innerHTML = KNOWLEDGE.slice(0, 8)
+        .map(
+          (k) => `<div class="k-row k-${k.type}">
+            <span class="stripe"></span>
+            <span class="body">
+              <span class="ktag"><span class="k-dot"></span>${KNOWLEDGE_TYPE_LABEL[k.type]}</span>
+              <span class="txt">${k.content}</span>
+            </span>
+          </div>`,
+        )
+        .join('')
+
+      /* ---------- interactions ---------- */
+
+      const copyBtn = document.getElementById('copy-btn')
+      const copyLabel = document.getElementById('copy-label')
+
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(entry.raw)
+        } catch {
+          const ta = document.createElement('textarea')
+          ta.value = entry.raw
+          document.body.append(ta)
+          ta.select()
+          document.execCommand('copy')
+          ta.remove()
+        }
+        copyLabel.textContent = 'Copied'
+        copyLabel.classList.add('copied')
+        setTimeout(() => {
+          copyLabel.textContent = 'Copy raw'
+          copyLabel.classList.remove('copied')
+        }, 1400)
+      })
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') location.href = 'board.html'
+      })
+    </script>
+  </body>
+</html>

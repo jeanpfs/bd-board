@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>bd board kit · Application shell</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../assets/bd-dark.css" />
+    <style>
+      /* kit-only: the dashed slot annotations. Delete this block when copying. */
+      .slot {
+        display: grid;
+        flex: 1;
+        place-items: center;
+        margin: 16px;
+        border-radius: 12px;
+        border: 1px dashed oklch(1 0 0 / 14%);
+        color: var(--faint);
+        text-align: center;
+      }
+
+      .slot b {
+        display: block;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 550;
+        color: var(--muted-foreground);
+      }
+
+      .slot span {
+        display: block;
+        margin-top: 6px;
+        font-size: 12px;
+        line-height: 1.6;
+        max-width: 46ch;
+      }
+
+      .kit-note {
+        position: fixed;
+        z-index: 80;
+        right: 16px;
+        bottom: 16px;
+        max-width: 320px;
+        border-radius: 12px;
+        background: var(--popover);
+        padding: 12px 14px;
+        box-shadow: var(--shadow-pop);
+      }
+
+      .kit-note p {
+        margin-top: 7px;
+        font-size: 12px;
+        line-height: 1.6;
+        color: var(--muted-foreground);
+      }
+
+      .kit-note a {
+        color: var(--primary-text);
+        font-weight: 550;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell" data-od-id="kit-shell">
+      <aside class="rail" data-od-id="kit-rail">
+        <div class="rail-brand">
+          <span class="brand-mark" aria-hidden="true">bd</span>
+          <span class="brand-name">bd board</span>
+        </div>
+
+        <div class="rail-scroll">
+          <nav class="rail-group" aria-label="Projects">
+            <p class="rail-label">Projects</p>
+            <ul id="rail-projects"></ul>
+          </nav>
+
+          <nav class="rail-group" aria-label="Views">
+            <p class="rail-label">View</p>
+            <ul>
+              <li>
+                <button class="rail-item is-active" data-view="board" type="button">
+                  <span data-icon="columns"></span> Board
+                </button>
+              </li>
+              <li>
+                <button class="rail-item" data-view="knowledge" type="button">
+                  <span data-icon="book"></span> Knowledge
+                  <span class="count" id="k-count"></span>
+                </button>
+              </li>
+            </ul>
+          </nav>
+
+          <nav class="rail-group" aria-label="Quick filters">
+            <p class="rail-label">Quick filters</p>
+            <ul>
+              <li>
+                <button class="rail-item" data-quick="ready" type="button">
+                  <span class="rail-dot" style="background: var(--status-closed)"></span>
+                  Ready <span class="count">7</span>
+                </button>
+              </li>
+              <li>
+                <button class="rail-item" data-quick="blocked" type="button">
+                  <span class="rail-dot" style="background: var(--status-blocked)"></span>
+                  Blocked <span class="count">3</span>
+                </button>
+              </li>
+              <li>
+                <button class="rail-item" data-quick="mine" type="button">
+                  <span class="rail-dot" style="background: var(--status-progress)"></span>
+                  Assigned to me <span class="count">6</span>
+                </button>
+              </li>
+            </ul>
+          </nav>
+        </div>
+
+        <div class="rail-foot">
+          <span class="mono">bd 1.2.1</span>
+          <span class="faint">·</span>
+          <span class="mono">embedded</span>
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar" data-od-id="kit-topbar">
+          <div class="crumbs">
+            <a href="index.html">Kit</a>
+            <span class="sep">/</span>
+            <strong>bd-board</strong>
+            <span class="mono faint" style="font-size: 11.5px">bdb</span>
+          </div>
+
+          <div class="tabs" role="tablist" aria-label="Project view">
+            <button class="tab" role="tab" aria-selected="true" data-view="board" type="button">
+              <span data-icon="columns"></span> Board
+            </button>
+            <button class="tab" role="tab" aria-selected="false" data-view="knowledge" type="button">
+              <span data-icon="book"></span> Knowledge
+            </button>
+          </div>
+
+          <div class="topbar-end">
+            <button class="mode-badge" id="mode" type="button"
+              title="Toggle BD_BOARD_ALLOW_WRITE — this is the single most important thing the shell asserts">
+              <span data-icon="bolt"></span> <span id="mode-label">Write mode</span>
+            </button>
+            <span class="avatar" title="jean.pfs2@gmail.com">JP</span>
+          </div>
+        </header>
+
+        <div class="filterbar" data-od-id="kit-filterbar">
+          <span class="filter-label">Group by</span>
+          <div class="segmented" role="group" aria-label="Group by">
+            <button type="button" data-group="epic" aria-pressed="true">Epics</button>
+            <button type="button" data-group="priority" aria-pressed="false">Priority</button>
+            <button type="button" data-group="status" aria-pressed="false">Status</button>
+          </div>
+          <div style="margin-left: auto"></div>
+          <div class="search">
+            <span id="search-icon"></span>
+            <input type="search" placeholder="Search beads..." aria-label="Search beads" />
+            <span class="kbd">/</span>
+          </div>
+          <button class="btn btn-primary" type="button">
+            <span data-icon="plus"></span> New bead
+          </button>
+        </div>
+
+        <div class="canvas" style="display: flex; padding: 0">
+          <div class="slot" data-od-id="kit-canvas-slot">
+            <span>
+              <b>.canvas</b>
+              <span>
+                The only scrolling region in the app. Drop
+                <span class="mono">board-canvas.html</span>'s swimlanes, the
+                knowledge list, or the projects page column in here.
+              </span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="kit-note">
+      <span class="eyebrow">Shell contract</span>
+      <p>
+        <span class="mono">grid-template-columns: var(--rail) minmax(0, 1fr)</span>
+        at <span class="mono">100dvh</span>. Rail brand and topbar are both 48px
+        so the rule crosses the window unbroken. Rail, topbar and filter bar are
+        <span class="mono">flex: none</span>; only <span class="mono">.canvas</span>
+        scrolls.
+      </p>
+      <p><a href="index.html">← Back to the kit index</a></p>
+    </aside>
+
+    <script src="../../assets/board-data.js"></script>
+    <script>
+      const el = (id) => document.getElementById(id)
+
+      el('rail-projects').innerHTML = PROJECTS.map(
+        (p) => `
+        <li>
+          <button class="rail-item ${p.database === 'bdb' ? 'is-active' : ''}" type="button"
+            ${p.database === 'bdb' ? 'aria-current="page"' : ''} data-project="${p.database}">
+            ${icon('folder', 14)} ${p.name}<span class="count">${p.counts.total}</span>
+          </button>
+        </li>`,
+      ).join('')
+
+      el('k-count').textContent = KNOWLEDGE.length
+      el('search-icon').innerHTML = icon('search', 13)
+      document.querySelectorAll('[data-icon]').forEach((n) => {
+        n.innerHTML = icon(n.dataset.icon, 14)
+      })
+
+      /* rail projects — single selection */
+      document.addEventListener('click', (ev) => {
+        const t = ev.target.closest('button')
+        if (!t) return
+
+        if (t.dataset.project) {
+          document.querySelectorAll('[data-project]').forEach((b) => {
+            const on = b === t
+            b.classList.toggle('is-active', on)
+            on
+              ? b.setAttribute('aria-current', 'page')
+              : b.removeAttribute('aria-current')
+          })
+        }
+
+        if (t.dataset.view) {
+          document.querySelectorAll('.rail-item[data-view]').forEach((b) =>
+            b.classList.toggle('is-active', b.dataset.view === t.dataset.view),
+          )
+          document.querySelectorAll('.tab[data-view]').forEach((b) =>
+            b.setAttribute('aria-selected', String(b.dataset.view === t.dataset.view)),
+          )
+        }
+
+        if (t.dataset.quick) {
+          t.classList.toggle('is-active')
+        }
+
+        if (t.dataset.group) {
+          document.querySelectorAll('[data-group]').forEach((b) =>
+            b.setAttribute('aria-pressed', String(b === t)),
+          )
+        }
+      })
+
+      /* read-only is the default; write mode is opt-in through the env flag,
+         so the badge has to be able to show both. */
+      let writing = true
+      el('mode').addEventListener('click', () => {
+        writing = !writing
+        const badge = el('mode')
+        el('mode-label').textContent = writing ? 'Write mode' : 'Read-only'
+        badge.querySelector('svg')?.remove()
+        badge.insertAdjacentHTML('afterbegin', icon(writing ? 'bolt' : 'lock', 14))
+        badge.style.color = writing ? 'var(--status-closed)' : 'var(--faint)'
+        badge.style.background = writing
+          ? 'oklch(0.74 0.16 152 / 12%)'
+          : 'oklch(1 0 0 / 6%)'
+        badge.style.boxShadow = writing
+          ? 'inset 0 0 0 1px oklch(0.74 0.16 152 / 35%)'
+          : 'inset 0 0 0 1px var(--border)'
+      })
+
+      document.addEventListener('keydown', (ev) => {
+        if (ev.key === '/' && document.activeElement.tagName !== 'INPUT') {
+          ev.preventDefault()
+          document.querySelector('.search input').focus()
+        }
+        if (ev.key === 'Escape') document.activeElement.blur()
+      })
+    </script>
+  </body>
+</html>

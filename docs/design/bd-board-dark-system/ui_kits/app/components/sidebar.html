@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>bd board kit · Sidebar (project rail)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../../assets/bd-dark.css" />
+    <style>
+      body {
+        display: flex;
+        gap: 28px;
+        min-height: 100dvh;
+        padding: 28px;
+      }
+
+      .mount {
+        display: flex;
+        width: var(--rail);
+        flex: none;
+        flex-direction: column;
+        height: 560px;
+        overflow: hidden;
+        border-radius: 12px;
+        background: var(--sidebar);
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+
+      .doc {
+        max-width: 52ch;
+      }
+
+      .doc h1 {
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+      }
+
+      .doc p {
+        margin-top: 10px;
+        font-size: 12.75px;
+        line-height: 1.65;
+        color: var(--muted-foreground);
+      }
+
+      .doc code {
+        border-radius: 4px;
+        background: oklch(1 0 0 / 8%);
+        padding: 1px 5px;
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        color: oklch(0.86 0.06 268);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- component: sidebar — the project rail, shared by every screen -->
+    <aside class="mount" data-od-id="component-sidebar">
+      <div class="rail-brand">
+        <span class="brand-mark" aria-hidden="true">bd</span>
+        <span class="brand-name">bd board</span>
+      </div>
+
+      <div class="rail-scroll">
+        <nav class="rail-group" aria-label="Projects">
+          <p class="rail-label">Projects</p>
+          <ul id="projects"></ul>
+        </nav>
+
+        <nav class="rail-group" aria-label="Views">
+          <p class="rail-label">View</p>
+          <ul>
+            <li>
+              <button class="rail-item is-active" type="button">
+                <span data-icon="columns"></span> Board
+              </button>
+            </li>
+            <li>
+              <button class="rail-item" type="button">
+                <span data-icon="book"></span> Knowledge
+                <span class="count" id="k">16</span>
+              </button>
+            </li>
+          </ul>
+        </nav>
+
+        <nav class="rail-group" aria-label="Quick filters">
+          <p class="rail-label">Quick filters</p>
+          <ul>
+            <li>
+              <button class="rail-item" type="button">
+                <span class="rail-dot" style="background: var(--status-closed)"></span>
+                Ready <span class="count">7</span>
+              </button>
+            </li>
+            <li>
+              <button class="rail-item" type="button">
+                <span class="rail-dot" style="background: var(--status-blocked)"></span>
+                Blocked <span class="count">3</span>
+              </button>
+            </li>
+          </ul>
+        </nav>
+      </div>
+
+      <div class="rail-foot">
+        <span class="mono">bd 1.2.1</span>
+        <span class="faint">·</span>
+        <span class="mono">embedded</span>
+      </div>
+    </aside>
+
+    <div class="doc">
+      <span class="eyebrow">Component · sidebar</span>
+      <h1>Project rail</h1>
+      <p>
+        Fixed <code>--rail</code> width (232px) on <code>--sidebar</code>, one
+        elevation step above the page. Three stacked groups — projects, views,
+        quick filters — separated by 18px, each with a mono uppercase label.
+      </p>
+      <p>
+        The brand row is <b>48px</b>, exactly matching the topbar, so the
+        horizontal rule crosses the window unbroken. Only
+        <code>.rail-scroll</code> scrolls; the brand row and the version foot are
+        <code>flex: none</code>.
+      </p>
+      <p>
+        A row is <code>.rail-item</code>: rest is
+        <code>--muted-foreground</code>, hover adds a 6% wash and full-strength
+        text, active adds an 8% wash plus an inset ring. The trailing
+        <code>.count</code> brightens with the row rather than staying dim.
+      </p>
+      <p>
+        Mark the current page with <code>aria-current="page"</code> — the
+        stylesheet styles that attribute directly, so no extra class is needed.
+      </p>
+    </div>
+
+    <script src="../../../assets/board-data.js"></script>
+    <script>
+      document.getElementById('projects').innerHTML = PROJECTS.map(
+        (p) => `
+        <li>
+          <button class="rail-item ${p.database === 'bdb' ? 'is-active' : ''}" type="button"
+            ${p.database === 'bdb' ? 'aria-current="page"' : ''}>
+            ${icon('folder', 14)} ${p.name}<span class="count">${p.counts.total}</span>
+          </button>
+        </li>`,
+      ).join('')
+
+      document.getElementById('k').textContent = KNOWLEDGE.length
+
+      document.querySelectorAll('[data-icon]').forEach((n) => {
+        n.innerHTML = icon(n.dataset.icon, 14)
+      })
+    </script>
+  </body>
+</html>

@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>bd board kit · Status column and swimlane</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../../assets/bd-dark.css" />
+    <style>
+      body {
+        display: flex;
+        flex-direction: column;
+        height: 100dvh;
+      }
+
+      .doc {
+        flex: none;
+        max-width: 74ch;
+        padding: 28px 16px 0;
+      }
+
+      .doc h1 {
+        margin-top: 6px;
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+      }
+
+      .doc p {
+        margin-top: 10px;
+        font-size: 12.75px;
+        line-height: 1.65;
+        color: var(--muted-foreground);
+      }
+
+      .doc code {
+        border-radius: 4px;
+        background: oklch(1 0 0 / 8%);
+        padding: 1px 5px;
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        color: oklch(0.86 0.06 268);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="doc">
+      <span class="eyebrow">Component · status column + swimlane</span>
+      <h1>Four columns, grouped into lanes</h1>
+      <p>
+        The header row is <code>position: sticky; top: 0</code> over the
+        scrolling canvas, filled at 92% opacity with
+        <code>backdrop-filter: blur(8px)</code>, so cards pass underneath it
+        instead of colliding with it. Scroll this page to see it hold.
+      </p>
+      <p>
+        Each header carries a coloured dot, a 12.5px label and a mono count
+        <b>in the status colour</b>. A lane is a header plus a four-cell grid at
+        a 12px gutter; the chevron rotates −90° when
+        <code>data-open="false"</code> and the grid is hidden.
+      </p>
+      <p>
+        Lane meta shows a stacked progress bar and a <code>done/total</code>
+        ratio. Below <b>1240px</b> the bar drops via <code>.hide-sm</code> and
+        the ratio stays — the number survives, the decoration does not.
+      </p>
+    </div>
+
+    <div class="canvas" id="canvas" data-od-id="component-status-column"></div>
+
+    <script src="../../../assets/board-data.js"></script>
+    <script>
+      const stat = (name, count, label, cls = '') =>
+        `<span class="stat ${cls}" title="${label}">${icon(name, 12)}${count}</span>`
+
+      function beadCard(b) {
+        const st = mapStatus(b.status)
+        const links = groupBeadLinks(b.links)
+        const p = Math.max(0, Math.min(4, b.priority))
+        return `
+          <a class="bead" href="../detail-sheet.html?id=${b.id}">
+            <span class="bead-top">
+              <span class="bead-id">${b.id}</span>
+              <span class="p-chip p${p}">P${p}</span>
+              ${st.badge ? `<span class="tag tag-${st.badge.tone}">${st.badge.label}</span>` : ''}
+              <span class="bead-stats" style="gap:6px">
+                <span class="faint mono" style="font-size:10.5px">${b.updated_at}</span>
+              </span>
+            </span>
+            <span class="bead-title">${b.title}</span>
+            <span class="bead-foot">
+              ${(b.labels ?? []).slice(0, 2).map((l) => `<span class="label-chip">${l}</span>`).join('')}
+              <span class="bead-stats">
+                ${links.blockedBy.length ? stat('ban', links.blockedBy.length, 'blocked by', 'is-blocked') : ''}
+                ${b.comment_count ? stat('comment', b.comment_count, 'comments') : ''}
+                ${b.assignee ? `<span class="avatar" title="${b.assignee}">${initials(b.assignee)}</span>` : ''}
+              </span>
+            </span>
+          </a>`
+      }
+
+      function byColumn(list) {
+        const g = { open: [], in_progress: [], blocked: [], closed: [] }
+        for (const b of list) g[mapStatus(b.status).column].push(b)
+        for (const k of COLUMN_KEYS) g[k].sort(SORTS.priority)
+        return g
+      }
+
+      function progressBar(list) {
+        const counts = { closed: 0, in_progress: 0, blocked: 0, open: 0 }
+        for (const b of list) counts[mapStatus(b.status).column]++
+        const total = list.length || 1
+        return `<span class="bar">${['closed', 'in_progress', 'blocked', 'open']
+          .filter((k) => counts[k] > 0)
+          .map((k) => `<span class="seg-${k}" style="width:${(counts[k] / total) * 100}%"></span>`)
+          .join('')}</span>`
+      }
+
+      function laneCells(list) {
+        const g = byColumn(list)
+        return `<div class="lane-grid">${COLUMN_KEYS.map(
+          (k) => `<div class="lane-cell">${
+            g[k].map(beadCard).join('') || '<span class="lane-empty">—</span>'
+          }</div>`,
+        ).join('')}</div>`
+      }
+
+      const work = BEADS.filter((b) => !isEpic(b))
+      const g = byColumn(work)
+
+      const lanes = BEADS.filter(isEpic)
+        .map((e) => {
+          const kids = work.filter((b) => b.parent === e.id)
+          if (!kids.length) return ''
+          const done = kids.filter((b) => mapStatus(b.status).column === 'closed').length
+          return `
+            <section class="lane" data-lane="${e.id}" data-open="true">
+              <header class="lane-head">
+                <button class="lane-toggle" type="button" data-toggle="${e.id}"
+                  aria-expanded="true" aria-label="Collapse lane ${e.id}">${icon('chevron', 15)}</button>
+                <span class="lane-title">
+                  <span style="color:var(--primary-text)">${icon('layers', 14)}</span>
+                  <span class="mono muted" style="font-size:11px">${e.id}</span>
+                  <span class="name">${e.title}</span>
+                </span>
+                <span class="lane-meta">
+                  <span style="width:120px" class="hide-sm">${progressBar(kids)}</span>
+                  <span class="lane-ratio">${done}/${kids.length}</span>
+                </span>
+              </header>
+              ${laneCells(kids)}
+            </section>`
+        })
+        .join('')
+
+      document.getElementById('canvas').innerHTML = `
+        <div class="col-head-row">
+          ${COLUMN_KEYS.map(
+            (k) => `<div class="col-head col-${k}">
+              <span class="dot"></span><h2>${COLUMN_LABEL[k]}</h2><span class="n">${g[k].length}</span>
+            </div>`,
+          ).join('')}
+        </div>
+        <div class="lanes">${lanes}</div>`
+
+      document.addEventListener('click', (ev) => {
+        const t = ev.target.closest('[data-toggle]')
+        if (!t) return
+        const lane = document.querySelector(`[data-lane="${t.dataset.toggle}"]`)
+        const open = lane.dataset.open !== 'true'
+        lane.dataset.open = open
+        t.setAttribute('aria-expanded', String(open))
+        t.setAttribute('aria-label', `${open ? 'Collapse' : 'Expand'} lane ${t.dataset.toggle}`)
+      })
+    </script>
+  </body>
+</html>

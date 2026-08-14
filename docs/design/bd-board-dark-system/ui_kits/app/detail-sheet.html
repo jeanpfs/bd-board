@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>bd board kit · Object detail sheet</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../assets/bd-dark.css" />
+    <style>
+      /* the typed delete confirmation, from bead-detail.html */
+      .confirm {
+        position: fixed;
+        inset: 0;
+        z-index: 70;
+        display: grid;
+        place-items: center;
+        background: oklch(0.09 0.005 270 / 72%);
+        padding: 24px;
+      }
+
+      .confirm[hidden] {
+        display: none;
+      }
+
+      .confirm-box {
+        width: min(440px, 100%);
+        border-radius: 12px;
+        background: var(--popover);
+        padding: 20px;
+        box-shadow: var(--shadow-pop);
+      }
+
+      .confirm-box h2 {
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      .danger-note {
+        display: flex;
+        gap: 9px;
+        margin: 14px 0;
+        border-radius: 9px;
+        background: oklch(0.7 0.19 22 / 12%);
+        padding: 10px 12px;
+        box-shadow: inset 0 0 0 1px oklch(0.7 0.19 22 / 30%);
+        font-size: 12.5px;
+        line-height: 1.55;
+        color: oklch(0.88 0.06 22);
+      }
+
+      .confirm input {
+        height: 32px;
+        width: 100%;
+        border: 0;
+        border-radius: 7px;
+        background: oklch(1 0 0 / 5%);
+        box-shadow: inset 0 0 0 1px var(--border-strong);
+        padding: 0 10px;
+        font-family: var(--font-mono);
+        font-size: 12.5px;
+        color: var(--foreground);
+      }
+
+      .confirm input:focus {
+        outline: none;
+        box-shadow: inset 0 0 0 1px var(--ring);
+      }
+
+      .btn-danger {
+        background: oklch(0.5 0.2 22);
+        color: oklch(0.99 0.003 22);
+        font-weight: 550;
+      }
+
+      .btn-danger:hover {
+        background: oklch(0.44 0.19 22);
+        box-shadow: 0 0 0 1px oklch(0.7 0.19 22 / 60%);
+      }
+
+      .btn-danger:disabled {
+        background: oklch(0.3 0.05 22);
+        color: oklch(0.62 0.02 22);
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      .raw {
+        border-radius: 9px;
+        background: oklch(0 0 0 / 32%);
+        padding: 12px 14px;
+        font-family: var(--font-mono);
+        font-size: 12.25px;
+        line-height: 1.68;
+        color: oklch(0.86 0.004 270);
+        box-shadow: inset 0 0 0 1px var(--border);
+        white-space: pre-wrap;
+      }
+
+      .raw b {
+        font-weight: 600;
+        color: var(--k);
+      }
+
+      /* kit-only switcher. Delete when copying. */
+      .kit-switch {
+        position: fixed;
+        z-index: 80;
+        left: 16px;
+        bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-radius: 12px;
+        background: var(--popover);
+        padding: 10px 12px;
+        box-shadow: var(--shadow-pop);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="backdrop"></div>
+
+    <div class="sheet-wrap" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <article class="sheet" id="sheet" data-od-id="kit-sheet"></article>
+    </div>
+
+    <div class="confirm" id="confirm" hidden>
+      <div class="confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title">
+        <h2 id="confirm-title">Delete bead</h2>
+        <div class="danger-note">
+          <span id="danger-icon"></span>
+          <span>
+            <b>This action cannot be undone.</b><br />
+            Linked work loses its edges: <span id="confirm-links"></span>.
+          </span>
+        </div>
+        <label class="eyebrow" for="confirm-input" style="display: block; margin-bottom: 6px">
+          Type <span id="confirm-id" class="mono"></span> to confirm
+        </label>
+        <input id="confirm-input" autocomplete="off" spellcheck="false" />
+        <p class="cmd-preview" id="cmd-preview" style="margin-top: 12px"></p>
+        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px">
+          <button class="btn btn-outline" type="button" id="confirm-cancel">Cancel</button>
+          <button class="btn btn-danger" type="button" id="confirm-go" disabled>Delete bead</button>
+        </div>
+      </div>
+    </div>
+
+    <aside class="kit-switch">
+      <span class="eyebrow">Object</span>
+      <div class="segmented" role="group" aria-label="Sheet object type">
+        <button type="button" data-obj="bead" aria-pressed="true">Bead</button>
+        <button type="button" data-obj="knowledge" aria-pressed="false">Knowledge</button>
+      </div>
+      <a href="index.html" style="font-size: 12.5px; color: var(--primary-text); font-weight: 550">← Kit</a>
+    </aside>
+
+    <script src="../../assets/board-data.js"></script>
+    <script>
+      const $ = (id) => document.getElementById(id)
+      const params = new URLSearchParams(location.search)
+
+      const bead = beadById(params.get('id')) ?? beadById('bdb-3k1')
+      const entry = knowledgeById(params.get('k')) ?? knowledgeForBead(bead.id)[0] ?? KNOWLEDGE[0]
+
+      const secHead = (ic, label, trail) =>
+        `<div class="sec-head">${icon(ic, 13)}<h3>${label}</h3>${
+          trail ? `<span class="trail">${trail}</span>` : ''
+        }</div>`
+
+      function linkRow(id, note) {
+        const b = beadById(id)
+        if (!b) return ''
+        const col = mapStatus(b.status).column
+        return `
+          <a class="link-row" href="detail-sheet.html?id=${b.id}">
+            <span class="rail-dot" style="background: var(--status-${col})"></span>
+            <span class="mono muted" style="font-size:11px">${b.id}</span>
+            <span class="t">${b.title}</span>
+            <span class="s" style="color: var(--status-${col})">${note ?? COLUMN_LABEL[col]}</span>
+          </a>`
+      }
+
+      const linkGroup = (label, items) =>
+        items.length
+          ? `<p class="group-label">${label}</p>${items.map((i) => linkRow(i.id, i.note)).join('')}`
+          : ''
+
+      function md(src = '') {
+        return src
+          .split('\n\n')
+          .map((block) => {
+            const inline = (s) => s.replace(/`([^`]+)`/g, '<code>$1</code>')
+            if (block.trim().startsWith('- '))
+              return `<ul>${block
+                .split('\n')
+                .map((l) => `<li>${inline(l.replace(/^-\s*/, ''))}</li>`)
+                .join('')}</ul>`
+            return `<p>${inline(block.replace(/\n/g, '<br />'))}</p>`
+          })
+          .join('')
+      }
+
+      /* ---------- bead object ---------- */
+
+      function renderBead() {
+        const st = mapStatus(bead.status)
+        const links = groupBeadLinks(bead.links)
+        const kids = childrenOf(bead.id)
+        const parent = bead.parent ? beadById(bead.parent) : null
+        const p = Math.max(0, Math.min(4, bead.priority))
+        const comments = bead.comments ?? []
+        const beadKnowledge = knowledgeForBead(bead.id)
+        const linkTotal = links.blockedBy.length + links.blocking.length + links.related.length
+
+        $('sheet').innerHTML = `
+          <div class="sheet-main">
+            <header class="sheet-head">
+              <div class="sheet-head-row">
+                <span class="mono muted" style="font-size:12px">${bead.id}</span>
+                ${isEpic(bead) ? '<span class="tag tag-epic">Epic</span>' : `<span class="label-chip">${bead.issue_type}</span>`}
+                <span class="p-chip p${p}">P${p}</span>
+                ${st.badge ? `<span class="tag tag-${st.badge.tone}">${st.badge.label}</span>` : ''}
+                <span style="margin-left:auto;display:flex;gap:6px">
+                  <button class="btn btn-outline" type="button" id="edit-btn">${icon('pencil', 13)} Edit</button>
+                  <button class="btn btn-ghost" type="button" id="delete-btn">${icon('trash', 13)} Delete</button>
+                  <a class="btn btn-ghost" href="board-canvas.html" aria-label="Close bead detail">${icon('x', 14)}</a>
+                </span>
+              </div>
+              <h1 class="sheet-title" id="sheet-title">${bead.title}</h1>
+              ${
+                parent
+                  ? `<a class="parent-link" href="detail-sheet.html?id=${parent.id}">
+                       ${icon('corner', 12)} ${isEpic(parent) ? 'Epic' : 'Parent'}:
+                       <span class="mono">${parent.id}</span><span>${parent.title}</span></a>`
+                  : ''
+              }
+            </header>
+
+            <div class="sheet-body">
+              ${
+                kids.length
+                  ? `<section>${secHead('tree', 'Subtasks', `${kids.filter((k) => mapStatus(k.status).column === 'closed').length}/${kids.length} completed`)}
+                     ${kids.map((k) => linkRow(k.id)).join('')}</section>`
+                  : ''
+              }
+              ${
+                linkTotal
+                  ? `<section>${secHead('link', 'Dependencies', linkTotal)}
+                     ${linkGroup('Blocked by', links.blockedBy.map((id) => ({ id })))}
+                     ${linkGroup('Blocking', links.blocking.map((id) => ({ id })))}
+                     ${linkGroup('Related', links.related.map((l) => ({ id: l.id, note: l.type })))}
+                     </section>`
+                  : ''
+              }
+              ${
+                beadKnowledge.length
+                  ? `<section>${secHead('book', 'Knowledge recorded here', beadKnowledge.length)}
+                     ${beadKnowledge
+                       .map(
+                         (k) => `
+                       <a class="k-row k-${k.type}" href="detail-sheet.html?k=${encodeURIComponent(k.id)}">
+                         <span class="stripe"></span>
+                         <span class="body">
+                           <span style="display:flex;align-items:center;gap:7px">
+                             <span class="ktag"><span class="k-dot"></span>${KNOWLEDGE_TYPE_LABEL[k.type]}</span>
+                             <span class="mono faint" style="font-size:10.5px;margin-left:auto">${k.created_at} ago</span>
+                           </span>
+                           <span class="txt">${k.content}</span>
+                         </span>
+                       </a>`,
+                       )
+                       .join('')}</section>`
+                  : ''
+              }
+
+              <section>
+                ${secHead('align', 'Description')}
+                <div class="prose">${
+                  bead.description ? md(bead.description) : '<p class="faint" style="font-size:12.5px">No description.</p>'
+                }</div>
+              </section>
+
+              ${
+                bead.acceptance_criteria
+                  ? `<section>${secHead('circleCheck', 'Acceptance criteria')}
+                     <div class="prose">${md(bead.acceptance_criteria)}</div></section>`
+                  : ''
+              }
+
+              <section>
+                ${secHead('comment', 'Comments', comments.length || '')}
+                ${
+                  comments.length
+                    ? comments
+                        .map(
+                          (c) => `
+                  <div class="comment">
+                    <div class="comment-head">
+                      <span class="avatar" style="width:18px;height:18px;font-size:8.5px">${initials(c.author)}</span>
+                      <b>${c.author}</b><span>·</span><span>${c.created_at}</span>
+                    </div>
+                    <p>${c.text}</p>
+                  </div>`,
+                        )
+                        .join('')
+                    : '<p class="faint" style="font-size:12.5px">No comments yet.</p>'
+                }
+                <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
+                  <textarea id="comment-box" placeholder="Add a comment…"></textarea>
+                  <button class="btn btn-primary" type="button" id="comment-send"
+                    style="align-self:flex-end" disabled>Comment</button>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <aside class="meta">
+            <div class="meta-field">
+              <span class="eyebrow">Status</span>
+              <div class="select-wrap">
+                <select id="status-select" aria-label="Change status">
+                  ${COLUMN_KEYS.map(
+                    (k) => `<option value="${k}" ${k === st.column ? 'selected' : ''}>${COLUMN_LABEL[k]}</option>`,
+                  ).join('')}
+                </select>
+                ${icon('chevron', 14)}
+              </div>
+              <p class="faint" id="status-note" style="margin-top:6px;font-size:11.5px"></p>
+            </div>
+
+            <div class="meta-field">
+              <span class="eyebrow">Assignee</span>
+              <div class="meta-value">${
+                bead.assignee
+                  ? `<span class="avatar">${initials(bead.assignee)}</span><span>${bead.assignee}</span>`
+                  : '<span class="faint">Unassigned</span>'
+              }</div>
+            </div>
+
+            <div class="meta-field">
+              <span class="eyebrow">Priority</span>
+              <div class="meta-value">
+                <span class="p-chip p${p}">P${p}</span>
+                <span class="muted">${['Critical', 'High', 'Normal', 'Low', 'Backlog'][p]}</span>
+              </div>
+            </div>
+
+            <div class="meta-field">
+              <span class="eyebrow">Labels</span>
+              <div class="meta-value" style="flex-wrap:wrap;gap:5px">${
+                (bead.labels ?? []).length
+                  ? bead.labels.map((l) => `<span class="label-chip">${l}</span>`).join('')
+                  : '<span class="faint">None</span>'
+              }</div>
+            </div>
+
+            <hr class="meta-sep" />
+
+            <div class="meta-field">
+              <span class="eyebrow">Edges</span>
+              <div class="meta-value muted" style="font-size:12.5px;gap:12px">
+                <span class="stat">${icon('ban', 12)} ${links.blockedBy.length}</span>
+                <span class="stat">${icon('waypoints', 12)} ${links.blocking.length}</span>
+                <span class="stat">${icon('link', 12)} ${links.related.length}</span>
+              </div>
+            </div>
+
+            <hr class="meta-sep" />
+            <p class="eyebrow" style="margin-bottom:7px">bd command</p>
+            <p class="cmd-preview" style="margin:0">bd show ${bead.id} --json</p>
+          </aside>`
+
+        $('status-select').addEventListener('change', (e) => {
+          $('status-note').textContent = `bd update ${bead.id} --status ${e.target.value}`
+        })
+
+        $('comment-box').addEventListener('input', (e) => {
+          $('comment-send').disabled = e.target.value.trim().length === 0
+        })
+
+        $('comment-send').addEventListener('click', () => {
+          const box = $('comment-box')
+          if (!box.value.trim()) return
+          box.insertAdjacentHTML(
+            'beforebegin',
+            `<div class="comment"><div class="comment-head">
+               <span class="avatar" style="width:18px;height:18px;font-size:8.5px">JP</span>
+               <b>jean</b><span>·</span><span>just now</span></div>
+             <p>${box.value.replace(/</g, '&lt;')}</p></div>`,
+          )
+          box.value = ''
+          $('comment-send').disabled = true
+        })
+
+        $('edit-btn').addEventListener('click', () => {
+          $('edit-btn').innerHTML = icon('pencil', 13) + ' Editing…'
+          setTimeout(() => {
+            $('edit-btn').innerHTML = icon('pencil', 13) + ' Edit'
+          }, 900)
+        })
+
+        $('danger-icon').innerHTML = icon('ban', 15)
+        $('confirm-id').textContent = bead.id
+        $('confirm-links').textContent = `${kids.length} subtask${
+          kids.length === 1 ? '' : 's'
+        }, ${linkTotal} dependenc${linkTotal === 1 ? 'y' : 'ies'}`
+        $('cmd-preview').textContent = `bd delete ${bead.id} --force`
+
+        $('delete-btn').addEventListener('click', () => {
+          $('confirm').hidden = false
+          $('confirm-input').focus()
+        })
+      }
+
+      /* ---------- knowledge object — the same sheet ---------- */
+
+      function renderKnowledge() {
+        const src = beadById(entry.bead_id)
+        const linked = linkedKnowledge(entry)
+        const claim = entry.content.match(/^[\s\S]*?[.!?](?=\s|$)/)?.[0] ?? entry.content
+        const col = src ? mapStatus(src.status).column : 'open'
+
+        $('sheet').innerHTML = `
+          <div class="sheet-main k-${entry.type}">
+            <header class="sheet-head">
+              <div class="sheet-head-row">
+                <span class="ktag"><span class="k-dot"></span>${KNOWLEDGE_TYPE_LABEL[entry.type]}</span>
+                <span class="mono muted" style="font-size:12px">${entry.id}</span>
+                <span style="margin-left:auto;display:flex;gap:6px">
+                  <button class="btn btn-outline" type="button" id="copy-btn">
+                    ${icon('align', 13)} <span id="copy-label">Copy raw</span>
+                  </button>
+                  <a class="btn btn-ghost" href="detail-sheet.html?id=${entry.bead_id}">${icon('corner', 13)} Open bead</a>
+                  <a class="btn btn-ghost" href="board-canvas.html" aria-label="Close knowledge entry">${icon('x', 14)}</a>
+                </span>
+              </div>
+              <h1 class="sheet-title" id="sheet-title">${claim}</h1>
+              <a class="parent-link" href="detail-sheet.html?id=${entry.bead_id}">
+                ${icon('corner', 12)} Recorded on <span class="mono">${entry.bead_id}</span>
+                <span>${entry.bead_title ?? ''}</span>
+              </a>
+            </header>
+
+            <div class="sheet-body">
+              <section>
+                ${secHead('comment', 'Comment as stored', `${entry.created_at} ago`)}
+                <div class="raw"><b>${entry.prefix}:</b> ${entry.content}</div>
+                <p class="faint" style="margin-top:8px;font-size:11.5px;line-height:1.55">
+                  bd has no knowledge entity — this is an ordinary bead comment.
+                  The board promotes it because the text opens with a recognised prefix.
+                </p>
+              </section>
+
+              <section>
+                ${secHead('tree', 'Source bead')}
+                ${
+                  src
+                    ? `<a class="link-row" href="detail-sheet.html?id=${src.id}">
+                         <span class="rail-dot" style="background: var(--status-${col})"></span>
+                         <span class="mono muted" style="font-size:11px">${src.id}</span>
+                         <span class="t">${src.title}</span>
+                         <span class="s" style="color: var(--status-${col})">${COLUMN_LABEL[col]}</span>
+                       </a>`
+                    : '<p class="faint" style="font-size:12.5px">Source bead no longer exists.</p>'
+                }
+              </section>
+
+              <section>
+                ${secHead('waypoints', 'Along the dependency graph', linked.length || '')}
+                <p class="faint" style="margin:-4px 0 10px;font-size:12px;line-height:1.55">
+                  Knowledge sits on a bead, so it travels the graph — these were
+                  recorded on beads this one blocks, waits on, or shares an epic with.
+                </p>
+                ${
+                  linked.length
+                    ? linked
+                        .map(
+                          (l) => `
+                  <a class="k-row k-${l.entry.type}" href="detail-sheet.html?k=${encodeURIComponent(l.entry.id)}">
+                    <span class="stripe"></span>
+                    <span class="body">
+                      <span style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+                        <span class="ktag"><span class="k-dot"></span>${KNOWLEDGE_TYPE_LABEL[l.entry.type]}</span>
+                        <span class="rel-chip">${l.relation}</span>
+                        <span class="mono faint" style="font-size:10.5px;margin-left:auto">${l.entry.created_at} ago</span>
+                      </span>
+                      <span class="txt">${l.entry.content}</span>
+                    </span>
+                  </a>`,
+                        )
+                        .join('')
+                    : '<p class="faint" style="font-size:12.5px">No knowledge on linked beads yet.</p>'
+                }
+              </section>
+            </div>
+          </div>
+
+          <aside class="meta k-${entry.type}">
+            <div class="meta-field">
+              <span class="eyebrow">Type</span>
+              <div class="meta-value"><span class="ktag"><span class="k-dot"></span>${KNOWLEDGE_TYPE_LABEL[entry.type]}</span></div>
+              <p class="faint" style="margin-top:7px;font-size:11.5px;line-height:1.55">${KNOWLEDGE_TYPE_HINT[entry.type]}</p>
+            </div>
+            <div class="meta-field">
+              <span class="eyebrow">Recorded by</span>
+              <div class="meta-value">
+                <span class="avatar">${initials(entry.author)}</span>
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${entry.author}</span>
+              </div>
+            </div>
+            <div class="meta-field">
+              <span class="eyebrow">When</span>
+              <div class="meta-value mono muted" style="font-size:12.5px">${entry.created_at} ago</div>
+            </div>
+            <hr class="meta-sep" />
+            <div class="meta-field">
+              <span class="eyebrow">Prefix</span>
+              <div class="meta-value mono k-color" style="font-size:12.5px">${entry.prefix}:</div>
+            </div>
+            <hr class="meta-sep" />
+            <p class="eyebrow" style="margin-bottom:7px">Written with</p>
+            <p class="cmd-preview">bd comment ${entry.bead_id} "${entry.prefix}: …"</p>
+          </aside>`
+
+        const copyLabel = $('copy-label')
+        $('copy-btn').addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(entry.raw)
+          } catch {
+            /* clipboard unavailable under file:// — the label still confirms intent */
+          }
+          copyLabel.textContent = 'Copied'
+          copyLabel.style.color = 'var(--status-closed)'
+          setTimeout(() => {
+            copyLabel.textContent = 'Copy raw'
+            copyLabel.style.color = ''
+          }, 1400)
+        })
+      }
+
+      /* ---------- confirmation + switcher ---------- */
+
+      $('confirm-cancel').addEventListener('click', () => {
+        $('confirm').hidden = true
+        $('confirm-input').value = ''
+        $('confirm-go').disabled = true
+      })
+
+      $('confirm-input').addEventListener('input', (e) => {
+        $('confirm-go').disabled = e.target.value.trim() !== bead.id
+      })
+
+      document.querySelectorAll('[data-obj]').forEach((b) => {
+        b.addEventListener('click', () => {
+          document
+            .querySelectorAll('[data-obj]')
+            .forEach((x) => x.setAttribute('aria-pressed', String(x === b)))
+          b.dataset.obj === 'bead' ? renderBead() : renderKnowledge()
+        })
+      })
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return
+        if (!$('confirm').hidden) $('confirm-cancel').click()
+      })
+
+      if (params.get('k')) {
+        document.querySelector('[data-obj="knowledge"]').setAttribute('aria-pressed', 'true')
+        document.querySelector('[data-obj="bead"]').setAttribute('aria-pressed', 'false')
+        renderKnowledge()
+      } else {
+        renderBead()
+      }
+    </script>
+  </body>
+</html>
