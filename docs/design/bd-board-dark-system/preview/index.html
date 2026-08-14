@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>bd board — design system review cards</title>
+    <link rel="stylesheet" href="../assets/bd-dark.css" />
+    <link rel="stylesheet" href="preview.css" />
+    <style>
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .rc {
+        display: flex;
+        flex-direction: column;
+        border-radius: var(--radius-3xl);
+        background: var(--card);
+        padding: 16px;
+        box-shadow: var(--ring-inset), var(--shadow-card);
+        transition:
+          background-color 140ms ease,
+          box-shadow 140ms ease,
+          transform 140ms ease;
+      }
+
+      .rc:hover {
+        background: var(--card-hover);
+        box-shadow: var(--ring-accent), var(--lift-panel);
+        transform: translateY(-2px);
+      }
+
+      .rc .n {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--faint);
+      }
+
+      .rc h2 {
+        margin-top: 10px;
+        font-size: 15px;
+        font-weight: 550;
+        letter-spacing: -0.01em;
+      }
+
+      .rc p {
+        margin-top: 7px;
+        flex: 1;
+        font-size: 12.5px;
+        line-height: 1.6;
+        color: var(--muted-foreground);
+      }
+
+      .rc .file {
+        margin-top: 12px;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--faint);
+      }
+
+      .rc .go {
+        margin-top: 10px;
+        font-size: 12.5px;
+        font-weight: 550;
+        color: var(--primary-text);
+      }
+
+      .swatchline {
+        display: flex;
+        gap: 4px;
+        margin-top: 12px;
+      }
+
+      .swatchline span {
+        height: 18px;
+        flex: 1;
+        border-radius: 4px;
+        box-shadow: inset 0 0 0 1px oklch(1 0 0 / 12%);
+      }
+
+      .files {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px 20px;
+      }
+
+      .files a,
+      .files span.f {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        border-radius: var(--radius-md);
+        padding: 7px 9px;
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        color: var(--muted-foreground);
+        box-shadow: var(--ring-inset);
+        transition: background-color 120ms ease, color 120ms ease;
+      }
+
+      .files a:hover {
+        background: oklch(1 0 0 / 6%);
+        color: var(--foreground);
+      }
+
+      .files .tail {
+        margin-left: auto;
+        font-size: 10.5px;
+        color: var(--faint);
+      }
+
+      @media (max-width: 1000px) {
+        .cards {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 700px) {
+        .cards,
+        .files {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card" style="width: min(1180px, 100%)" data-od-id="preview-manifest">
+      <header>
+        <div style="display: flex; align-items: flex-end; gap: 18px">
+          <div>
+            <span class="eyebrow">Design system · review manifest</span>
+            <h1>bd board — dark system</h1>
+            <p>
+              Nine focused review cards. Start with <b>Applied surfaces</b> to see
+              the system running, then <b>Surfaces, text and accent</b> for the
+              one decision the whole palette turns on.
+            </p>
+          </div>
+          <span class="brand-mark" style="width: 48px; height: 48px; font-size: 19px; border-radius: 13px; margin-left: auto">bd</span>
+        </div>
+        <span class="src">Generated from project 0aedf231 · "Redesign dark do bd-board" · ~/Code/bd-board</span>
+      </header>
+
+      <section class="block" data-od-id="cards">
+        <span class="eyebrow">Review cards</span>
+        <div class="cards">
+          <a class="rc" href="applied-surfaces.html" data-od-id="rc-applied">
+            <span class="n">09 · start here</span>
+            <h2>Applied surfaces</h2>
+            <p>
+              All four source screens running live in frames, plus the author's
+              rationale page. The ground truth everything else was measured
+              against.
+            </p>
+            <span class="file">applied-surfaces.html</span>
+            <span class="go">Open →</span>
+          </a>
+
+          <a class="rc" href="colors-primary.html" data-od-id="rc-colors-primary">
+            <span class="n">01 · color</span>
+            <h2>Surfaces, text and accent</h2>
+            <p>
+              Six elevation steps on one hue, three text levels with contrast
+              floors, and the split accent — the correction the redesign exists
+              for.
+            </p>
+            <span class="swatchline">
+              <span style="background: oklch(0.155 0.006 270)"></span>
+              <span style="background: oklch(0.208 0.006 270)"></span>
+              <span style="background: oklch(0.246 0.008 272)"></span>
+              <span style="background: oklch(0.54 0.19 268)"></span>
+              <span style="background: oklch(0.72 0.16 268)"></span>
+            </span>
+            <span class="file">colors-primary.html</span>
+            <span class="go">Open →</span>
+          </a>
+
+          <a class="rc" href="colors-status.html" data-od-id="rc-colors-status">
+            <span class="n">02 · color</span>
+            <h2>Status and taxonomy hues</h2>
+            <p>
+              Four status colours driving the columns, bars and ring; seven
+              knowledge hues held at L 0.75 for a 7:1 floor on cards.
+            </p>
+            <span class="swatchline">
+              <span style="background: oklch(0.7 0.014 270)"></span>
+              <span style="background: oklch(0.74 0.14 248)"></span>
+              <span style="background: oklch(0.7 0.19 22)"></span>
+              <span style="background: oklch(0.74 0.16 152)"></span>
+              <span style="background: oklch(0.79 0.15 90)"></span>
+            </span>
+            <span class="file">colors-status.html</span>
+            <span class="go">Open →</span>
+          </a>
+
+          <a class="rc" href="typography-specimens.html" data-od-id="rc-typography">
+            <span class="n">03 · typography</span>
+            <h2>Typography specimens</h2>
+            <p>
+              Geist Sans reads, Geist Mono registers. Fourteen scale steps as
+              measured, plus why weight 550 is load-bearing.
+            </p>
+            <span class="file">typography-specimens.html</span>
+            <span class="go">Open →</span>
+          </a>
+
+          <a class="rc" href="spacing-tokens.html" data-od-id="rc-spacing">
+            <span class="n">04 · spacing</span>
+            <h2>Spacing and layout rhythm</h2>
+            <p>
+              A 2px dense scale from 2 to 28px, the fixed structural measures,
+              and the five breakpoints — including the one that never fires.
+            </p>
+            <span class="file">spacing-tokens.html</span>
+            <span class="go">Open →</span>
+          </a>
+
+          <a class="rc" href="radius-shadows.html" data-od-id="rc-radius">
+            <span class="n">05 · radius &amp; elevation</span>
+            <h2>Radius, elevation, motion</h2>
+            <p>
+              The corner ladder, the two shadows, the inset-ring rule, and a
+              side-by-side rest/hover bead card with all four durations.
+            </p>
+            <span class="file">radius-shadows.html</span>
+            <span class="go">Open →</span>
+          </a>
+
+          <a class="rc" href="components-buttons.html" data-od-id="rc-buttons">
+            <span class="n">06 · components</span>
+            <h2>Buttons and controls</h2>
+            <p>
+              Every button variant across rest, hover, focus and disabled, plus
+              nav, tabs, search, segments, chips, menus and selects.
+            </p>
+            <span class="file">components-buttons.html</span>
+            <span class="go">Open →</span>
+          </a>
+
+          <a class="rc" href="components-cards.html" data-od-id="rc-cards">
+            <span class="n">07 · components</span>
+            <h2>Cards, rows and data marks</h2>
+            <p>
+              Real bead cards, knowledge rows, stat tiles and project cards,
+              rendered from the preserved stylesheet and the preserved dataset.
+            </p>
+            <span class="file">components-cards.html</span>
+            <span class="go">Open →</span>
+          </a>
+
+          <a class="rc" href="brand-assets.html" data-od-id="rc-brand">
+            <span class="n">08 · brand assets</span>
+            <h2>Mark, icons, monograms</h2>
+            <p>
+              The one gradient in the system, all 27 extracted icons at their
+              real optical sizes, and the monogram avatar rule.
+            </p>
+            <span class="file">brand-assets.html</span>
+            <span class="go">Open →</span>
+          </a>
+        </div>
+      </section>
+
+      <section class="block" data-od-id="package-files">
+        <span class="eyebrow">The rest of the package</span>
+        <div class="files">
+          <a href="../DESIGN.md">DESIGN.md<span class="tail">the full specification</span></a>
+          <a href="../README.md">README.md<span class="tail">orientation and quick start</span></a>
+          <a href="../SKILL.md">SKILL.md<span class="tail">agent build instructions</span></a>
+          <a href="../colors_and_type.css">colors_and_type.css<span class="tail">color + type tokens</span></a>
+          <a href="../tokens.css">tokens.css<span class="tail">spacing, radius, layout, motion</span></a>
+          <a href="../fonts/geist.css">fonts/geist.css<span class="tail">typeface loading</span></a>
+          <a href="../build/icons.js">build/icons.js<span class="tail">runtime icon module</span></a>
+          <a href="../assets/icons/manifest.json">assets/icons/<span class="tail">27 extracted SVGs</span></a>
+          <a href="../ui_kits/app/index.html">ui_kits/app/<span class="tail">applied interface kit</span></a>
+          <a href="../context/provenance.md">context/provenance.md<span class="tail">what came from where</span></a>
+          <a href="../assets/bd-dark.css">assets/bd-dark.css<span class="tail">preserved source stylesheet</span></a>
+          <a href="../assets/board-data.js">assets/board-data.js<span class="tail">preserved source dataset</span></a>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

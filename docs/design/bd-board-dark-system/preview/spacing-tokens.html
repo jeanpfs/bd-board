@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Preview · Spacing and layout rhythm</title>
+    <link rel="stylesheet" href="../assets/bd-dark.css" />
+    <link rel="stylesheet" href="preview.css" />
+    <style>
+      .ruler {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        border-top: 1px solid var(--border);
+        padding: 9px 0;
+      }
+
+      .ruler:first-of-type {
+        border-top: 0;
+      }
+
+      .ruler .name {
+        width: 92px;
+        flex: none;
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        color: var(--foreground);
+      }
+
+      .ruler .px {
+        width: 44px;
+        flex: none;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-variant-numeric: tabular-nums;
+        color: var(--faint);
+        text-align: right;
+      }
+
+      .ruler .draw {
+        height: 12px;
+        flex: none;
+        border-radius: 3px;
+        background: var(--primary-text);
+      }
+
+      .ruler .use {
+        min-width: 0;
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--muted-foreground);
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 232px minmax(0, 1fr);
+        overflow: hidden;
+        height: 260px;
+        border-radius: var(--radius-3xl);
+        box-shadow: var(--ring-inset-strong);
+      }
+
+      .layout .l-rail {
+        display: flex;
+        flex-direction: column;
+        background: var(--sidebar);
+        border-right: 1px solid var(--border);
+      }
+
+      .layout .l-main {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        background: var(--background);
+      }
+
+      .layout .band {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: none;
+        border-bottom: 1px solid var(--border);
+        padding: 0 16px;
+        height: 48px;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+
+      .layout .fill {
+        display: grid;
+        flex: 1;
+        place-items: center;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--faint);
+      }
+
+      .measure {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-radius: var(--radius-2xl);
+        background: var(--card);
+        padding: 12px 14px;
+        box-shadow: var(--ring-inset);
+        font-size: 12.5px;
+        color: var(--muted-foreground);
+      }
+
+      .measure b {
+        font-family: var(--font-mono);
+        font-weight: 550;
+        font-variant-numeric: tabular-nums;
+        color: var(--foreground);
+      }
+
+      .measure .k {
+        margin-left: auto;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--faint);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card" data-od-id="card-spacing">
+      <header>
+        <span class="eyebrow">Preview 04 · Spacing</span>
+        <h1>A 2px scale for a tool that stays open all day</h1>
+        <p>
+          The useful range is 2 → 28px. Steps sit close together because the
+          board is dense on purpose: a bead card is 9×10px of padding, four
+          columns share a 12px gutter, and the largest component gap in the
+          system is the 26px between sections inside the detail sheet.
+        </p>
+        <span class="src">tokens.css · measured from assets/bd-dark.css and the four screens</span>
+      </header>
+
+      <section class="block" data-od-id="scale">
+        <span class="eyebrow">The scale</span>
+        <div class="panel">
+          <div class="ruler"><span class="name">--space-1</span><span class="px">2px</span><span class="draw" style="width: 2px"></span><span class="use">Segmented track padding, chip nudge</span></div>
+          <div class="ruler"><span class="name">--space-2</span><span class="px">4px</span><span class="draw" style="width: 4px"></span><span class="use">Menu rule margin, chip radius rhythm</span></div>
+          <div class="ruler"><span class="name">--space-3</span><span class="px">5px</span><span class="draw" style="width: 5px"></span><span class="use">Icon-to-label inside a tag, menu outer padding</span></div>
+          <div class="ruler"><span class="name">--space-4</span><span class="px">6px</span><span class="draw" style="width: 6px"></span><span class="use">Bead top row gap, button icon gap, label chip gap</span></div>
+          <div class="ruler"><span class="name">--space-5</span><span class="px">7px</span><span class="draw" style="width: 7px"></span><span class="use">Bead card row gap, section head gap</span></div>
+          <div class="ruler"><span class="name">--space-6</span><span class="px">8px</span><span class="draw" style="width: 8px"></span><span class="use">Rail item padding-x, lane cell padding, topbar end gap</span></div>
+          <div class="ruler"><span class="name">--space-7</span><span class="px">10px</span><span class="draw" style="width: 10px"></span><span class="use">Card padding-x, knowledge row padding-y, button padding-x</span></div>
+          <div class="ruler"><span class="name">--space-8</span><span class="px">12px</span><span class="draw" style="width: 12px"></span><span class="use">Board column gap, knowledge row padding-x, rail brand padding</span></div>
+          <div class="ruler"><span class="name">--space-9</span><span class="px">14px</span><span class="draw" style="width: 14px"></span><span class="use">Lane stack gap, project grid gap, aside padding</span></div>
+          <div class="ruler"><span class="name">--space-10</span><span class="px">16px</span><span class="draw" style="width: 16px"></span><span class="use">Canvas padding-x, topbar padding-x, project card padding</span></div>
+          <div class="ruler"><span class="name">--space-11</span><span class="px">18px</span><span class="draw" style="width: 18px"></span><span class="use">Rail group separation, sheet metadata padding</span></div>
+          <div class="ruler"><span class="name">--space-12</span><span class="px">20px</span><span class="draw" style="width: 20px"></span><span class="use">Delete confirmation padding</span></div>
+          <div class="ruler"><span class="name">--space-13</span><span class="px">22px</span><span class="draw" style="width: 22px"></span><span class="use">Sheet body padding, sheet head padding-x</span></div>
+          <div class="ruler"><span class="name">--space-14</span><span class="px">24px</span><span class="draw" style="width: 24px"></span><span class="use">Canvas padding-bottom</span></div>
+          <div class="ruler"><span class="name">--space-15</span><span class="px">26px</span><span class="draw" style="width: 26px"></span><span class="use">Gap between sections inside the sheet body</span></div>
+          <div class="ruler"><span class="name">--space-16</span><span class="px">28px</span><span class="draw" style="width: 28px"></span><span class="use">Sheet inset from the viewport edge</span></div>
+        </div>
+        <p class="note">
+          Anything above 28px in the source is <b>page chrome</b> — the 40px
+          overview padding, the 56px hero top — not component spacing. Do not
+          extend the component scale upward to "let it breathe".
+        </p>
+      </section>
+
+      <section class="block" data-od-id="structure">
+        <span class="eyebrow">Fixed structural measures</span>
+        <div class="layout">
+          <div class="l-rail">
+            <div class="band" style="justify-content: space-between"><span>rail brand</span><span>48px</span></div>
+            <div class="fill">--rail · 232px</div>
+            <div class="band" style="border-bottom: 0; border-top: 1px solid var(--border)">rail foot</div>
+          </div>
+          <div class="l-main">
+            <div class="band"><span>topbar</span><span style="margin-left: auto">48px</span></div>
+            <div class="band" style="height: 42px"><span>filter bar</span><span style="margin-left: auto">8px 16px</span></div>
+            <div class="fill">canvas — the only scrolling region</div>
+          </div>
+        </div>
+
+        <div class="grid-3" style="margin-top: 12px">
+          <div class="measure">Rail <b>232px</b><span class="k">--rail</span></div>
+          <div class="measure">Topbar <b>48px</b><span class="k">--topbar-h</span></div>
+          <div class="measure">Control <b>30px</b><span class="k">--control-h</span></div>
+          <div class="measure">Filter chip <b>26px</b><span class="k">--control-h-sm</span></div>
+          <div class="measure">Segment <b>24px</b><span class="k">--control-h-xs</span></div>
+          <div class="measure">Sheet meta <b>268px</b><span class="k">--sheet-meta</span></div>
+          <div class="measure">Sheet <b>1080 × 860</b><span class="k">max</span></div>
+          <div class="measure">Page column <b>1240px</b><span class="k">--page-max-w</span></div>
+          <div class="measure">Board columns <b>4</b><span class="k">12px gap</span></div>
+        </div>
+        <p class="note">
+          The rail brand row and the topbar are both <b>48px</b>, so the
+          horizontal rule crosses the whole window unbroken. That single
+          alignment is what makes the split shell read as one surface.
+        </p>
+      </section>
+
+      <section class="block" data-od-id="breakpoints">
+        <span class="eyebrow">Breakpoints</span>
+        <table class="spec">
+          <thead><tr><th>Width</th><th>Change</th></tr></thead>
+          <tbody>
+            <tr><td>≤ 1240px</td><td>The inline lane progress bar drops; the <span class="mono">done/total</span> ratio stays</td></tr>
+            <tr><td>≤ 1100px</td><td>Knowledge aside stacks below the list; overview grid 4 → 2</td></tr>
+            <tr><td>≤ 1080px</td><td>Project grid 3 → 2, stat tiles 4 → 2</td></tr>
+            <tr><td>≤ 900px</td><td>Sheet metadata column moves below content, <span class="mono">border-left</span> → <span class="mono">border-top</span></td></tr>
+            <tr><td>≤ 720px</td><td>Project grid → 1 column</td></tr>
+          </tbody>
+        </table>
+        <p class="note">
+          The board's four columns are <b>never</b> collapsed. A four-column
+          board is the product; below tablet width this is a desktop tool that
+          scrolls horizontally rather than a different layout.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

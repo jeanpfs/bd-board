@@ -1,0 +1,362 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jeanpfs/bd-board/docs/bd-schema.json",
+  "title": "bd-board data contract",
+  "description": "Formato consumido do binário bd (input) e formato normalizado exposto à UI (output). Input: definições prefixadas por Bd*. Output: os tipos de src/lib/types.ts.",
+  "$defs": {
+    "BdMetadata": {
+      "title": "<dir>/.beads/metadata.json",
+      "description": "Marca um diretório como projeto beads. discoverProjects() ignora diretórios sem este arquivo ou sem dolt_database.",
+      "type": "object",
+      "required": ["dolt_database"],
+      "properties": {
+        "dolt_database": {
+          "type": "string",
+          "description": "Vira Project.name e Project.database."
+        },
+        "database": { "type": "string" },
+        "backend": { "type": "string" },
+        "dolt_mode": { "type": "string", "enum": ["embedded", "shared"] },
+        "project_id": { "type": "string", "format": "uuid" }
+      }
+    },
+    "BdCountResponse": {
+      "title": "bd count --by-status --json",
+      "description": "Somente groups[] é lido. total e schema_version são ignorados; ProjectCounts.total é recalculado somando todos os grupos.",
+      "type": "object",
+      "properties": {
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["group", "count"],
+            "properties": {
+              "group": { "$ref": "#/$defs/RawStatus" },
+              "count": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "total": { "type": "integer" },
+        "schema_version": { "type": "integer" }
+      }
+    },
+    "RawStatus": {
+      "type": "string",
+      "description": "Status conhecidos por mapStatus(). Qualquer outro valor cai na coluna open, sem badge.",
+      "anyOf": [
+        {
+          "enum": [
+            "open",
+            "in_progress",
+            "blocked",
+            "deferred",
+            "closed",
+            "pinned",
+            "hooked"
+          ]
+        },
+        { "type": "string" }
+      ]
+    },
+    "BdIssue": {
+      "title": "Issue crua do bd",
+      "description": "Forma comum a list --json, show --json e export. Campos ausentes são omitidos, não nulos.",
+      "type": "object",
+      "required": ["id", "title", "status", "issue_type"],
+      "properties": {
+        "_type": {
+          "const": "issue",
+          "description": "Presente apenas no export JSONL."
+        },
+        "id": { "type": "string", "examples": ["ravo-cbf"] },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "acceptance_criteria": { "type": "string" },
+        "design": { "type": "string" },
+        "notes": { "type": "string" },
+        "status": { "$ref": "#/$defs/RawStatus" },
+        "priority": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4,
+          "default": 2,
+          "description": "0 é a maior prioridade. Ausente vira 2."
+        },
+        "issue_type": {
+          "type": "string",
+          "examples": ["task", "bug", "chore", "epic"]
+        },
+        "assignee": { "type": "string" },
+        "owner": { "type": "string" },
+        "created_by": {
+          "type": "string",
+          "description": "Não lido pelo bd-board em issues."
+        },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "closed_at": { "type": "string", "format": "date-time" },
+        "labels": { "type": "array", "items": { "type": "string" } },
+        "parent": {
+          "type": "string",
+          "description": "Omitido quando não há pai. Base de deriveChildren(), que preenche children e childBeads."
+        },
+        "comment_count": { "type": "integer", "minimum": 0 },
+        "dependency_count": { "type": "integer", "minimum": 0 },
+        "dependent_count": { "type": "integer", "minimum": 0 },
+        "comments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/BdComment" },
+          "description": "Presente no export; é a única fonte de ProjectKnowledge."
+        },
+        "dependencies": {
+          "type": "array",
+          "description": "A forma varia por comando: aresta crua em list/export, bead expandido em show.",
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/BdDependencyEdge" },
+              { "$ref": "#/$defs/BdRelatedIssue" }
+            ]
+          }
+        }
+      }
+    },
+    "BdDependencyEdge": {
+      "title": "dependencies[] em list --json e export",
+      "description": "Aresta crua do grafo. Ignorada por listBeads().",
+      "type": "object",
+      "required": ["issue_id", "depends_on_id", "type"],
+      "properties": {
+        "issue_id": { "type": "string" },
+        "depends_on_id": { "type": "string" },
+        "type": {
+          "type": "string",
+          "examples": ["blocks", "parent-child", "related", "discovered-from"]
+        },
+        "created_at": { "type": "string", "format": "date-time" },
+        "created_by": { "type": "string" },
+        "metadata": {
+          "type": "string",
+          "description": "JSON serializado como string, não objeto."
+        }
+      }
+    },
+    "BdRelatedIssue": {
+      "title": "dependencies[] em show --json",
+      "description": "Bead alvo expandido, com todos os campos de BdIssue mais dependency_type. getBeadDetail() lê apenas os cinco campos abaixo.",
+      "type": "object",
+      "required": ["id", "dependency_type"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "status": { "$ref": "#/$defs/RawStatus" },
+        "issue_type": { "type": "string" },
+        "dependency_type": {
+          "type": "string",
+          "examples": ["blocks", "parent-child", "related", "discovered-from"]
+        }
+      }
+    },
+    "BdComment": {
+      "type": "object",
+      "required": ["id", "text"],
+      "properties": {
+        "id": {
+          "anyOf": [{ "type": "string" }, { "type": "integer" }],
+          "description": "Normalizado com String() na leitura."
+        },
+        "issue_id": {
+          "type": "string",
+          "description": "Vira ProjectComment.bead_id."
+        },
+        "author": { "type": "string" },
+        "created_by": {
+          "type": "string",
+          "description": "Fallback de author."
+        },
+        "text": { "type": "string" },
+        "body": { "type": "string", "description": "Fallback de text." },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "BdIssueList": {
+      "title": "bd list --all --json",
+      "type": "array",
+      "items": { "$ref": "#/$defs/BdIssue" }
+    },
+    "BdIssueShow": {
+      "title": "bd show <id> --json",
+      "description": "Array; o bd-board usa apenas o elemento [0].",
+      "type": "array",
+      "items": { "$ref": "#/$defs/BdIssue" }
+    },
+    "BdCommentList": {
+      "title": "bd comments <id> --json",
+      "description": "Falha do comando é tratada como lista vazia.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/BdComment" }
+    },
+    "BdExportLine": {
+      "title": "bd export (uma issue por linha, JSONL)",
+      "description": "Do export o bd-board lê somente title e comments[].",
+      "allOf": [{ "$ref": "#/$defs/BdIssue" }]
+    },
+    "ProjectCounts": {
+      "type": "object",
+      "required": [
+        "open",
+        "in_progress",
+        "blocked",
+        "closed",
+        "deferred",
+        "total"
+      ],
+      "properties": {
+        "open": { "type": "integer" },
+        "in_progress": {
+          "type": "integer",
+          "description": "Soma de in_progress e hooked."
+        },
+        "blocked": { "type": "integer" },
+        "closed": { "type": "integer" },
+        "deferred": { "type": "integer" },
+        "total": {
+          "type": "integer",
+          "description": "Soma de todos os grupos, inclusive status não mapeados nas colunas."
+        }
+      }
+    },
+    "Project": {
+      "type": "object",
+      "required": ["name", "dir", "database", "counts"],
+      "properties": {
+        "name": { "type": "string" },
+        "dir": {
+          "type": "string",
+          "description": "Diretório passado ao bd via -C."
+        },
+        "database": { "type": "string" },
+        "counts": { "$ref": "#/$defs/ProjectCounts" }
+      }
+    },
+    "Bead": {
+      "description": "Saída de mapRawBead(), acrescida de children/childBeads por deriveChildren().",
+      "type": "object",
+      "required": ["id", "title", "status", "priority", "issue_type"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "acceptance_criteria": { "type": "string" },
+        "design": { "type": "string" },
+        "notes": { "type": "string" },
+        "status": { "$ref": "#/$defs/RawStatus" },
+        "priority": { "type": "integer", "default": 2 },
+        "issue_type": { "type": "string" },
+        "assignee": { "type": "string" },
+        "owner": { "type": "string" },
+        "created_at": { "type": "string" },
+        "updated_at": { "type": "string" },
+        "closed_at": { "type": "string" },
+        "labels": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Sempre array; valor não-array na entrada vira []."
+        },
+        "parent": { "type": "string" },
+        "comment_count": { "type": "integer" },
+        "dependency_count": { "type": "integer" },
+        "dependent_count": { "type": "integer" },
+        "children": { "type": "array", "items": { "type": "string" } },
+        "childBeads": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Bead" },
+          "description": "Um nível apenas; não é recursivo na prática."
+        }
+      }
+    },
+    "RelatedBead": {
+      "type": "object",
+      "required": ["id", "title", "status", "issue_type", "dependency_type"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "status": { "$ref": "#/$defs/RawStatus" },
+        "issue_type": { "type": "string" },
+        "dependency_type": { "type": "string" }
+      }
+    },
+    "Comment": {
+      "type": "object",
+      "required": ["id", "text"],
+      "properties": {
+        "id": { "type": "string" },
+        "author": { "type": "string" },
+        "text": { "type": "string" },
+        "created_at": { "type": "string" }
+      }
+    },
+    "BeadDetail": {
+      "allOf": [{ "$ref": "#/$defs/Bead" }],
+      "properties": {
+        "dependencies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/RelatedBead" }
+        },
+        "comments": { "type": "array", "items": { "$ref": "#/$defs/Comment" } }
+      }
+    },
+    "KnowledgeType": {
+      "type": "string",
+      "enum": [
+        "learned",
+        "decision",
+        "fact",
+        "pattern",
+        "investigation",
+        "must-check",
+        "deviation"
+      ]
+    },
+    "ProjectComment": {
+      "allOf": [{ "$ref": "#/$defs/Comment" }],
+      "required": ["bead_id"],
+      "properties": {
+        "bead_id": { "type": "string" },
+        "bead_title": {
+          "type": "string",
+          "description": "Título da issue dona do comentário, injetado no momento do agrupamento."
+        },
+        "knowledge_type": { "$ref": "#/$defs/KnowledgeType" }
+      }
+    },
+    "ProjectKnowledgeEntry": {
+      "allOf": [{ "$ref": "#/$defs/ProjectComment" }],
+      "required": ["type", "content"],
+      "properties": {
+        "type": { "$ref": "#/$defs/KnowledgeType" },
+        "content": {
+          "type": "string",
+          "description": "Texto do comentário sem o prefixo TIPO:."
+        }
+      }
+    },
+    "ProjectKnowledge": {
+      "description": "Ambas as listas em ordem decrescente de created_at. knowledge são os comentários cujo texto casa /^(LEARNED|DECISION|FACT|PATTERN|INVESTIGATION|MUST-CHECK|DEVIATION):\\s*(.+)/i com conteúdo não vazio.",
+      "type": "object",
+      "required": ["comments", "knowledge"],
+      "properties": {
+        "comments": {
+          "type": "array",
+          "maxItems": 250,
+          "items": { "$ref": "#/$defs/ProjectComment" }
+        },
+        "knowledge": {
+          "type": "array",
+          "maxItems": 500,
+          "items": { "$ref": "#/$defs/ProjectKnowledgeEntry" }
+        }
+      }
+    }
+  }
+}

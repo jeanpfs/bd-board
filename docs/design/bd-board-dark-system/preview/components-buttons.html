@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Preview · Buttons and controls</title>
+    <link rel="stylesheet" href="../assets/bd-dark.css" />
+    <link rel="stylesheet" href="preview.css" />
+    <style>
+      .states {
+        display: grid;
+        grid-template-columns: 150px repeat(3, minmax(0, 1fr));
+        align-items: center;
+        gap: 12px 16px;
+      }
+
+      .states .h {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+
+      .states .lbl {
+        font-size: 12.5px;
+        color: var(--muted-foreground);
+      }
+
+      .states .lbl em {
+        display: block;
+        margin-top: 3px;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        font-style: normal;
+        color: var(--faint);
+      }
+
+      /* forced state renderings, so every state is visible at once */
+      .as-hover.btn-primary {
+        background: var(--primary-hover);
+        box-shadow: 0 0 0 1px oklch(0.72 0.16 268 / 55%);
+      }
+      .as-hover.btn-outline {
+        background: oklch(1 0 0 / 6%);
+        color: var(--foreground);
+      }
+      .as-hover.btn-ghost {
+        background: oklch(1 0 0 / 7%);
+        color: var(--foreground);
+      }
+      .as-hover.btn-danger {
+        background: oklch(0.44 0.19 22);
+        box-shadow: 0 0 0 1px oklch(0.7 0.19 22 / 60%);
+      }
+      .as-focus {
+        outline: 2px solid var(--ring);
+        outline-offset: 2px;
+        border-radius: 6px;
+      }
+
+      .btn-danger {
+        background: oklch(0.5 0.2 22);
+        color: oklch(0.99 0.003 22);
+        font-weight: 550;
+      }
+
+      .btn-danger:disabled {
+        background: oklch(0.3 0.05 22);
+        color: oklch(0.62 0.02 22);
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      .demo-menu {
+        position: static;
+        display: block;
+        width: 200px;
+      }
+
+      .navdemo {
+        width: 232px;
+        border-radius: var(--radius-2xl);
+        background: var(--sidebar);
+        padding: 12px 8px;
+        box-shadow: var(--ring-inset);
+      }
+
+      .tabdemo {
+        display: flex;
+        height: 48px;
+        align-items: stretch;
+        gap: 2px;
+        border-radius: var(--radius-2xl);
+        background: var(--background);
+        padding: 0 12px;
+        box-shadow: var(--ring-inset);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card" data-od-id="card-components-buttons">
+      <header>
+        <span class="eyebrow">Preview 06 · Components</span>
+        <h1>Buttons, navigation and controls</h1>
+        <p>
+          Every interactive state is rendered side by side, because the rule
+          that governs them is easy to break: the background moves and the
+          foreground brightens. Nothing here dims text on hover, and no fill is
+          ever lightened.
+        </p>
+        <span class="src">assets/bd-dark.css · .btn, .rail-item, .tab, .search, .segmented, .menu</span>
+      </header>
+
+      <section class="block" data-od-id="button-states">
+        <span class="eyebrow">Buttons · 30px tall · 7px radius · 12.5px label</span>
+        <div class="panel">
+          <div class="states">
+            <span></span><span class="h">Rest</span><span class="h">Hover</span><span class="h">Focus-visible</span>
+
+            <span class="lbl">Primary<em>--primary → --primary-hover</em></span>
+            <button class="btn btn-primary" type="button" style="justify-self: start">New bead</button>
+            <button class="btn btn-primary as-hover" type="button" style="justify-self: start">New bead</button>
+            <button class="btn btn-primary as-focus" type="button" style="justify-self: start">New bead</button>
+
+            <span class="lbl">Outline<em>--border-strong ring</em></span>
+            <button class="btn btn-outline" type="button" style="justify-self: start">Priority</button>
+            <button class="btn btn-outline as-hover" type="button" style="justify-self: start">Priority</button>
+            <button class="btn btn-outline as-focus" type="button" style="justify-self: start">Priority</button>
+
+            <span class="lbl">Ghost<em>no ring at rest</em></span>
+            <button class="btn btn-ghost" type="button" style="justify-self: start">Delete</button>
+            <button class="btn btn-ghost as-hover" type="button" style="justify-self: start">Delete</button>
+            <button class="btn btn-ghost as-focus" type="button" style="justify-self: start">Delete</button>
+
+            <span class="lbl">Danger<em>delete flow only</em></span>
+            <button class="btn btn-danger" type="button" style="justify-self: start">Delete bead</button>
+            <button class="btn btn-danger as-hover" type="button" style="justify-self: start">Delete bead</button>
+            <button class="btn btn-danger" type="button" disabled style="justify-self: start">Delete bead</button>
+          </div>
+          <p class="note">
+            The bottom-right cell is <b>disabled</b>, not focused — disabled is
+            the only state in the system permitted to lose contrast. The primary
+            hover <em>darkens</em> to <span class="mono">L 0.47</span> and adds a
+            55% accent ring; lightening it would drop the white label to 3.99:1.
+          </p>
+        </div>
+      </section>
+
+      <section class="block" data-od-id="action-economy">
+        <span class="eyebrow">Action economy</span>
+        <div class="panel">
+          <div class="row" style="gap: 8px">
+            <button class="btn btn-outline" type="button">Group by</button>
+            <button class="btn btn-outline" type="button">Priority <span class="badge-count">2</span></button>
+            <button class="btn btn-outline" type="button">Sort<span class="faint">·</span>Priority</button>
+            <span style="flex: 1"></span>
+            <button class="btn btn-primary" type="button">New bead</button>
+          </div>
+          <p class="note">
+            <b>One filled button per surface.</b> The whole board has exactly one
+            — <span class="mono">New bead</span>. The detail sheet has exactly
+            one — <span class="mono">Comment</span>. Everything else is outline,
+            ghost or a text link, including the close and edit affordances in the
+            sheet header.
+          </p>
+        </div>
+      </section>
+
+      <section class="block" data-od-id="nav">
+        <span class="eyebrow">Navigation — rail and tabs</span>
+        <div class="grid-2">
+          <div class="navdemo">
+            <p class="rail-label">Quick filters</p>
+            <ul>
+              <li><span class="rail-item"><span class="rail-dot" style="background: var(--status-closed)"></span> Ready <span class="count">7</span></span></li>
+              <li><span class="rail-item" style="background: oklch(1 0 0 / 6%); color: var(--foreground)"><span class="rail-dot" style="background: var(--status-blocked)"></span> Blocked <span class="count" style="color: var(--muted-foreground)">3</span></span></li>
+              <li><span class="rail-item is-active"><span class="rail-dot" style="background: var(--status-progress)"></span> Assigned to me <span class="count" style="color: var(--muted-foreground)">6</span></span></li>
+            </ul>
+            <p class="note" style="margin-top: 12px; font-size: 11.5px">
+              Rest → hover (wash 6%) → active (wash 8% + inset ring). The
+              trailing count brightens with the row.
+            </p>
+          </div>
+
+          <div>
+            <div class="tabdemo">
+              <button class="tab" role="tab" aria-selected="true" type="button">Board</button>
+              <button class="tab" role="tab" aria-selected="false" type="button">Knowledge</button>
+            </div>
+            <div class="row" style="margin-top: 12px">
+              <span class="mode-badge">Write mode</span>
+              <span class="avatar" title="jean.pfs2@gmail.com">JP</span>
+              <span class="avatar avatar-lg" title="claude-agent">CA</span>
+            </div>
+            <p class="note" style="font-size: 11.5px">
+              The selected tab carries three signals at once: full-strength text,
+              weight 550, and a 2px <span class="mono">--primary-text</span>
+              underline. The avatar is always a monogram — there is no people
+              directory behind this app.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="block" data-od-id="inputs">
+        <span class="eyebrow">Inputs, segments and chips</span>
+        <div class="panel">
+          <div class="row" style="gap: 14px; align-items: flex-start">
+            <div class="search">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.2-3.2"/></svg>
+              <input type="search" placeholder="Search beads..." aria-label="Search beads" />
+              <span class="kbd">/</span>
+            </div>
+
+            <div class="search">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.2-3.2"/></svg>
+              <input type="search" value="tauri" aria-label="Search beads, focused"
+                style="background: oklch(1 0 0 / 8%); box-shadow: inset 0 0 0 1px var(--ring)" />
+            </div>
+
+            <div class="segmented" role="group" aria-label="Group by">
+              <button type="button" aria-pressed="true">Epics</button>
+              <button type="button" aria-pressed="false">Priority</button>
+              <button type="button" aria-pressed="false">Status</button>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top: 16px">
+            <span class="filter-label">Type</span>
+            <button class="chip-filter" type="button" aria-pressed="false">All 16</button>
+            <button class="chip-filter" type="button" aria-pressed="true">Ready</button>
+            <button class="chip-filter k-must-check" type="button" aria-pressed="true"
+              style="background: color-mix(in oklch, var(--k) 22%, transparent); color: var(--k); box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--k) 50%, transparent)">
+              <span class="k-dot" style="background: currentColor"></span> Must-check <span class="mono">2</span>
+            </button>
+            <button class="chip-filter k-decision" type="button" aria-pressed="false">
+              <span class="k-dot k-color" style="background: var(--k)"></span> Decision <span class="mono faint">3</span>
+            </button>
+          </div>
+
+          <div class="row" style="margin-top: 18px; align-items: flex-start; gap: 20px">
+            <div class="menu demo-menu" role="menu">
+              <p class="menu-label">Sort by</p>
+              <button type="button" role="menuitemradio" aria-checked="true">
+                Priority <span class="tick" data-on="true">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                </span>
+              </button>
+              <button type="button" role="menuitemradio" aria-checked="false">
+                Recent <span class="tick" data-on="false">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                </span>
+              </button>
+              <hr />
+              <button type="button">Clear filter</button>
+            </div>
+
+            <div style="flex: 1; min-width: 200px">
+              <span class="eyebrow" style="display: block; margin-bottom: 7px">Status</span>
+              <div class="select-wrap">
+                <select aria-label="Change status">
+                  <option>Open</option>
+                  <option selected>In progress</option>
+                  <option>Blocked</option>
+                  <option>Closed</option>
+                </select>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+              </div>
+              <p class="cmd-preview" style="margin-top: 10px">bd update bdb-3k1 --status in_progress</p>
+            </div>
+          </div>
+
+          <p class="note">
+            The menu tick is <span class="mono">visibility: hidden</span> when
+            off, never removed, so rows do not shift as you toggle. An active
+            <b>knowledge type</b> chip carries its own hue instead of the generic
+            accent — the taxonomy owns that colour, the accent does not.
+          </p>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>bd · board — bead detail</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/bd-dark.css" />
+    <style>
+      /* bead-only: the typed delete confirmation */
+      .confirm {
+        position: fixed;
+        inset: 0;
+        z-index: 70;
+        display: grid;
+        place-items: center;
+        background: oklch(0.09 0.005 270 / 72%);
+        padding: 24px;
+      }
+
+      .confirm[hidden] {
+        display: none;
+      }
+
+      .confirm-box {
+        width: min(440px, 100%);
+        border-radius: 12px;
+        background: var(--popover);
+        padding: 20px;
+        box-shadow: var(--shadow-pop);
+      }
+
+      .confirm-box h2 {
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      .danger-note {
+        display: flex;
+        gap: 9px;
+        margin: 14px 0;
+        border-radius: 9px;
+        background: oklch(0.7 0.19 22 / 12%);
+        padding: 10px 12px;
+        box-shadow: inset 0 0 0 1px oklch(0.7 0.19 22 / 30%);
+        font-size: 12.5px;
+        line-height: 1.55;
+        color: oklch(0.88 0.06 22);
+      }
+
+      .confirm input {
+        height: 32px;
+        width: 100%;
+        border: 0;
+        border-radius: 7px;
+        background: oklch(1 0 0 / 5%);
+        box-shadow: inset 0 0 0 1px var(--border-strong);
+        padding: 0 10px;
+        font-family: var(--font-mono);
+        font-size: 12.5px;
+        color: var(--foreground);
+      }
+
+      .confirm input:focus {
+        outline: none;
+        box-shadow: inset 0 0 0 1px var(--ring);
+      }
+
+      .cmd-preview {
+        margin-top: 12px;
+        border-radius: 7px;
+        background: oklch(0 0 0 / 35%);
+        padding: 9px 11px;
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        color: var(--muted-foreground);
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+
+      .btn-danger {
+        background: oklch(0.5 0.2 22);
+        color: oklch(0.99 0.003 22);
+        font-weight: 550;
+      }
+
+      .btn-danger:hover {
+        background: oklch(0.44 0.19 22);
+        box-shadow: 0 0 0 1px oklch(0.7 0.19 22 / 60%);
+      }
+
+      .btn-danger:disabled {
+        background: oklch(0.3 0.05 22);
+        color: oklch(0.62 0.02 22);
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+</style>
+  </head>
+  <body>
+    <!-- board behind the sheet -->
+    <div class="shell" aria-hidden="true" data-od-id="board-behind">
+      <aside class="rail">
+        <div class="rail-brand">
+          <span class="brand-mark">bd</span>
+          <span class="brand-name">bd board</span>
+        </div>
+        <div class="rail-scroll">
+          <p class="rail-label">Projects</p>
+          <ul id="rail-projects"></ul>
+        </div>
+      </aside>
+      <div class="main">
+        <header class="topbar">
+          <div class="crumbs">
+            <span>Projects</span><span class="sep">/</span><strong>bd-board</strong>
+          </div>
+        </header>
+        <div class="canvas" id="ghost-board"></div>
+      </div>
+    </div>
+
+    <div class="backdrop"></div>
+
+    <div class="sheet-wrap" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <article class="sheet" id="sheet" data-od-id="bead-sheet"></article>
+    </div>
+
+    <div class="confirm" id="confirm" hidden>
+      <div
+        class="confirm-box"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-title"
+        data-od-id="delete-confirm"
+      >
+        <h2 id="confirm-title">Delete bead</h2>
+        <div class="danger-note">
+          <span id="danger-icon"></span>
+          <span>
+            <b>This action cannot be undone.</b><br />
+            Linked work loses its edges: <span id="confirm-links"></span>.
+          </span>
+        </div>
+        <label class="eyebrow" for="confirm-input" style="display: block; margin-bottom: 6px">
+          Type <span id="confirm-id" class="mono"></span> to confirm
+        </label>
+        <input id="confirm-input" autocomplete="off" spellcheck="false" />
+        <p class="cmd-preview" id="cmd-preview"></p>
+        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px">
+          <button class="btn btn-outline" type="button" id="confirm-cancel">Cancel</button>
+          <button class="btn btn-danger" type="button" id="confirm-go" disabled>
+            Delete bead
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="assets/board-data.js"></script>
+    <script>
+      const params = new URLSearchParams(location.search)
+      const bead = beadById(params.get('id')) ?? beadById('bdb-3k1')
+      const st = mapStatus(bead.status)
+      const links = groupBeadLinks(bead.links)
+      const kids = childrenOf(bead.id)
+      const parent = bead.parent ? beadById(bead.parent) : null
+      const p = Math.max(0, Math.min(4, bead.priority))
+      const comments = bead.comments ?? []
+      const beadKnowledge = knowledgeForBead(bead.id)
+      const linkTotal =
+        links.blockedBy.length + links.blocking.length + links.related.length
+
+      /* ---------- tiny markdown ---------- */
+      function md(src = '') {
+        return src
+          .split('\n\n')
+          .map((block) => {
+            const inline = (s) =>
+              s.replace(/`([^`]+)`/g, '<code>$1</code>')
+            if (block.trim().startsWith('- '))
+              return `<ul>${block
+                .split('\n')
+                .map((l) => `<li>${inline(l.replace(/^-\s*/, ''))}</li>`)
+                .join('')}</ul>`
+            return `<p>${inline(block.replace(/\n/g, '<br />'))}</p>`
+          })
+          .join('')
+      }
+
+      function secHead(ic, label, trail) {
+        return `<div class="sec-head">${icon(ic, 13)}<h3>${label}</h3>${
+          trail ? `<span class="trail">${trail}</span>` : ''
+        }</div>`
+      }
+
+      function linkRow(id, note) {
+        const b = beadById(id)
+        if (!b) return ''
+        const col = mapStatus(b.status).column
+        return `
+          <a class="link-row" href="bead-detail.html?id=${b.id}">
+            <span class="rail-dot" style="background: var(--status-${col})"></span>
+            <span class="mono muted" style="font-size: 11px">${b.id}</span>
+            <span class="t">${b.title}</span>
+            <span class="s" style="color: var(--status-${col})">${note ?? COLUMN_LABEL[col]}</span>
+          </a>`
+      }
+
+      function linkGroup(label, items) {
+        if (!items.length) return ''
+        return `<p class="group-label">${label}</p>${items
+          .map((i) => linkRow(i.id, i.note))
+          .join('')}`
+      }
+
+      /* ---------- sheet ---------- */
+
+      document.getElementById('sheet').innerHTML = `
+        <div class="sheet-main">
+          <header class="sheet-head">
+            <div class="sheet-head-row">
+              <span class="mono muted" style="font-size: 12px">${bead.id}</span>
+              ${
+                isEpic(bead)
+                  ? '<span class="tag tag-epic">Epic</span>'
+                  : `<span class="label-chip">${bead.issue_type}</span>`
+              }
+              <span class="p-chip p${p}">P${p}</span>
+              ${st.badge ? `<span class="tag tag-${st.badge.tone}">${st.badge.label}</span>` : ''}
+              <span style="margin-left: auto; display: flex; gap: 6px">
+                <button class="btn btn-outline" type="button" id="edit-btn">
+                  ${icon('pencil', 13)} Edit
+                </button>
+                <button class="btn btn-ghost" type="button" id="delete-btn">
+                  ${icon('trash', 13)} Delete
+                </button>
+                <a class="btn btn-ghost" href="board.html" aria-label="Close bead detail">
+                  ${icon('x', 14)}
+                </a>
+              </span>
+            </div>
+
+            <h1 class="sheet-title" id="sheet-title">${bead.title}</h1>
+
+            ${
+              parent
+                ? `<a class="parent-link" href="bead-detail.html?id=${parent.id}">
+                     ${icon('corner', 12)} ${isEpic(parent) ? 'Epic' : 'Parent'}:
+                     <span class="mono">${parent.id}</span>
+                     <span>${parent.title}</span>
+                   </a>`
+                : ''
+            }
+          </header>
+
+          <div class="sheet-body">
+            ${
+              kids.length
+                ? `<section data-od-id="sheet-subtasks">
+                     ${secHead('tree', 'Subtasks', `${kids.filter((k) => mapStatus(k.status).column === 'closed').length}/${kids.length} completed`)}
+                     ${kids.map((k) => linkRow(k.id)).join('')}
+                   </section>`
+                : ''
+            }
+
+            ${
+              linkTotal
+                ? `<section data-od-id="sheet-dependencies">
+                     ${secHead('link', 'Dependencies', linkTotal)}
+                     ${linkGroup('Blocked by', links.blockedBy.map((id) => ({ id })))}
+                     ${linkGroup('Blocking', links.blocking.map((id) => ({ id })))}
+                     ${linkGroup(
+                       'Related',
+                       links.related.map((l) => ({
+                         id: l.id,
+                         note: l.direction === 'outgoing' ? l.type : l.type + ' ↩',
+                       })),
+                     )}
+                   </section>`
+                : ''
+            }
+
+            ${
+              beadKnowledge.length
+                ? `<section data-od-id="sheet-knowledge">
+                     ${secHead('book', 'Knowledge recorded here', beadKnowledge.length)}
+                     ${beadKnowledge
+                       .map(
+                         (k) => `
+                       <a class="k-row k-${k.type}" href="knowledge-detail.html?id=${encodeURIComponent(k.id)}">
+                         <span class="stripe"></span>
+                         <span class="body">
+                           <span style="display:flex;align-items:center;gap:7px">
+                             <span class="ktag"><span class="k-dot"></span>${KNOWLEDGE_TYPE_LABEL[k.type]}</span>
+                             <span class="mono faint" style="font-size:10.5px;margin-left:auto">${k.created_at} ago</span>
+                           </span>
+                           <span class="txt">${k.content}</span>
+                         </span>
+                       </a>`,
+                       )
+                       .join('')}
+                   </section>`
+                : ''
+            }
+
+            <section data-od-id="sheet-description">
+              ${secHead('align', 'Description')}
+              <div class="prose">
+                ${
+                  bead.description
+                    ? md(bead.description)
+                    : '<p class="faint" style="font-size:12.5px">No description.</p>'
+                }
+              </div>
+            </section>
+
+            ${
+              bead.acceptance_criteria
+                ? `<section data-od-id="sheet-acceptance">
+                     ${secHead('circleCheck', 'Acceptance criteria')}
+                     <div class="prose">${md(bead.acceptance_criteria)}</div>
+                   </section>`
+                : ''
+            }
+
+            <section data-od-id="sheet-comments">
+              ${secHead('comment', 'Comments', comments.length || '')}
+              ${
+                comments.length
+                  ? comments
+                      .map(
+                        (c) => `
+                <div class="comment">
+                  <div class="comment-head">
+                    <span class="avatar" style="width:18px;height:18px;font-size:8.5px">${initials(c.author)}</span>
+                    <b>${c.author}</b><span>·</span><span>${c.created_at}</span>
+                  </div>
+                  <p>${c.text}</p>
+                </div>`,
+                      )
+                      .join('')
+                  : '<p class="faint" style="font-size:12.5px">No comments yet.</p>'
+              }
+              <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px">
+                <textarea id="comment-box" placeholder="Add a comment…"></textarea>
+                <button class="btn btn-primary" type="button" id="comment-send"
+                  style="align-self: flex-end" disabled>Comment</button>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <aside class="meta" data-od-id="sheet-meta">
+          <div class="meta-field">
+            <span class="eyebrow">Status</span>
+            <div class="select-wrap">
+              <select id="status-select" aria-label="Change status">
+                ${COLUMN_KEYS.map(
+                  (k) =>
+                    `<option value="${k}" ${k === st.column ? 'selected' : ''}>${COLUMN_LABEL[k]}</option>`,
+                ).join('')}
+              </select>
+              ${icon('chevron', 14)}
+            </div>
+            <p class="faint" id="status-note" style="margin-top:6px;font-size:11.5px"></p>
+          </div>
+
+          <div class="meta-field">
+            <span class="eyebrow">Assignee</span>
+            <div class="meta-value">
+              ${
+                bead.assignee
+                  ? `<span class="avatar">${initials(bead.assignee)}</span><span>${bead.assignee}</span>`
+                  : '<span class="faint">Unassigned</span>'
+              }
+            </div>
+          </div>
+
+          <div class="meta-field">
+            <span class="eyebrow">Priority</span>
+            <div class="meta-value">
+              <span class="p-chip p${p}">P${p}</span>
+              <span class="muted">${['Critical', 'High', 'Normal', 'Low', 'Backlog'][p]}</span>
+            </div>
+          </div>
+
+          <div class="meta-field">
+            <span class="eyebrow">Type</span>
+            <div class="meta-value mono" style="font-size:12.5px">${bead.issue_type}</div>
+          </div>
+
+          <div class="meta-field">
+            <span class="eyebrow">Labels</span>
+            <div class="meta-value" style="flex-wrap: wrap; gap: 5px">
+              ${
+                (bead.labels ?? []).length
+                  ? bead.labels.map((l) => `<span class="label-chip">${l}</span>`).join('')
+                  : '<span class="faint">None</span>'
+              }
+            </div>
+          </div>
+
+          <hr class="meta-sep" />
+
+          <div class="meta-field">
+            <span class="eyebrow">Updated</span>
+            <div class="meta-value mono muted" style="font-size:12.5px">${bead.updated_at} ago</div>
+          </div>
+
+          <div class="meta-field">
+            <span class="eyebrow">Edges</span>
+            <div class="meta-value muted" style="font-size:12.5px; gap: 12px">
+              <span class="stat">${icon('ban', 12)} ${links.blockedBy.length}</span>
+              <span class="stat">${icon('waypoints', 12)} ${links.blocking.length}</span>
+              <span class="stat">${icon('link', 12)} ${links.related.length}</span>
+            </div>
+          </div>
+
+          <hr class="meta-sep" />
+
+          <p class="eyebrow" style="margin-bottom: 7px">bd command</p>
+          <p class="cmd-preview" style="margin: 0">bd show ${bead.id} --json</p>
+        </aside>`
+
+      /* ---------- ghost board behind ---------- */
+
+      document.getElementById('rail-projects').innerHTML = PROJECTS.slice(0, 4)
+        .map(
+          (pr) => `<li><span class="rail-item ${pr.database === 'bdb' ? 'is-active' : ''}">
+            ${icon('folder', 14)} ${pr.name}<span class="count">${pr.counts.total}</span></span></li>`,
+        )
+        .join('')
+
+      const work = BEADS.filter((b) => !isEpic(b))
+      const g = { open: [], in_progress: [], blocked: [], closed: [] }
+      for (const b of work) g[mapStatus(b.status).column].push(b)
+
+      document.getElementById('ghost-board').innerHTML = `
+        <div class="col-head-row">
+          ${COLUMN_KEYS.map(
+            (k) => `<div class="col-head col-${k}"><span class="dot"></span>
+              <h2>${COLUMN_LABEL[k]}</h2><span class="n">${g[k].length}</span></div>`,
+          ).join('')}
+        </div>
+        <div class="lane-grid">
+          ${COLUMN_KEYS.map(
+            (k) => `<div class="lane-cell">${g[k]
+              .slice(0, 4)
+              .map(
+                (b) => `<span class="bead">
+                  <span class="bead-top"><span class="bead-id">${b.id}</span>
+                  <span class="p-chip p${b.priority}">P${b.priority}</span></span>
+                  <span class="bead-title">${b.title}</span></span>`,
+              )
+              .join('')}</div>`,
+          ).join('')}
+        </div>`
+
+      /* ---------- interactions ---------- */
+
+      const $ = (id) => document.getElementById(id)
+
+      $('status-select').addEventListener('change', (e) => {
+        $('status-note').textContent = `bd update ${bead.id} --status ${e.target.value}`
+      })
+
+      $('comment-box').addEventListener('input', (e) => {
+        $('comment-send').disabled = e.target.value.trim().length === 0
+      })
+
+      $('comment-send').addEventListener('click', () => {
+        const box = $('comment-box')
+        if (!box.value.trim()) return
+        box.insertAdjacentHTML(
+          'beforebegin',
+          `<div class="comment"><div class="comment-head">
+             <span class="avatar" style="width:18px;height:18px;font-size:8.5px">JP</span>
+             <b>jean</b><span>·</span><span>just now</span></div>
+           <p>${box.value.replace(/</g, '&lt;')}</p></div>`,
+        )
+        box.value = ''
+        $('comment-send').disabled = true
+      })
+
+      $('edit-btn').addEventListener('click', () => {
+        $('edit-btn').innerHTML = icon('pencil', 13) + ' Editing…'
+        setTimeout(() => {
+          $('edit-btn').innerHTML = icon('pencil', 13) + ' Edit'
+        }, 900)
+      })
+
+      $('danger-icon').innerHTML = icon('ban', 15)
+      $('confirm-id').textContent = bead.id
+      $('confirm-links').textContent =
+        `${kids.length} subtask${kids.length === 1 ? '' : 's'}, ${linkTotal} dependenc${linkTotal === 1 ? 'y' : 'ies'}`
+      $('cmd-preview').textContent = `bd delete ${bead.id} --force`
+
+      $('delete-btn').addEventListener('click', () => {
+        $('confirm').hidden = false
+        $('confirm-input').focus()
+      })
+      $('confirm-cancel').addEventListener('click', () => {
+        $('confirm').hidden = true
+        $('confirm-input').value = ''
+        $('confirm-go').disabled = true
+      })
+      $('confirm-input').addEventListener('input', (e) => {
+        $('confirm-go').disabled = e.target.value.trim() !== bead.id
+      })
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return
+        if (!$('confirm').hidden) {
+          $('confirm-cancel').click()
+          return
+        }
+        location.href = 'board.html'
+      })
+    </script>
+  </body>
+</html>

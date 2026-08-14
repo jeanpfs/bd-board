@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Preview · Applied surfaces</title>
+    <link rel="stylesheet" href="../assets/bd-dark.css" />
+    <link rel="stylesheet" href="preview.css" />
+    <style>
+      .frame iframe.tall {
+        height: 620px;
+      }
+
+      .fallback {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-top: 1px solid var(--border);
+        background: var(--canvas);
+        font-size: 11.5px;
+        color: var(--faint);
+      }
+
+      .fallback a {
+        color: var(--primary-text);
+        font-weight: var(--weight-emphasis);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card" data-od-id="card-applied-surfaces">
+      <header>
+        <span class="eyebrow">Preview 09 · Applied UI</span>
+        <h1>The four source screens, live</h1>
+        <p>
+          Each frame below loads the preserved source file directly, unmodified.
+          This is the ground truth the rest of the package was measured against —
+          if a token here disagrees with a token in
+          <span class="mono">colors_and_type.css</span>, the screen is right.
+        </p>
+        <span class="src">../board.html · ../bead-detail.html · ../projects.html · ../knowledge-detail.html</span>
+      </header>
+
+      <section class="block" data-od-id="surface-board">
+        <span class="eyebrow">01 · Board — shell, swimlanes, filter bar</span>
+        <figure class="frame" style="margin: 0">
+          <figcaption>
+            Rail 232px · topbar 48px · four sticky status columns · epic swimlanes
+            <span class="mono">board.html</span>
+          </figcaption>
+          <iframe class="tall" src="../board.html" title="bd board — board screen" loading="lazy"></iframe>
+          <div class="fallback">
+            If the frame is blank, open <a href="../board.html" target="_blank" rel="noopener">board.html</a> directly.
+          </div>
+        </figure>
+        <p class="note">
+          Try it: press <span class="mono">/</span> to focus search, switch
+          <b>Group by</b> between Epics, Priority and Status, collapse a lane, or
+          open the <b>Knowledge</b> tab. All of it persists to
+          <span class="mono">localStorage</span> under
+          <span class="mono">bdb.board.v1</span>.
+        </p>
+      </section>
+
+      <section class="block" data-od-id="surface-bead">
+        <span class="eyebrow">02 · Bead detail — the shared sheet</span>
+        <figure class="frame" style="margin: 0">
+          <figcaption>
+            Content left, metadata rail 268px right, board visible behind the scrim
+            <span class="mono">bead-detail.html</span>
+          </figcaption>
+          <iframe class="tall" src="../bead-detail.html?id=bdb-3k1" title="bd board — bead detail" loading="lazy"></iframe>
+          <div class="fallback">
+            If the frame is blank, open <a href="../bead-detail.html?id=bdb-3k1" target="_blank" rel="noopener">bead-detail.html</a> directly.
+          </div>
+        </figure>
+        <p class="note">
+          Press <b>Delete</b> to see the destructive pattern: the dialog names the
+          exact edge loss, previews the CLI command, and keeps the confirm button
+          disabled until you type the bead id character for character.
+        </p>
+      </section>
+
+      <section class="block" data-od-id="surface-projects">
+        <span class="eyebrow">03 · Projects — the dashboard surface</span>
+        <figure class="frame" style="margin: 0">
+          <figcaption>
+            Stat tiles, stacked bars, completion rings, sortable grid
+            <span class="mono">projects.html</span>
+          </figcaption>
+          <iframe src="../projects.html" title="bd board — projects dashboard" loading="lazy"></iframe>
+          <div class="fallback">
+            If the frame is blank, open <a href="../projects.html" target="_blank" rel="noopener">projects.html</a> directly.
+          </div>
+        </figure>
+        <p class="note">
+          The only screen with charts. Both encodings are filled, both are
+          labelled, and the stat tile footnote always gives the share of the
+          total so a raw count never has to carry the meaning alone.
+        </p>
+      </section>
+
+      <section class="block" data-od-id="surface-knowledge">
+        <span class="eyebrow">04 · Knowledge detail — the same sheet, a second object</span>
+        <figure class="frame" style="margin: 0">
+          <figcaption>
+            Verbatim comment, source bead, entries along the dependency graph
+            <span class="mono">knowledge-detail.html</span>
+          </figcaption>
+          <iframe class="tall" src="../knowledge-detail.html?id=bdb-3k1%23k4" title="bd board — knowledge detail" loading="lazy"></iframe>
+          <div class="fallback">
+            If the frame is blank, open <a href="../knowledge-detail.html?id=bdb-3k1%23k4" target="_blank" rel="noopener">knowledge-detail.html</a> directly.
+          </div>
+        </figure>
+        <p class="note">
+          <b>Reusing the sheet is the design decision.</b> A knowledge entry is
+          only a bead comment with a recognised prefix, but giving it the same
+          object-detail surface as a bead is what makes it feel like a thing you
+          can navigate to, cite and share.
+        </p>
+      </section>
+
+      <section class="block" data-od-id="surface-overview">
+        <span class="eyebrow">00 · The author's rationale page</span>
+        <figure class="frame" style="margin: 0">
+          <figcaption>
+            Why the tokens changed, in the designer's own words
+            <span class="mono">index.html</span>
+          </figcaption>
+          <iframe src="../index.html" title="bd board — redesign rationale" loading="lazy"></iframe>
+          <div class="fallback">
+            If the frame is blank, open <a href="../index.html" target="_blank" rel="noopener">index.html</a> directly.
+          </div>
+        </figure>
+        <p class="note">
+          This page is the source of the contrast numbers quoted throughout the
+          package — 5.15:1, 6.59:1, the 4.34:1 failure it replaced, and the four
+          decisions that shaped the system. It is written in Portuguese because
+          it is design rationale, not product surface; that split is documented
+          in <span class="mono">DESIGN.md §9</span>.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

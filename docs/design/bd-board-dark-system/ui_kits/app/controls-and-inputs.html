@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>bd board kit · Controls and inputs</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../assets/bd-dark.css" />
+    <style>
+      body {
+        display: flex;
+        justify-content: center;
+      }
+
+      .page {
+        width: min(1000px, 100%);
+        padding: 40px 28px 80px;
+      }
+
+      .page > header {
+        display: flex;
+        align-items: flex-end;
+        gap: 16px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .page > header h1 {
+        margin-top: 10px;
+        font-size: 26px;
+        font-weight: 600;
+        letter-spacing: -0.022em;
+      }
+
+      .page > header p {
+        margin-top: 8px;
+        max-width: 62ch;
+        font-size: 13px;
+        line-height: 1.65;
+        color: var(--muted-foreground);
+      }
+
+      section {
+        margin-top: 32px;
+      }
+
+      section > .eyebrow {
+        display: block;
+        margin-bottom: 12px;
+      }
+
+      .bench {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        border-radius: 12px;
+        background: var(--canvas);
+        padding: 18px;
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+
+      .out {
+        margin-top: 10px;
+        min-height: 34px;
+      }
+
+      .hint {
+        margin-top: 10px;
+        max-width: 74ch;
+        font-size: 12.5px;
+        line-height: 1.6;
+        color: var(--muted-foreground);
+      }
+
+      .hint b {
+        font-weight: 550;
+        color: var(--foreground);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page" data-od-id="kit-controls">
+      <header>
+        <div>
+          <span class="eyebrow">bd board kit · Controls</span>
+          <h1>Every control, wired</h1>
+          <p>
+            The interaction inventory, live. Menus open and close on outside
+            click, chips toggle, the select writes its own command preview, and
+            <span class="mono">/</span> focuses search from anywhere — the same
+            behaviours the four source screens implement.
+          </p>
+        </div>
+        <a href="index.html" style="margin-left: auto; font-size: 12.5px; color: var(--primary-text); font-weight: 550">← Kit index</a>
+      </header>
+
+      <section data-od-id="ctl-buttons">
+        <span class="eyebrow">Buttons — one primary per surface</span>
+        <div class="bench">
+          <button class="btn btn-primary" type="button" id="create">
+            <span data-icon="plus"></span> New bead
+          </button>
+          <button class="btn btn-outline" type="button"><span data-icon="pencil"></span> Edit</button>
+          <button class="btn btn-ghost" type="button"><span data-icon="trash"></span> Delete</button>
+          <button class="btn btn-ghost" type="button" aria-label="Close"><span data-icon="x"></span></button>
+          <span style="margin-left: auto" class="mode-badge"><span data-icon="bolt"></span> Write mode</span>
+        </div>
+        <p class="hint">
+          <b>New bead</b> is the only filled button on this surface. Click it:
+          the label swaps to the command it would run, which is the pattern the
+          board uses instead of an optimistic spinner.
+        </p>
+      </section>
+
+      <section data-od-id="ctl-search">
+        <span class="eyebrow">Search — 30px, wash 5%, slash to focus</span>
+        <div class="bench">
+          <div class="search">
+            <span id="s1"></span>
+            <input id="search" type="search" placeholder="Search beads..." aria-label="Search beads" />
+            <span class="kbd" id="kbd">/</span>
+          </div>
+          <span class="mono faint" style="font-size: 11.5px" id="search-out">no query</span>
+        </div>
+        <p class="hint">
+          Focus swaps the inset ring to <span class="mono">--ring</span> and the
+          fill to wash 8%. The <span class="mono">/</span> chip disappears once
+          the field has a value, so it never sits behind text.
+        </p>
+      </section>
+
+      <section data-od-id="ctl-menus">
+        <span class="eyebrow">Segmented, chips and menus</span>
+        <div class="bench">
+          <div class="segmented" role="group" aria-label="Group by">
+            <button type="button" data-seg="epic" aria-pressed="true">Epics</button>
+            <button type="button" data-seg="priority" aria-pressed="false">Priority</button>
+            <button type="button" data-seg="status" aria-pressed="false">Status</button>
+          </div>
+
+          <div class="pop-wrap">
+            <button class="btn btn-outline" type="button" data-pop="priority" aria-expanded="false" aria-haspopup="true">
+              <span data-icon="sliders"></span> Priority
+              <span class="badge-count" id="p-count" hidden></span>
+            </button>
+            <div class="menu" id="menu-priority" hidden role="menu"></div>
+          </div>
+
+          <div class="pop-wrap">
+            <button class="btn btn-outline" type="button" data-pop="sort" aria-expanded="false" aria-haspopup="true">
+              <span data-icon="sort"></span> Sort<span class="faint">·</span><span id="sort-label">Priority</span>
+            </button>
+            <div class="menu" id="menu-sort" hidden role="menu"></div>
+          </div>
+
+          <button class="chip-filter" type="button" data-chip="ready" aria-pressed="false">Ready</button>
+          <button class="chip-filter" type="button" data-chip="blocked" aria-pressed="true">Blocked</button>
+          <button class="chip-filter k-decision" type="button" data-chip="decision" aria-pressed="false">
+            <span class="k-dot k-color" style="background: var(--k)"></span> Decision
+          </button>
+        </div>
+        <p class="hint">
+          The menu tick uses <span class="mono">visibility: hidden</span> rather
+          than removal, so rows never shift as you toggle. An open trigger keeps
+          <span class="mono">[aria-expanded="true"]</span>, which is styled to
+          wash 8% — the button stays visibly engaged while its menu is up.
+        </p>
+      </section>
+
+      <section data-od-id="ctl-fields">
+        <span class="eyebrow">Fields — select, textarea, command preview</span>
+        <div class="bench" style="align-items: flex-start; gap: 20px">
+          <div style="width: 240px">
+            <span class="eyebrow" style="display: block; margin-bottom: 7px">Status</span>
+            <div class="select-wrap">
+              <select id="status" aria-label="Change status">
+                <option value="open">Open</option>
+                <option value="in_progress" selected>In progress</option>
+                <option value="blocked">Blocked</option>
+                <option value="closed">Closed</option>
+              </select>
+              <span id="s2"></span>
+            </div>
+            <p class="cmd-preview" id="cmd" style="margin-top: 10px">bd update bdb-3k1 --status in_progress</p>
+          </div>
+
+          <div style="flex: 1; min-width: 260px">
+            <span class="eyebrow" style="display: block; margin-bottom: 7px">Comment</span>
+            <textarea id="note" placeholder="Add a comment…"></textarea>
+            <div style="display: flex; justify-content: flex-end; margin-top: 8px">
+              <button class="btn btn-primary" type="button" id="send" disabled>Comment</button>
+            </div>
+          </div>
+        </div>
+        <p class="hint">
+          Submit stays <b>disabled until there is something to submit</b>. Both
+          fields swap their inset ring to <span class="mono">--ring</span> on
+          focus rather than drawing a second outline.
+        </p>
+      </section>
+
+      <section data-od-id="ctl-marks">
+        <span class="eyebrow">Marks — chips, tags, monograms, progress</span>
+        <div class="bench">
+          <span class="p-chip p0">P0</span>
+          <span class="p-chip p1">P1</span>
+          <span class="p-chip p2">P2</span>
+          <span class="p-chip p3">P3</span>
+          <span class="p-chip p4">P4</span>
+          <span class="tag tag-epic">Epic</span>
+          <span class="tag tag-hooked">Hooked</span>
+          <span class="tag tag-pinned">Pinned</span>
+          <span class="tag tag-deferred">Deferred</span>
+          <span class="label-chip">write-mode</span>
+          <span class="rel-chip">blocked by</span>
+          <span class="avatar" title="jean.pfs2@gmail.com">JP</span>
+          <span class="avatar avatar-lg" title="claude-agent">CA</span>
+          <span class="bar" style="width: 160px">
+            <span class="seg-closed" style="width: 40%"></span>
+            <span class="seg-in_progress" style="width: 15%"></span>
+            <span class="seg-blocked" style="width: 10%"></span>
+            <span class="seg-open" style="width: 35%"></span>
+          </span>
+        </div>
+        <p class="hint">
+          Every one of these carries a text label as well as a colour. Nothing in
+          this system is distinguishable by hue alone.
+        </p>
+      </section>
+    </main>
+
+    <script src="../../assets/board-data.js"></script>
+    <script>
+      const el = (id) => document.getElementById(id)
+      const PRIORITY_NAME = ['Critical', 'High', 'Normal', 'Low', 'Backlog']
+      const SORT_LABEL = { priority: 'Priority', recent: 'Recent', title: 'Title' }
+
+      const ui = { priorities: [], sort: 'priority' }
+
+      document.querySelectorAll('[data-icon]').forEach((n) => {
+        n.innerHTML = icon(n.dataset.icon, 14)
+      })
+      el('s1').innerHTML = icon('search', 13)
+      el('s2').innerHTML = icon('chevron', 14)
+
+      function renderPriorityMenu() {
+        el('menu-priority').innerHTML = `
+          <p class="menu-label">Priority</p>
+          ${[0, 1, 2, 3, 4]
+            .map(
+              (p) => `
+            <button type="button" role="menuitemcheckbox" data-p="${p}"
+              aria-checked="${ui.priorities.includes(p)}">
+              <span class="mono p-chip p${p}" style="box-shadow:none;padding:0">P${p}</span>
+              <span>${PRIORITY_NAME[p]}</span>
+              <span class="tick" data-on="${ui.priorities.includes(p)}">${icon('check', 13)}</span>
+            </button>`,
+            )
+            .join('')}
+          ${ui.priorities.length ? '<hr /><button type="button" data-p="clear">Clear filter</button>' : ''}`
+
+        const badge = el('p-count')
+        badge.hidden = ui.priorities.length === 0
+        badge.textContent = ui.priorities.length
+      }
+
+      function renderSortMenu() {
+        el('menu-sort').innerHTML = `
+          <p class="menu-label">Sort by</p>
+          ${Object.keys(SORT_LABEL)
+            .map(
+              (s) => `
+            <button type="button" role="menuitemradio" data-sort="${s}" aria-checked="${ui.sort === s}">
+              ${SORT_LABEL[s]}<span class="tick" data-on="${ui.sort === s}">${icon('check', 13)}</span>
+            </button>`,
+            )
+            .join('')}`
+        el('sort-label').textContent = SORT_LABEL[ui.sort]
+      }
+
+      function closeMenus(except) {
+        document.querySelectorAll('.menu').forEach((m) => {
+          if (m === except) return
+          m.hidden = true
+          m.parentElement.querySelector('[data-pop]')?.setAttribute('aria-expanded', 'false')
+        })
+      }
+
+      document.addEventListener('click', (ev) => {
+        const t = ev.target.closest('button')
+        if (!t) return closeMenus()
+
+        if (t.dataset.pop) {
+          const menu = el('menu-' + t.dataset.pop)
+          const next = menu.hidden
+          closeMenus(menu)
+          menu.hidden = !next
+          t.setAttribute('aria-expanded', String(next))
+          return
+        }
+
+        if (!t.closest('.menu')) closeMenus()
+
+        if (t.dataset.p) {
+          if (t.dataset.p === 'clear') ui.priorities = []
+          else {
+            const n = Number(t.dataset.p)
+            ui.priorities = ui.priorities.includes(n)
+              ? ui.priorities.filter((x) => x !== n)
+              : [...ui.priorities, n].sort()
+          }
+          renderPriorityMenu()
+        } else if (t.dataset.sort) {
+          ui.sort = t.dataset.sort
+          renderSortMenu()
+          closeMenus()
+        } else if (t.dataset.seg) {
+          document
+            .querySelectorAll('[data-seg]')
+            .forEach((b) => b.setAttribute('aria-pressed', String(b === t)))
+        } else if (t.dataset.chip) {
+          t.setAttribute('aria-pressed', String(t.getAttribute('aria-pressed') !== 'true'))
+        } else if (t.id === 'create') {
+          t.textContent = 'bd create …'
+          setTimeout(() => {
+            t.innerHTML = icon('plus', 14) + ' New bead'
+          }, 1100)
+        }
+      })
+
+      el('search').addEventListener('input', (e) => {
+        const v = e.target.value.trim()
+        el('kbd').style.display = v ? 'none' : ''
+        el('search-out').textContent = v ? `?q=${v}` : 'no query'
+      })
+
+      el('status').addEventListener('change', (e) => {
+        el('cmd').textContent = `bd update bdb-3k1 --status ${e.target.value}`
+      })
+
+      el('note').addEventListener('input', (e) => {
+        el('send').disabled = e.target.value.trim().length === 0
+      })
+
+      el('send').addEventListener('click', () => {
+        el('note').value = ''
+        el('send').disabled = true
+      })
+
+      document.addEventListener('keydown', (ev) => {
+        if (ev.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+          ev.preventDefault()
+          el('search').focus()
+        }
+        if (ev.key === 'Escape') {
+          closeMenus()
+          document.activeElement.blur()
+        }
+      })
+
+      renderPriorityMenu()
+      renderSortMenu()
+    </script>
+  </body>
+</html>

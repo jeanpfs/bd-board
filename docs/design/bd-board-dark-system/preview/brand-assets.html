@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Preview · Brand mark, icons and identity marks</title>
+    <link rel="stylesheet" href="../assets/bd-dark.css" />
+    <link rel="stylesheet" href="preview.css" />
+    <style>
+      .markbench {
+        display: flex;
+        align-items: flex-end;
+        gap: 28px;
+        border-radius: var(--radius-3xl);
+        background: var(--sidebar);
+        padding: 28px;
+        box-shadow: var(--ring-inset);
+      }
+
+      .markbench .lockup {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .icons {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+        gap: 8px;
+      }
+
+      .ic {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        border-radius: var(--radius-lg);
+        background: var(--card);
+        padding: 14px 8px 10px;
+        box-shadow: var(--ring-inset);
+        color: var(--muted-foreground);
+        transition: background-color 120ms ease, color 120ms ease;
+      }
+
+      .ic:hover {
+        background: var(--card-hover);
+        color: var(--foreground);
+      }
+
+      .ic .n {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--faint);
+        text-align: center;
+        word-break: break-all;
+      }
+
+      .ic:hover .n {
+        color: var(--muted-foreground);
+      }
+
+      .sizes {
+        display: flex;
+        align-items: flex-end;
+        gap: 22px;
+        color: var(--muted-foreground);
+      }
+
+      .sizes span {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--faint);
+      }
+
+      .filechip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: var(--radius-md);
+        background: var(--card);
+        padding: 7px 10px;
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        color: var(--muted-foreground);
+        box-shadow: var(--ring-inset);
+        transition:
+          background-color 120ms ease,
+          color 120ms ease,
+          box-shadow 120ms ease;
+      }
+
+      .filechip:hover {
+        background: var(--card-hover);
+        color: var(--foreground);
+        box-shadow: var(--ring-accent);
+      }
+
+      .filechip .dot {
+        width: 15px;
+        height: 15px;
+        flex: none;
+        background: currentColor;
+        mask-repeat: no-repeat;
+        mask-position: center;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        -webkit-mask-size: contain;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card" data-od-id="card-brand-assets">
+      <header>
+        <span class="eyebrow">Preview 08 · Brand assets</span>
+        <h1>The mark, the icon set, the monogram</h1>
+        <p>
+          This product's identity is small and deliberate: one 24px gradient
+          mark, one monoline icon vocabulary, and monograms instead of
+          photographs. Everything below is extracted from the source — nothing
+          was redrawn.
+        </p>
+        <span class="src">assets/board-data.js · ICON → build/icons.js + assets/icons/*.svg</span>
+      </header>
+
+      <section class="block" data-od-id="brand-mark">
+        <span class="eyebrow">Brand mark and wordmark</span>
+        <div class="markbench">
+          <span class="brand-mark" style="width: 64px; height: 64px; font-size: 26px; border-radius: 18px">bd</span>
+          <span class="brand-mark" style="width: 44px; height: 44px; font-size: 17px; border-radius: 12px">bd</span>
+          <span class="lockup">
+            <span class="brand-mark" aria-hidden="true">bd</span>
+            <span class="brand-name">bd board</span>
+          </span>
+          <span class="lockup" style="margin-left: auto">
+            <span class="mode-badge">Write mode</span>
+            <span class="avatar avatar-lg" title="jean.pfs2@gmail.com">JP</span>
+          </span>
+        </div>
+        <p class="note">
+          The mark is <b>CSS, not an image</b>:
+          <span class="mono">linear-gradient(160deg, var(--primary-text), var(--primary-hover))</span>
+          on a 7px rounded square with mono 600 lettering. It is the
+          <b>only gradient in the entire system</b> — that is the whole flourish
+          budget. The wordmark is <span class="mono">bd board</span>, 13px, 600,
+          −0.01em, always lowercase.
+        </p>
+        <p class="note">
+          <b>Not available in the source evidence:</b> there is no app icon,
+          tray icon, installer artwork or favicon. The sample dataset contains an
+          open bead about exactly this —
+          <span class="mono">bdb-p2m · "Replace the scaffold icons with project
+          artwork"</span> — so the project has not produced them yet. None were
+          invented here.
+        </p>
+      </section>
+
+      <section class="block" data-od-id="icon-set">
+        <span class="eyebrow">Icon set — 27 glyphs, one contract</span>
+        <div class="icons" id="icons"></div>
+        <p class="note">
+          <span class="mono">24×24</span> viewBox · no fill ·
+          <span class="mono">stroke: currentColor</span> ·
+          <span class="mono">stroke-width: 1.7</span> · round caps and joins ·
+          <span class="mono">aria-hidden</span>, with the label on the
+          surrounding control. Rendered here by
+          <span class="mono">build/icons.js</span>; each also exists standalone
+          under <span class="mono">assets/icons/</span>, indexed in
+          <span class="mono">manifest.json</span>.
+        </p>
+        <p class="note">
+          <b>One family, no exceptions.</b> There are no filled glyphs, no second
+          icon library and no emoji used as icons anywhere in this product.
+        </p>
+      </section>
+
+      <section class="block" data-od-id="asset-files">
+        <span class="eyebrow">The files on disk</span>
+        <div class="panel">
+          <div class="row" id="files">
+            <a class="filechip" href="../assets/icons/layers.svg" target="_blank" rel="noopener">
+              <span class="dot" style="mask-image: url('../assets/icons/layers.svg'); -webkit-mask-image: url('../assets/icons/layers.svg')"></span>
+              assets/icons/layers.svg
+            </a>
+            <a class="filechip" href="../assets/icons/waypoints.svg" target="_blank" rel="noopener">
+              <span class="dot" style="mask-image: url('../assets/icons/waypoints.svg'); -webkit-mask-image: url('../assets/icons/waypoints.svg')"></span>
+              assets/icons/waypoints.svg
+            </a>
+            <a class="filechip" href="../assets/icons/book.svg" target="_blank" rel="noopener">
+              <span class="dot" style="mask-image: url('../assets/icons/book.svg'); -webkit-mask-image: url('../assets/icons/book.svg')"></span>
+              assets/icons/book.svg
+            </a>
+            <a class="filechip" href="../assets/icons/circle-check.svg" target="_blank" rel="noopener">
+              <span class="dot" style="mask-image: url('../assets/icons/circle-check.svg'); -webkit-mask-image: url('../assets/icons/circle-check.svg')"></span>
+              assets/icons/circle-check.svg
+            </a>
+            <a class="filechip" href="../assets/icons/bolt.svg" target="_blank" rel="noopener">
+              <span class="dot" style="mask-image: url('../assets/icons/bolt.svg'); -webkit-mask-image: url('../assets/icons/bolt.svg')"></span>
+              assets/icons/bolt.svg
+            </a>
+            <a class="filechip" href="../assets/icons/manifest.json" target="_blank" rel="noopener">
+              assets/icons/manifest.json
+            </a>
+            <a class="filechip" href="../build/icons.js" target="_blank" rel="noopener">
+              build/icons.js
+            </a>
+            <a class="filechip" href="../assets/bd-dark.css" target="_blank" rel="noopener">
+              assets/bd-dark.css
+            </a>
+          </div>
+          <p class="note">
+            Each chip opens the preserved file itself. The small glyph inside is
+            painted by masking that same SVG with <span class="mono">currentColor</span> —
+            the exact contract the runtime uses, proven against the file on disk
+            rather than against a copy pasted into this page.
+          </p>
+        </div>
+      </section>
+
+      <section class="block" data-od-id="icon-sizes">
+        <span class="eyebrow">Optical sizes in use</span>
+        <div class="panel">
+          <div class="sizes" id="sizes"></div>
+          <p class="note">
+            Size is passed per call, never baked into the path. The practical
+            range is 11–15px: 11–12px inside chips and stat clusters, 13px in
+            buttons and section heads, 14px in rail items and the topbar, 15px
+            for the lane disclosure chevron.
+          </p>
+        </div>
+      </section>
+
+      <section class="block" data-od-id="monograms">
+        <span class="eyebrow">Monograms — the avatar system</span>
+        <div class="panel">
+          <div class="row" style="gap: 16px" id="avatars"></div>
+          <p class="note">
+            A monogram plate — <span class="mono">19px</span>, wash 9%,
+            <span class="mono">--border-strong</span> ring, mono 9px initials,
+            with a <span class="mono">26px</span> variant in the detail sheet.
+            Initials come from splitting the identifier on
+            <span class="mono">[\s_@.-]</span>, so an email and an agent name
+            both resolve.
+          </p>
+          <p class="note">
+            From the redesign's own notes: <em>"Sem fotos. Assignee é monograma
+            sobre superfície neutra — coerente com um app local que lê nomes do
+            bd, não um diretório de pessoas."</em> There is no image avatar in
+            this system, and adding one would be a lie about where the names come
+            from.
+          </p>
+        </div>
+      </section>
+
+      <section class="block" data-od-id="badges">
+        <span class="eyebrow">Identity marks in context</span>
+        <div class="panel">
+          <div class="row">
+            <span class="mode-badge">Write mode</span>
+            <span class="mode-badge" style="color: var(--faint); background: oklch(1 0 0 / 6%); box-shadow: inset 0 0 0 1px var(--border)">Read-only</span>
+            <span class="tag tag-epic">Epic</span>
+            <span class="tag tag-hooked">Hooked</span>
+            <span class="tag tag-pinned">Pinned</span>
+            <span class="tag tag-deferred">Deferred</span>
+            <span class="p-chip p0">P0</span>
+            <span class="p-chip p1">P1</span>
+            <span class="p-chip p2">P2</span>
+            <span class="p-chip p4">P4</span>
+            <span class="label-chip">write-mode</span>
+            <span class="rel-chip">blocked by</span>
+          </div>
+          <p class="note">
+            The <b>mode badge is identity, not chrome</b>. This app can mutate
+            real repositories, and which mode it is in is the single most
+            important thing the interface asserts about itself. It sits in the
+            topbar on every screen and never scrolls away.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <script src="../build/icons.js"></script>
+    <script>
+      const kebab = (n) => n.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
+
+      /* Each tile links its own preserved file in assets/icons/, and is drawn
+         from the same map via build/icons.js — click a glyph to open the SVG. */
+      document.getElementById('icons').innerHTML = ICON_NAMES.map(
+        (n) => `
+        <a class="ic" href="../assets/icons/${kebab(n)}.svg" target="_blank" rel="noopener"
+           title="Open assets/icons/${kebab(n)}.svg">
+          ${bdIcon(n, 22)}
+          <span class="n">${kebab(n)}.svg</span>
+        </a>`,
+      ).join('')
+
+      document.getElementById('sizes').innerHTML = [11, 12, 13, 14, 15, 22, 32]
+        .map((s) => `<span>${bdIcon('waypoints', s)}${s}px</span>`)
+        .join('')
+
+      document.getElementById('avatars').innerHTML = [
+        'jean.pfs2@gmail.com',
+        'claude-agent',
+        'codex-cli',
+      ]
+        .map(
+          (a) => `
+          <span style="display:flex;align-items:center;gap:9px">
+            <span class="avatar avatar-lg" title="${a}">${initials(a)}</span>
+            <span class="mono" style="font-size:11.5px;color:var(--muted-foreground)">${a}</span>
+          </span>`,
+        )
+        .join('')
+
+      /* initials() lives in the preserved data file; inline the same rule here
+         so this card stands alone if board-data.js is not loaded. */
+      function initials(name) {
+        const parts = String(name).trim().split(/[\s_@.-]+/).filter(Boolean)
+        if (parts.length === 0) return '?'
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+        return (parts[0][0] + parts[1][0]).toUpperCase()
+      }
+    </script>
+  </body>
+</html>

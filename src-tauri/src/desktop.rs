@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::env;
 use std::fs;
@@ -109,10 +109,17 @@ pub struct BeadDetail {
     pub comments: Vec<Comment>,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WriteConfig {
-    pub writes_enabled: bool,
+#[derive(Deserialize, Default)]
+pub struct BeadUpdateInput {
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub acceptance_criteria: Option<String>,
+    pub design: Option<String>,
+    pub notes: Option<String>,
+    pub priority: Option<i64>,
+    pub issue_type: Option<String>,
+    pub assignee: Option<String>,
+    pub labels: Option<Vec<String>>,
 }
 
 fn bd_binary() -> String {
@@ -164,9 +171,39 @@ fn bd_json(dir: &Path, args: &[&str]) -> Result<Value, String> {
     serde_json::from_str(trimmed).map_err(|err| err.to_string())
 }
 
+fn bd_json_lines(dir: &Path, args: &[&str]) -> Result<Vec<Value>, String> {
+    let raw = run_bd(dir, args)?;
+    raw.lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(|line| serde_json::from_str(line).map_err(|err| err.to_string()))
+        .collect()
+}
+
+fn expand_home_with(path: PathBuf, home: Option<PathBuf>) -> PathBuf {
+    let path_str = path.to_string_lossy();
+    if path_str != "~" && !path_str.starts_with("~/") {
+        return path;
+    }
+    let Some(home) = home else {
+        return path;
+    };
+    if path_str == "~" {
+        return home;
+    }
+    home.join(&path_str[2..])
+}
+
+fn expand_home(path: PathBuf) -> PathBuf {
+    let home = env::var_os("HOME")
+        .or_else(|| env::var_os("USERPROFILE"))
+        .map(PathBuf::from);
+    expand_home_with(path, home)
+}
+
 fn env_roots() -> Vec<PathBuf> {
     if let Some(raw_roots) = env::var_os("BD_ROOTS") {
-        return env::split_paths(&raw_roots).collect();
+        return env::split_paths(&raw_roots).map(expand_home).collect();
     }
 
     env::var_os("HOME")
@@ -392,9 +429,7 @@ fn discover_projects_inner() -> Result<Vec<Project>, String> {
     Ok(projects)
 }
 
-fn project_counts(dir: &Path) -> ProjectCounts {
-    let query = "SELECT status, COUNT(*) AS c FROM issues GROUP BY status";
-    let rows = bd_json(dir, &["sql", "--json", query]).ok();
+fn build_counts_from_groups(rows: &[Value]) -> ProjectCounts {
     let mut counts = ProjectCounts {
         open: 0,
         in_progress: 0,
@@ -404,17 +439,10 @@ fn project_counts(dir: &Path) -> ProjectCounts {
         total: 0,
     };
 
-    let Some(Value::Array(rows)) = rows else {
-        return counts;
-    };
-
     for row in rows {
-        let status = row
-            .get("status")
-            .and_then(Value::as_str)
-            .unwrap_or_default();
+        let status = row.get("group").and_then(Value::as_str).unwrap_or_default();
         let n = row
-            .get("c")
+            .get("count")
             .and_then(|v| v.as_i64().or_else(|| v.as_u64().map(|n| n as i64)))
             .unwrap_or(0);
         counts.total += n;
@@ -429,6 +457,17 @@ fn project_counts(dir: &Path) -> ProjectCounts {
     }
 
     counts
+}
+
+fn project_counts(dir: &Path) -> ProjectCounts {
+    let result = bd_json(dir, &["count", "--by-status", "--json"]).ok();
+    let groups = result
+        .as_ref()
+        .and_then(|v| v.get("groups"))
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    build_counts_from_groups(&groups)
 }
 
 fn resolve_dir(database: &str) -> Result<PathBuf, String> {
@@ -524,80 +563,199 @@ fn get_bead_detail_inner(database: &str, id: &str) -> Result<BeadDetail, String>
     })
 }
 
-fn get_project_knowledge_inner(database: &str) -> Result<ProjectKnowledge, String> {
-    let dir = resolve_dir(database)?;
-    let comment_query = format!(
-        "
-    SELECT
-      c.id AS id,
-      c.issue_id AS bead_id,
-      i.title AS bead_title,
-      c.author AS author,
-      c.text AS text,
-      c.created_at AS created_at
-    FROM comments c
-    LEFT JOIN issues i ON i.id = c.issue_id
-    ORDER BY c.created_at DESC
-    LIMIT {COMMENTS_LIMIT}
-  "
-    );
+fn build_project_knowledge(issues: &[Value]) -> ProjectKnowledge {
+    let mut raw_comments: Vec<Value> = Vec::new();
+    for issue in issues {
+        let title = issue.get("title").cloned().unwrap_or(Value::Null);
+        if let Some(Value::Array(issue_comments)) = issue.get("comments") {
+            for comment in issue_comments {
+                let mut merged = comment.clone();
+                if let Value::Object(map) = &mut merged {
+                    map.insert("title".to_string(), title.clone());
+                }
+                raw_comments.push(merged);
+            }
+        }
+    }
 
-    let knowledge_query = format!(
-        "
-    SELECT
-      c.id AS id,
-      c.issue_id AS bead_id,
-      i.title AS bead_title,
-      c.author AS author,
-      c.text AS text,
-      c.created_at AS created_at
-    FROM comments c
-    LEFT JOIN issues i ON i.id = c.issue_id
-    WHERE c.text LIKE 'LEARNED:%'
-       OR c.text LIKE 'DECISION:%'
-       OR c.text LIKE 'FACT:%'
-       OR c.text LIKE 'PATTERN:%'
-       OR c.text LIKE 'INVESTIGATION:%'
-       OR c.text LIKE 'MUST-CHECK:%'
-       OR c.text LIKE 'DEVIATION:%'
-    ORDER BY c.created_at DESC
-    LIMIT {KNOWLEDGE_LIMIT}
-  "
-    );
+    let by_date_desc = |a: &Option<String>, b: &Option<String>| {
+        b.as_deref().unwrap_or("").cmp(a.as_deref().unwrap_or(""))
+    };
 
-    let raw_comments = bd_json(&dir, &["sql", "--json", &comment_query])?;
-    let raw_knowledge = bd_json(&dir, &["sql", "--json", &knowledge_query])?;
+    let mut comments: Vec<ProjectComment> = raw_comments.iter().map(map_project_comment).collect();
+    comments.sort_by(|a, b| by_date_desc(&a.created_at, &b.created_at));
+    comments.truncate(COMMENTS_LIMIT);
 
-    let comments = raw_comments
-        .as_array()
-        .cloned()
-        .unwrap_or_default()
-        .into_iter()
-        .map(|value| map_project_comment(&value))
+    let mut knowledge: Vec<ProjectKnowledgeEntry> = raw_comments
+        .iter()
+        .filter_map(map_knowledge_entry)
         .collect();
+    knowledge.sort_by(|a, b| by_date_desc(&a.created_at, &b.created_at));
+    knowledge.truncate(KNOWLEDGE_LIMIT);
 
-    let knowledge = raw_knowledge
-        .as_array()
-        .cloned()
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|value| map_knowledge_entry(&value))
-        .collect();
-
-    Ok(ProjectKnowledge {
+    ProjectKnowledge {
         comments,
         knowledge,
-    })
+    }
 }
 
-fn is_write_enabled() -> bool {
-    matches!(
-        env::var("BD_BOARD_ALLOW_WRITE")
-            .unwrap_or_default()
-            .to_lowercase()
-            .as_str(),
-        "1" | "true" | "yes"
-    )
+fn get_project_knowledge_inner(database: &str) -> Result<ProjectKnowledge, String> {
+    let dir = resolve_dir(database)?;
+    match bd_json_lines(&dir, &["export"]) {
+        Ok(issues) => Ok(build_project_knowledge(&issues)),
+        Err(_) => Ok(ProjectKnowledge {
+            comments: Vec::new(),
+            knowledge: Vec::new(),
+        }),
+    }
+}
+
+fn run_bd_mut(dir: &Path, args: &[String]) -> Result<String, String> {
+    let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    run_bd(dir, &arg_refs)
+}
+
+fn update_bead_status_inner(database: &str, id: &str, status: &str) -> Result<(), String> {
+    let dir = resolve_dir(database)?;
+    run_bd(&dir, &["update", id, "--status", status])?;
+    Ok(())
+}
+
+fn build_update_bead_args(
+    id: &str,
+    update: &BeadUpdateInput,
+    existing_labels: &[String],
+) -> Vec<String> {
+    let mut args = vec!["update".to_string(), id.to_string()];
+
+    if let Some(title) = &update.title {
+        args.push("--title".to_string());
+        args.push(title.clone());
+    }
+    if let Some(description) = &update.description {
+        args.push("--description".to_string());
+        args.push(description.clone());
+    }
+    if let Some(acceptance) = &update.acceptance_criteria {
+        args.push("--acceptance".to_string());
+        args.push(acceptance.clone());
+    }
+    if let Some(design) = &update.design {
+        args.push("--design".to_string());
+        args.push(design.clone());
+    }
+    if let Some(notes) = &update.notes {
+        args.push("--notes".to_string());
+        args.push(notes.clone());
+    }
+    if let Some(priority) = update.priority {
+        args.push("--priority".to_string());
+        args.push(priority.to_string());
+    }
+    if let Some(issue_type) = &update.issue_type {
+        args.push("--type".to_string());
+        args.push(issue_type.clone());
+    }
+    if let Some(assignee) = &update.assignee {
+        args.push("--assignee".to_string());
+        args.push(assignee.clone());
+    }
+    if let Some(labels) = &update.labels {
+        if !labels.is_empty() {
+            args.push("--set-labels".to_string());
+            args.push(labels.join(","));
+        } else {
+            for label in existing_labels {
+                args.push("--remove-label".to_string());
+                args.push(label.clone());
+            }
+        }
+    }
+
+    args
+}
+
+fn update_bead_inner(database: &str, id: &str, update: BeadUpdateInput) -> Result<(), String> {
+    let dir = resolve_dir(database)?;
+    let existing_labels = if update.labels.is_some() {
+        get_bead_detail_inner(database, id)?.bead.labels
+    } else {
+        Vec::new()
+    };
+    let args = build_update_bead_args(id, &update, &existing_labels);
+    if args.len() <= 2 {
+        return Ok(());
+    }
+    run_bd_mut(&dir, &args)?;
+    Ok(())
+}
+
+fn build_preview_delete_bead_args(id: &str) -> Vec<String> {
+    vec![
+        "delete".to_string(),
+        id.to_string(),
+        "--cascade".to_string(),
+    ]
+}
+
+fn build_delete_bead_args(id: &str) -> Vec<String> {
+    vec![
+        "delete".to_string(),
+        id.to_string(),
+        "--cascade".to_string(),
+        "--force".to_string(),
+    ]
+}
+
+fn preview_delete_bead_inner(database: &str, id: &str) -> Result<String, String> {
+    let dir = resolve_dir(database)?;
+    let args = build_preview_delete_bead_args(id);
+    let out = run_bd_mut(&dir, &args)?;
+    Ok(out.trim().to_string())
+}
+
+fn delete_bead_inner(database: &str, id: &str) -> Result<(), String> {
+    let dir = resolve_dir(database)?;
+    let args = build_delete_bead_args(id);
+    run_bd_mut(&dir, &args)
+        .map(|_| ())
+        .map_err(|err| format!("Unable to delete bead. {err}"))
+}
+
+fn create_bead_inner(
+    database: &str,
+    title: &str,
+    description: Option<&str>,
+    kind: Option<&str>,
+    parent: Option<&str>,
+) -> Result<String, String> {
+    let dir = resolve_dir(database)?;
+    let mut args = vec![
+        "create".to_string(),
+        "--title".to_string(),
+        title.to_string(),
+        "--silent".to_string(),
+    ];
+    if let Some(description) = description.filter(|s| !s.is_empty()) {
+        args.push("-d".to_string());
+        args.push(description.to_string());
+    }
+    if let Some(kind) = kind.filter(|s| !s.is_empty()) {
+        args.push("--type".to_string());
+        args.push(kind.to_string());
+    }
+    if let Some(parent) = parent.filter(|s| !s.is_empty()) {
+        args.push("--parent".to_string());
+        args.push(parent.to_string());
+    }
+    let out = run_bd_mut(&dir, &args)?;
+    Ok(out.trim().to_string())
+}
+
+fn add_comment_inner(database: &str, id: &str, text: &str) -> Result<(), String> {
+    let dir = resolve_dir(database)?;
+    run_bd(&dir, &["comment", id, text])?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -621,8 +779,294 @@ pub fn get_project_knowledge(database: String) -> Result<ProjectKnowledge, Strin
 }
 
 #[tauri::command]
-pub fn get_write_config() -> Result<WriteConfig, String> {
-    Ok(WriteConfig {
-        writes_enabled: is_write_enabled(),
-    })
+pub fn update_bead_status(database: String, id: String, status: String) -> Result<(), String> {
+    update_bead_status_inner(&database, &id, &status)
+}
+
+#[tauri::command]
+pub fn update_bead(database: String, id: String, update: BeadUpdateInput) -> Result<(), String> {
+    update_bead_inner(&database, &id, update)
+}
+
+#[tauri::command]
+pub fn preview_delete_bead(database: String, id: String) -> Result<String, String> {
+    preview_delete_bead_inner(&database, &id)
+}
+
+#[tauri::command]
+pub fn delete_bead(database: String, id: String) -> Result<(), String> {
+    delete_bead_inner(&database, &id)
+}
+
+#[tauri::command]
+pub fn create_bead(
+    database: String,
+    title: String,
+    description: Option<String>,
+    r#type: Option<String>,
+    parent: Option<String>,
+) -> Result<String, String> {
+    create_bead_inner(
+        &database,
+        &title,
+        description.as_deref(),
+        r#type.as_deref(),
+        parent.as_deref(),
+    )
+}
+
+#[tauri::command]
+pub fn add_comment(database: String, id: String, text: String) -> Result<(), String> {
+    add_comment_inner(&database, &id, &text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn expand_home_expands_bare_tilde() {
+        let home = PathBuf::from("/Users/me");
+        assert_eq!(
+            expand_home_with(PathBuf::from("~"), Some(home.clone())),
+            home
+        );
+    }
+
+    #[test]
+    fn expand_home_expands_tilde_prefixed_path() {
+        let home = PathBuf::from("/Users/me");
+        assert_eq!(
+            expand_home_with(PathBuf::from("~/Code"), Some(home)),
+            PathBuf::from("/Users/me/Code")
+        );
+    }
+
+    #[test]
+    fn expand_home_leaves_absolute_path_unchanged() {
+        let home = PathBuf::from("/Users/me");
+        assert_eq!(
+            expand_home_with(PathBuf::from("/Users/me/Code"), Some(home)),
+            PathBuf::from("/Users/me/Code")
+        );
+    }
+
+    #[test]
+    fn expand_home_leaves_relative_non_tilde_path_unchanged() {
+        assert_eq!(
+            expand_home_with(PathBuf::from("../Code"), Some(PathBuf::from("/Users/me"))),
+            PathBuf::from("../Code")
+        );
+    }
+
+    #[test]
+    fn build_counts_from_groups_maps_bd_count_by_status_groups() {
+        let rows = vec![
+            json!({"group": "open", "count": 16}),
+            json!({"group": "blocked", "count": 9}),
+        ];
+        let counts = build_counts_from_groups(&rows);
+        assert_eq!(counts.open, 16);
+        assert_eq!(counts.blocked, 9);
+        assert_eq!(counts.in_progress, 0);
+        assert_eq!(counts.closed, 0);
+        assert_eq!(counts.deferred, 0);
+        assert_eq!(counts.total, 25);
+    }
+
+    #[test]
+    fn build_counts_from_groups_handles_empty_groups() {
+        let counts = build_counts_from_groups(&[]);
+        assert_eq!(counts.total, 0);
+        assert_eq!(counts.open, 0);
+    }
+
+    #[test]
+    fn build_counts_from_groups_folds_hooked_into_in_progress() {
+        let rows = vec![json!({"group": "hooked", "count": 3})];
+        let counts = build_counts_from_groups(&rows);
+        assert_eq!(counts.in_progress, 3);
+        assert_eq!(counts.total, 3);
+    }
+
+    #[test]
+    fn build_project_knowledge_combines_and_orders_comments_newest_first() {
+        let issues = vec![
+            json!({
+                "id": "ravo-fvs",
+                "title": "Primeiro deploy manual",
+                "comments": [{
+                    "id": "c1",
+                    "issue_id": "ravo-fvs",
+                    "author": "Jean",
+                    "text": "ping",
+                    "created_at": "2026-08-10T00:00:00Z",
+                }],
+            }),
+            json!({
+                "id": "ravo-cbf",
+                "title": "Ligar backup automático",
+                "comments": [{
+                    "id": "c2",
+                    "issue_id": "ravo-cbf",
+                    "author": "Jean",
+                    "text": "LEARNED: backups precisam de restore testado",
+                    "created_at": "2026-08-12T00:00:00Z",
+                }],
+            }),
+        ];
+
+        let result = build_project_knowledge(&issues);
+        let ids: Vec<&str> = result.comments.iter().map(|c| c.id.as_str()).collect();
+        assert_eq!(ids, vec!["c2", "c1"]);
+        assert_eq!(result.comments[0].bead_id, "ravo-cbf");
+        assert_eq!(
+            result.comments[0].bead_title.as_deref(),
+            Some("Ligar backup automático")
+        );
+    }
+
+    #[test]
+    fn build_project_knowledge_splits_tagged_and_plain_comments() {
+        let issues = vec![json!({
+            "id": "ravo-cbf",
+            "title": "Ligar backup automático",
+            "comments": [
+                {
+                    "id": "c1",
+                    "issue_id": "ravo-cbf",
+                    "author": "Jean",
+                    "text": "LEARNED: backups precisam de restore testado",
+                    "created_at": "2026-08-12T00:00:00Z",
+                },
+                {
+                    "id": "c2",
+                    "issue_id": "ravo-cbf",
+                    "author": "Jean",
+                    "text": "just a note",
+                    "created_at": "2026-08-11T00:00:00Z",
+                },
+            ],
+        })];
+
+        let result = build_project_knowledge(&issues);
+        assert_eq!(result.comments.len(), 2);
+        assert_eq!(result.knowledge.len(), 1);
+        assert_eq!(result.knowledge[0].id, "c1");
+        assert_eq!(result.knowledge[0].kind, "learned");
+        assert_eq!(
+            result.knowledge[0].content,
+            "backups precisam de restore testado"
+        );
+    }
+
+    #[test]
+    fn build_project_knowledge_handles_issue_without_comments() {
+        let issues = vec![json!({"id": "ravo-nyu", "title": "No comments"})];
+        let result = build_project_knowledge(&issues);
+        assert!(result.comments.is_empty());
+        assert!(result.knowledge.is_empty());
+    }
+
+    #[test]
+    fn build_project_knowledge_truncates_to_configured_limits() {
+        let many: Vec<Value> = (0..(COMMENTS_LIMIT + 20))
+            .map(|i| {
+                json!({
+                    "id": format!("c{i}"),
+                    "issue_id": "ravo-many",
+                    "author": "Jean",
+                    "text": format!("LEARNED: entry {i}"),
+                    "created_at": format!("2026-08-{:02}T00:00:00Z", (i % 28) + 1),
+                })
+            })
+            .collect();
+        let issues = vec![json!({"id": "ravo-many", "title": "Many comments", "comments": many})];
+
+        let result = build_project_knowledge(&issues);
+        assert_eq!(result.comments.len(), COMMENTS_LIMIT);
+        assert_eq!(
+            result.knowledge.len(),
+            KNOWLEDGE_LIMIT.min(COMMENTS_LIMIT + 20)
+        );
+    }
+
+    #[test]
+    fn build_update_bead_args_builds_arguments_for_editable_fields() {
+        let update = BeadUpdateInput {
+            title: Some("Updated title".to_string()),
+            description: Some("Updated description".to_string()),
+            acceptance_criteria: Some("Updated acceptance".to_string()),
+            design: Some("Updated design".to_string()),
+            notes: Some("Updated notes".to_string()),
+            priority: Some(0),
+            issue_type: Some("feature".to_string()),
+            assignee: Some("Jean".to_string()),
+            labels: Some(vec!["backend".to_string(), "ui".to_string()]),
+        };
+
+        let args = build_update_bead_args("bd-board-a2k", &update, &[]);
+
+        assert_eq!(
+            args,
+            vec![
+                "update",
+                "bd-board-a2k",
+                "--title",
+                "Updated title",
+                "--description",
+                "Updated description",
+                "--acceptance",
+                "Updated acceptance",
+                "--design",
+                "Updated design",
+                "--notes",
+                "Updated notes",
+                "--priority",
+                "0",
+                "--type",
+                "feature",
+                "--assignee",
+                "Jean",
+                "--set-labels",
+                "backend,ui",
+            ]
+        );
+    }
+
+    #[test]
+    fn build_update_bead_args_removes_existing_labels_when_labels_explicitly_empty() {
+        let update = BeadUpdateInput {
+            labels: Some(vec![]),
+            ..Default::default()
+        };
+        let existing = vec!["old".to_string(), "ui".to_string()];
+
+        let args = build_update_bead_args("bd-board-a2k", &update, &existing);
+
+        assert_eq!(
+            args,
+            vec![
+                "update",
+                "bd-board-a2k",
+                "--remove-label",
+                "old",
+                "--remove-label",
+                "ui",
+            ]
+        );
+    }
+
+    #[test]
+    fn delete_bead_args_keep_preview_and_confirmed_commands_separate() {
+        assert_eq!(
+            build_preview_delete_bead_args("bd-board-a2k"),
+            vec!["delete", "bd-board-a2k", "--cascade"]
+        );
+        assert_eq!(
+            build_delete_bead_args("bd-board-a2k"),
+            vec!["delete", "bd-board-a2k", "--cascade", "--force"]
+        );
+    }
 }

@@ -1,0 +1,45 @@
+/* bd board — typeface loading
+   ---------------------------------------------------------------------------
+   The source project loads Geist and Geist Mono from Google Fonts as variable
+   fonts. No font binaries were shipped in the source evidence, so none are
+   vendored here — this file reproduces the exact request the four screens make.
+
+   Preferred (matches the source markup exactly, and lets the browser
+   preconnect before the CSS resolves):
+
+     <link rel="preconnect" href="https://fonts.googleapis.com" />
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+     <link
+       href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap"
+       rel="stylesheet"
+     />
+
+   Use the @import below only when you cannot add <link> tags. It costs one
+   extra round trip and cannot preconnect.
+   --------------------------------------------------------------------------- */
+
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap');
+
+/* Axis ranges actually requested by the source:
+     Geist       300..700  — used at 400, 500, 550, 600
+     Geist Mono  400..600  — used at 400, 500, 550, 600
+
+   550 is a genuine instance of the variable axis and is load-bearing for
+   "slightly emphasised" UI text (lane titles, project card titles, primary
+   button labels, breadcrumb leaf). If you subset the axis, keep 550.
+
+   Fallback stacks, if the CDN is unavailable. Both are defined as tokens in
+   colors_and_type.css; repeated here so this file is self-describing. */
+
+:root {
+  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo,
+    monospace;
+}
+
+/* Geist ships stylistic sets the source turns on globally. Without these the
+   digits and the lowercase `a`/`g` differ from every screenshot of the app. */
+body {
+  font-feature-settings: 'cv01', 'cv03', 'ss01';
+}

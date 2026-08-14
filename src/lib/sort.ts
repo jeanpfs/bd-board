@@ -1,3 +1,5 @@
+import { groupBeadLinks, mapStatus } from './types'
+
 import type { Bead } from './types'
 
 export type SortKey = 'priority' | 'recent' | 'title'
@@ -9,6 +11,22 @@ export const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 ]
 
 export const PRIORITIES = [0, 1, 2, 3, 4]
+
+export const PRIORITY_TEXT_CLASS: Record<number, string> = {
+  0: 'text-status-blocked',
+  1: 'text-warn',
+  2: 'text-muted-foreground',
+  3: 'text-faint',
+  4: 'text-faint',
+}
+
+export const PRIORITY_WORD: Record<number, string> = {
+  0: 'Critical',
+  1: 'High',
+  2: 'Normal',
+  3: 'Low',
+  4: 'Backlog',
+}
 
 export function priorityLabel(p: number): string {
   return `P${Math.max(0, Math.min(4, p))}`
@@ -39,11 +57,23 @@ export function compareBeads(sort: SortKey): (a: Bead, b: Bead) => number {
   }
 }
 
+/** Ready = open and not waiting on an unresolved dependency. */
+export function isReady(bead: Bead): boolean {
+  return (
+    mapStatus(bead.status).column === 'open' &&
+    groupBeadLinks(bead.links).blockedBy.length === 0
+  )
+}
+
 export function beadMatches(
   bead: Bead,
   search: string,
   priorities: number[],
+  ready = false,
+  assignee = '',
 ): boolean {
+  if (ready && !isReady(bead)) return false
+  if (assignee && bead.assignee !== assignee) return false
   if (
     priorities.length > 0 &&
     !priorities.includes(clampPriority(bead.priority))

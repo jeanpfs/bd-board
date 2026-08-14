@@ -42,6 +42,18 @@ export interface ProjectKnowledge {
   knowledge: ProjectKnowledgeEntry[]
 }
 
+export type LinkDirection = 'outgoing' | 'incoming'
+
+/**
+ * One dependency edge as seen from a single bead. `outgoing` means this bead is
+ * the `issue_id` of the bd edge, `incoming` means it is the `depends_on_id`.
+ */
+export interface BeadLink {
+  id: string
+  type: string
+  direction: LinkDirection
+}
+
 export interface Bead {
   id: string
   title: string
@@ -64,6 +76,7 @@ export interface Bead {
   dependent_count?: number
   children?: string[]
   childBeads?: Bead[]
+  links?: BeadLink[]
 }
 
 export interface RelatedBead {
@@ -140,4 +153,26 @@ export function mapStatus(raw: string): {
 
 export function isEpic(b: { issue_type: string }): boolean {
   return b.issue_type === 'epic'
+}
+
+export function groupBeadLinks(links: BeadLink[] = []): {
+  blockedBy: string[]
+  blocking: string[]
+  related: BeadLink[]
+} {
+  const blockedBy: string[] = []
+  const blocking: string[] = []
+  const related: BeadLink[] = []
+
+  for (const link of links) {
+    if (link.type === 'parent-child') continue
+    if (link.type === 'blocks') {
+      if (link.direction === 'outgoing') blockedBy.push(link.id)
+      else blocking.push(link.id)
+      continue
+    }
+    related.push(link)
+  }
+
+  return { blockedBy, blocking, related }
 }

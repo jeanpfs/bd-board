@@ -17,11 +17,32 @@ const SUMMARY_META: {
   key: 'open' | 'in_progress' | 'blocked' | 'closed'
   label: string
   dot: string
+  text: string
 }[] = [
-  { key: 'open', label: 'Open', dot: 'bg-status-open' },
-  { key: 'in_progress', label: 'In progress', dot: 'bg-status-progress' },
-  { key: 'blocked', label: 'Blocked', dot: 'bg-status-blocked' },
-  { key: 'closed', label: 'Closed', dot: 'bg-status-closed' },
+  {
+    key: 'open',
+    label: 'Open',
+    dot: 'bg-status-open',
+    text: 'text-status-open',
+  },
+  {
+    key: 'in_progress',
+    label: 'In progress',
+    dot: 'bg-status-progress',
+    text: 'text-status-progress',
+  },
+  {
+    key: 'blocked',
+    label: 'Blocked',
+    dot: 'bg-status-blocked',
+    text: 'text-status-blocked',
+  },
+  {
+    key: 'closed',
+    label: 'Closed',
+    dot: 'bg-status-closed',
+    text: 'text-status-closed',
+  },
 ]
 
 function Home() {
@@ -33,7 +54,7 @@ function Home() {
   })
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="mx-auto flex max-w-[1240px] flex-col gap-6">
       <PageHeader projects={data} />
       <DesktopProbeCard />
 
@@ -63,9 +84,9 @@ function PageHeader({ projects }: { projects: Project[] | undefined }) {
 
   return (
     <header className="flex flex-col gap-1">
-      <h1 className="text-xl font-semibold tracking-tight">Projects</h1>
+      <h1 className="text-[22px] font-semibold tracking-[-0.02em]">Projects</h1>
       {projects ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-[13px] text-muted-foreground">
           {count} {count === 1 ? 'project' : 'projects'}
           <span className="px-1.5 text-muted-foreground/50">·</span>
           {beads.toLocaleString('en-US')} {beads === 1 ? 'bead' : 'beads'}
@@ -87,23 +108,31 @@ function SummaryStats({ projects }: { projects: Project[] }) {
     }),
     { open: 0, in_progress: 0, blocked: 0, closed: 0 },
   )
+  const total = agg.open + agg.in_progress + agg.blocked + agg.closed
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {SUMMARY_META.map((m) => (
         <div
           key={m.key}
-          className="flex flex-col gap-1.5 rounded-xl bg-card p-3.5 ring-1 ring-foreground/10"
+          className="rounded-[12px] bg-card px-4 py-3.5 ring-1 ring-inset ring-border"
         >
-          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-[7px] text-xs text-muted-foreground">
             <span
               className={`size-1.5 shrink-0 rounded-full ${m.dot}`}
               aria-hidden="true"
             />
             {m.label}
           </span>
-          <span className="text-2xl font-semibold tabular-nums tracking-tight">
+          <span
+            className={`mt-2 block text-[28px] font-semibold tracking-[-0.025em] tabular-nums ${m.text}`}
+          >
             {agg[m.key].toLocaleString('en-US')}
+          </span>
+          <span className="mt-1.5 block font-mono text-[11px] text-faint">
+            {total > 0
+              ? `${Math.round((agg[m.key] / total) * 100)}% of total`
+              : '—'}
           </span>
         </div>
       ))}
@@ -115,7 +144,7 @@ function ProjectGrid({ projects }: { projects: Project[] }) {
   const sorted = [...projects].sort((a, b) => b.counts.total - a.counts.total)
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
       {sorted.map((project) => (
         <ProjectCard key={project.database} project={project} />
       ))}
@@ -130,7 +159,7 @@ function LoadingState() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="flex flex-col gap-2 rounded-xl bg-card p-3.5 ring-1 ring-foreground/10"
+            className="flex flex-col gap-2 rounded-[12px] bg-card p-3.5 ring-1 ring-inset ring-border"
           >
             <Skeleton className="h-3 w-20" />
             <Skeleton className="h-7 w-12" />
@@ -141,7 +170,7 @@ function LoadingState() {
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
-            className="flex items-start gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10"
+            className="flex items-start gap-4 rounded-[12px] bg-card p-4 ring-1 ring-inset ring-border"
           >
             <div className="flex flex-1 flex-col gap-4">
               <div className="flex flex-col gap-1.5">

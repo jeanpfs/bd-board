@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>bd board kit · Board canvas</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../assets/bd-dark.css" />
+    <style>
+      body {
+        display: flex;
+        flex-direction: column;
+        height: 100dvh;
+      }
+
+      .kit-bar {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 10px;
+        border-bottom: 1px solid var(--border);
+        padding: 0 16px;
+        height: 48px;
+      }
+
+      .kit-bar a {
+        font-size: 12.5px;
+        color: var(--muted-foreground);
+      }
+
+      .kit-bar a:hover {
+        color: var(--foreground);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="kit-bar">
+      <span class="brand-mark" aria-hidden="true">bd</span>
+      <strong style="font-size: 13px; font-weight: 550">Board canvas</strong>
+      <span class="faint" style="font-size: 12.5px">
+        swimlanes · sticky columns · collapse · quick filters
+      </span>
+      <span style="margin-left: auto"></span>
+      <a href="index.html">← Kit index</a>
+    </header>
+
+    <div class="filterbar" id="filterbar" data-od-id="kit-board-filters"></div>
+    <div class="canvas" id="canvas" data-od-id="kit-board-canvas"></div>
+
+    <script src="../../assets/board-data.js"></script>
+    <script>
+      const ME = 'jean.pfs2@gmail.com'
+      const el = (id) => document.getElementById(id)
+
+      const state = { group: 'epic', sort: 'priority', quick: null, query: '', collapsed: [] }
+
+      const workBeads = () => BEADS.filter((b) => !isEpic(b))
+
+      function isReady(b) {
+        const col = mapStatus(b.status).column
+        if (col === 'closed' || col === 'blocked') return false
+        return groupBeadLinks(b.links).blockedBy.every(
+          (id) => mapStatus(beadById(id)?.status || 'closed').column === 'closed',
+        )
+      }
+
+      function passesQuick(b) {
+        if (state.quick === 'ready') return isReady(b)
+        if (state.quick === 'blocked') return mapStatus(b.status).column === 'blocked'
+        if (state.quick === 'mine') return b.assignee === ME
+        return true
+      }
+
+      const matches = (b) => beadMatches(b, state.query, []) && passesQuick(b)
+
+      function byColumn(list) {
+        const g = { open: [], in_progress: [], blocked: [], closed: [] }
+        for (const b of list) g[mapStatus(b.status).column].push(b)
+        for (const k of COLUMN_KEYS) g[k].sort(SORTS[state.sort])
+        return g
+      }
+
+      const statChip = (name, count, label, cls = '') =>
+        `<span class="stat ${cls}" title="${label}">${icon(name, 12)}${count}</span>`
+
+      function progressBar(kids, width = '') {
+        const counts = { closed: 0, in_progress: 0, blocked: 0, open: 0 }
+        for (const k of kids) counts[mapStatus(k.status).column]++
+        const total = kids.length || 1
+        return `<span class="bar" style="${width}">${['closed', 'in_progress', 'blocked', 'open']
+          .filter((k) => counts[k] > 0)
+          .map((k) => `<span class="seg-${k}" style="width:${(counts[k] / total) * 100}%"></span>`)
+          .join('')}</span>`
+      }
+
+      function beadCard(b) {
+        const st = mapStatus(b.status)
+        const links = groupBeadLinks(b.links)
+        const kids = childrenOf(b.id)
+        const p = Math.max(0, Math.min(4, b.priority))
+        return `
+          <a class="bead ${isEpic(b) ? 'is-epic' : ''}" href="detail-sheet.html?id=${b.id}"
+             data-od-id="bead-${b.id}">
+            <span class="bead-top">
+              <span class="bead-id">${b.id}</span>
+              <span class="p-chip p${p}">P${p}</span>
+              ${isEpic(b) ? '<span class="tag tag-epic">Epic</span>' : ''}
+              ${st.badge ? `<span class="tag tag-${st.badge.tone}">${st.badge.label}</span>` : ''}
+              <span class="bead-stats" style="gap:6px">
+                <span class="faint mono" style="font-size:10.5px">${b.updated_at}</span>
+              </span>
+            </span>
+            <span class="bead-title">${b.title}</span>
+            ${isEpic(b) && kids.length ? progressBar(kids) : ''}
+            <span class="bead-foot">
+              ${(b.labels ?? []).slice(0, 2).map((l) => `<span class="label-chip">${l}</span>`).join('')}
+              <span class="bead-stats">
+                ${kids.length ? statChip('tree', kids.length, `${kids.length} subtasks`) : ''}
+                ${links.blockedBy.length ? statChip('ban', links.blockedBy.length, 'blocked by', 'is-blocked') : ''}
+                ${links.blocking.length ? statChip('waypoints', links.blocking.length, 'blocking') : ''}
+                ${links.related.length ? statChip('link', links.related.length, 'related') : ''}
+                ${b.comment_count ? statChip('comment', b.comment_count, 'comments') : ''}
+                ${b.assignee ? `<span class="avatar" title="${b.assignee}">${initials(b.assignee)}</span>` : ''}
+              </span>
+            </span>
+          </a>`
+      }
+
+      function columnHeaders(list) {
+        const g = byColumn(list)
+        return `<div class="col-head-row">${COLUMN_KEYS.map(
+          (k) => `
+          <div class="col-head col-${k}">
+            <span class="dot"></span><h2>${COLUMN_LABEL[k]}</h2><span class="n">${g[k].length}</span>
+          </div>`,
+        ).join('')}</div>`
+      }
+
+      function laneCells(list) {
+        const g = byColumn(list)
+        return `<div class="lane-grid">${COLUMN_KEYS.map(
+          (k) => `<div class="lane-cell">${
+            g[k].map(beadCard).join('') || '<span class="lane-empty">—</span>'
+          }</div>`,
+        ).join('')}</div>`
+      }
+
+      function lane(key, headInner, list) {
+        const open = !state.collapsed.includes(key)
+        const done = list.filter((b) => mapStatus(b.status).column === 'closed').length
+        return `
+          <section class="lane" data-lane="${key}" data-open="${open}">
+            <header class="lane-head">
+              <button class="lane-toggle" type="button" data-toggle="${key}"
+                aria-expanded="${open}" aria-label="${open ? 'Collapse' : 'Expand'} lane ${key}">
+                ${icon('chevron', 15)}
+              </button>
+              ${headInner}
+              <span class="lane-meta">
+                ${list.length ? `<span style="width:120px" class="hide-sm">${progressBar(list)}</span>` : ''}
+                <span class="lane-ratio">${done}/${list.length}</span>
+              </span>
+            </header>
+            ${laneCells(list)}
+          </section>`
+      }
+
+      const PRIORITY_NAME = ['Critical', 'High', 'Normal', 'Low', 'Backlog']
+
+      function renderCanvas() {
+        const work = workBeads().filter(matches)
+
+        if (state.group === 'status') {
+          el('canvas').innerHTML =
+            columnHeaders(work) +
+            (work.length
+              ? `<div class="lanes"><section class="lane" data-open="true">${laneCells(work)}</section></div>`
+              : emptyState())
+          return
+        }
+
+        let lanes = ''
+
+        if (state.group === 'epic') {
+          const orphans = work.filter(
+            (b) => !b.parent || !beadById(b.parent) || !isEpic(beadById(b.parent)),
+          )
+          if (orphans.length)
+            lanes += lane(
+              'no-epic',
+              `<span class="lane-title"><span class="muted" style="font-size:13px;font-weight:550">No epic</span></span>`,
+              orphans,
+            )
+          for (const e of BEADS.filter(isEpic).sort(SORTS.priority)) {
+            const kids = work.filter((b) => b.parent === e.id)
+            if (!kids.length) continue
+            lanes += lane(
+              e.id,
+              `<a class="lane-title" href="detail-sheet.html?id=${e.id}">
+                 <span style="color:var(--primary-text)">${icon('layers', 14)}</span>
+                 <span class="mono muted" style="font-size:11px">${e.id}</span>
+                 <span class="name">${e.title}</span>
+               </a>`,
+              kids,
+            )
+          }
+        }
+
+        if (state.group === 'priority') {
+          for (const p of [0, 1, 2, 3, 4]) {
+            const list = work.filter((b) => b.priority === p)
+            if (!list.length) continue
+            lanes += lane(
+              `p${p}`,
+              `<span class="lane-title">
+                 <span class="p-chip p${p}" style="font-size:11px;padding:2px 6px">P${p}</span>
+                 <span class="name">${PRIORITY_NAME[p]}</span>
+               </span>`,
+              list,
+            )
+          }
+        }
+
+        el('canvas').innerHTML =
+          columnHeaders(work) + (lanes ? `<div class="lanes">${lanes}</div>` : emptyState())
+      }
+
+      const emptyState = () =>
+        `<div class="empty-state">No beads match the current filters</div>`
+
+      const GROUPS = [
+        { key: 'epic', label: 'Epics', icon: 'layers' },
+        { key: 'priority', label: 'Priority', icon: 'sliders' },
+        { key: 'status', label: 'Status', icon: 'columns' },
+      ]
+
+      const QUICK = [
+        { key: 'ready', label: 'Ready' },
+        { key: 'blocked', label: 'Blocked' },
+        { key: 'mine', label: 'Assigned to me' },
+      ]
+
+      function renderFilterBar() {
+        el('filterbar').innerHTML = `
+          <span class="filter-label">Group by</span>
+          <div class="segmented" role="group" aria-label="Group by">
+            ${GROUPS.map(
+              (g) => `<button type="button" data-group="${g.key}" aria-pressed="${state.group === g.key}">
+                ${icon(g.icon, 13)} ${g.label}</button>`,
+            ).join('')}
+          </div>
+          <span class="filter-label" style="margin-left: 6px">Show</span>
+          ${QUICK.map(
+            (q) => `<button class="chip-filter" type="button" data-quick="${q.key}"
+              aria-pressed="${state.quick === q.key}">${q.label}</button>`,
+          ).join('')}
+          <div style="margin-left:auto"></div>
+          <div class="search">
+            ${icon('search', 13)}
+            <input id="search" type="search" placeholder="Search beads..."
+              value="${state.query.replace(/"/g, '&quot;')}" aria-label="Search beads" />
+            ${state.query ? '' : '<span class="kbd">/</span>'}
+          </div>
+          <button class="btn btn-primary" type="button">${icon('plus', 14)} New bead</button>`
+      }
+
+      function render() {
+        renderFilterBar()
+        renderCanvas()
+      }
+
+      document.addEventListener('click', (ev) => {
+        const t = ev.target.closest('button')
+        if (!t) return
+
+        if (t.dataset.group) {
+          state.group = t.dataset.group
+          render()
+        } else if (t.dataset.quick) {
+          state.quick = state.quick === t.dataset.quick ? null : t.dataset.quick
+          render()
+        } else if (t.dataset.toggle) {
+          const key = t.dataset.toggle
+          state.collapsed = state.collapsed.includes(key)
+            ? state.collapsed.filter((k) => k !== key)
+            : [...state.collapsed, key]
+          const laneEl = document.querySelector(`[data-lane="${key}"]`)
+          const open = !state.collapsed.includes(key)
+          laneEl.dataset.open = open
+          t.setAttribute('aria-expanded', String(open))
+        }
+      })
+
+      document.addEventListener('input', (ev) => {
+        if (ev.target.id !== 'search') return
+        state.query = ev.target.value
+        const pos = ev.target.selectionStart
+        render()
+        const next = el('search')
+        next.focus()
+        next.setSelectionRange(pos, pos)
+      })
+
+      document.addEventListener('keydown', (ev) => {
+        if (ev.key === '/' && document.activeElement.id !== 'search') {
+          ev.preventDefault()
+          el('search').focus()
+        }
+        if (ev.key === 'Escape' && document.activeElement.id === 'search')
+          document.activeElement.blur()
+      })
+
+      render()
+    </script>
+  </body>
+</html>

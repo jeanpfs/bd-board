@@ -1,0 +1,121 @@
+{
+  "source": "assets/board-data.js (ICON map)",
+  "viewBox": "0 0 24 24",
+  "stroke": "currentColor",
+  "strokeWidth": 1.7,
+  "linecap": "round",
+  "linejoin": "round",
+  "fill": "none",
+  "runtime": "build/icons.js",
+  "count": 27,
+  "icons": [
+    {
+      "name": "chevron",
+      "file": "chevron.svg"
+    },
+    {
+      "name": "chevronRight",
+      "file": "chevron-right.svg"
+    },
+    {
+      "name": "chevronLeft",
+      "file": "chevron-left.svg"
+    },
+    {
+      "name": "search",
+      "file": "search.svg"
+    },
+    {
+      "name": "plus",
+      "file": "plus.svg"
+    },
+    {
+      "name": "layers",
+      "file": "layers.svg"
+    },
+    {
+      "name": "columns",
+      "file": "columns.svg"
+    },
+    {
+      "name": "book",
+      "file": "book.svg"
+    },
+    {
+      "name": "folder",
+      "file": "folder.svg"
+    },
+    {
+      "name": "sliders",
+      "file": "sliders.svg"
+    },
+    {
+      "name": "sort",
+      "file": "sort.svg"
+    },
+    {
+      "name": "tree",
+      "file": "tree.svg"
+    },
+    {
+      "name": "ban",
+      "file": "ban.svg"
+    },
+    {
+      "name": "waypoints",
+      "file": "waypoints.svg"
+    },
+    {
+      "name": "link",
+      "file": "link.svg"
+    },
+    {
+      "name": "comment",
+      "file": "comment.svg"
+    },
+    {
+      "name": "check",
+      "file": "check.svg"
+    },
+    {
+      "name": "clock",
+      "file": "clock.svg"
+    },
+    {
+      "name": "pencil",
+      "file": "pencil.svg"
+    },
+    {
+      "name": "trash",
+      "file": "trash.svg"
+    },
+    {
+      "name": "corner",
+      "file": "corner.svg"
+    },
+    {
+      "name": "align",
+      "file": "align.svg"
+    },
+    {
+      "name": "circleCheck",
+      "file": "circle-check.svg"
+    },
+    {
+      "name": "x",
+      "file": "x.svg"
+    },
+    {
+      "name": "lock",
+      "file": "lock.svg"
+    },
+    {
+      "name": "bolt",
+      "file": "bolt.svg"
+    },
+    {
+      "name": "dot",
+      "file": "dot.svg"
+    }
+  ]
+}

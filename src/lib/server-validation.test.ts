@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  assertWritesEnabled,
   parseBeadInput,
   parseCommentInput,
   parseCreateBeadInput,
@@ -155,15 +154,5 @@ describe('server input validation', () => {
         labels: ['bad label'],
       }),
     ).toThrow('Label is invalid')
-  })
-
-  it('requires an explicit write opt-in', () => {
-    expect(() => assertWritesEnabled({})).toThrow('Writes are disabled')
-    expect(() =>
-      assertWritesEnabled({ BD_BOARD_ALLOW_WRITE: 'true' }),
-    ).not.toThrow()
-    expect(() =>
-      assertWritesEnabled({ BD_BOARD_ALLOW_WRITE: '1' }),
-    ).not.toThrow()
   })
 })

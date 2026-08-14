@@ -3,14 +3,12 @@ import { createServerFn } from '@tanstack/react-start'
 
 import { bdAdapter } from './bd.ts'
 import {
-  assertWritesEnabled,
   parseBeadInput,
   parseCommentInput,
   parseCreateBeadInput,
   parseProjectInput,
   parseStatusUpdateInput,
   parseUpdateBeadInput,
-  isWritesEnabled,
 } from './server-validation.ts'
 
 import type {
@@ -21,7 +19,7 @@ import type {
   ProjectKnowledge,
 } from './types.ts'
 
-function isDesktopApp(): boolean {
+export function isDesktopApp(): boolean {
   return typeof window !== 'undefined' && isTauri()
 }
 
@@ -41,14 +39,9 @@ const webGetProjectKnowledge = createServerFn({ method: 'GET' })
   .validator(parseProjectInput)
   .handler(({ data }) => bdAdapter.getProjectKnowledge(data.project))
 
-const webGetWriteConfig = createServerFn({ method: 'GET' }).handler(() => ({
-  writesEnabled: isWritesEnabled(),
-}))
-
 const webUpdateBeadStatus = createServerFn({ method: 'POST' })
   .validator(parseStatusUpdateInput)
   .handler(async ({ data }) => {
-    assertWritesEnabled()
     await bdAdapter.updateBeadStatus(data.project, data.id, data.status)
     return { ok: true as const }
   })
@@ -56,7 +49,6 @@ const webUpdateBeadStatus = createServerFn({ method: 'POST' })
 const webUpdateBead = createServerFn({ method: 'POST' })
   .validator(parseUpdateBeadInput)
   .handler(async ({ data }) => {
-    assertWritesEnabled()
     await bdAdapter.updateBead(data.project, data.id, data.update)
     return { ok: true as const }
   })
@@ -64,7 +56,6 @@ const webUpdateBead = createServerFn({ method: 'POST' })
 const webPreviewDeleteBead = createServerFn({ method: 'POST' })
   .validator(parseBeadInput)
   .handler(async ({ data }) => {
-    assertWritesEnabled()
     const preview = await bdAdapter.previewDeleteBead(data.project, data.id)
     return { preview }
   })
@@ -72,7 +63,6 @@ const webPreviewDeleteBead = createServerFn({ method: 'POST' })
 const webDeleteBead = createServerFn({ method: 'POST' })
   .validator(parseBeadInput)
   .handler(async ({ data }) => {
-    assertWritesEnabled()
     await bdAdapter.deleteBead(data.project, data.id)
     return { ok: true as const }
   })
@@ -80,7 +70,6 @@ const webDeleteBead = createServerFn({ method: 'POST' })
 const webCreateBead = createServerFn({ method: 'POST' })
   .validator(parseCreateBeadInput)
   .handler(async ({ data }) => {
-    assertWritesEnabled()
     const id = await bdAdapter.createBead(data.project, {
       title: data.title,
       description: data.description,
@@ -93,14 +82,9 @@ const webCreateBead = createServerFn({ method: 'POST' })
 const webAddComment = createServerFn({ method: 'POST' })
   .validator(parseCommentInput)
   .handler(async ({ data }) => {
-    assertWritesEnabled()
     await bdAdapter.addComment(data.project, data.id, data.text)
     return { ok: true as const }
   })
-
-function desktopWritesDisabled(): never {
-  throw new Error('Writes are disabled in desktop mode')
-}
 
 export async function getProjects(): Promise<Project[]> {
   if (isDesktopApp()) return invoke<Project[]>('discover_projects')
@@ -142,25 +126,19 @@ export async function getProjectKnowledgeFn({
   return webGetProjectKnowledge({ data })
 }
 
-export async function getWriteConfigFn(): Promise<{ writesEnabled: boolean }> {
-  if (isDesktopApp()) {
-    const config = await invoke<{
-      writesEnabled?: boolean
-      writes_enabled?: boolean
-    }>('get_write_config')
-    return {
-      writesEnabled: config.writesEnabled ?? config.writes_enabled ?? false,
-    }
-  }
-  return webGetWriteConfig()
-}
-
 export async function updateBeadStatusFn({
   data,
 }: {
   data: { project: string; id: string; status: string }
 }): Promise<{ ok: true }> {
-  if (isDesktopApp()) desktopWritesDisabled()
+  if (isDesktopApp()) {
+    await invoke('update_bead_status', {
+      database: data.project,
+      id: data.id,
+      status: data.status,
+    })
+    return { ok: true }
+  }
   return webUpdateBeadStatus({ data })
 }
 
@@ -169,7 +147,14 @@ export async function updateBeadFn({
 }: {
   data: { project: string; id: string; update: BeadUpdate }
 }): Promise<{ ok: true }> {
-  if (isDesktopApp()) desktopWritesDisabled()
+  if (isDesktopApp()) {
+    await invoke('update_bead', {
+      database: data.project,
+      id: data.id,
+      update: data.update,
+    })
+    return { ok: true }
+  }
   return webUpdateBead({ data })
 }
 
@@ -178,7 +163,13 @@ export async function previewDeleteBeadFn({
 }: {
   data: { project: string; id: string }
 }): Promise<{ preview: string }> {
-  if (isDesktopApp()) desktopWritesDisabled()
+  if (isDesktopApp()) {
+    const preview = await invoke<string>('preview_delete_bead', {
+      database: data.project,
+      id: data.id,
+    })
+    return { preview }
+  }
   return webPreviewDeleteBead({ data })
 }
 
@@ -187,7 +178,10 @@ export async function deleteBeadFn({
 }: {
   data: { project: string; id: string }
 }): Promise<{ ok: true }> {
-  if (isDesktopApp()) desktopWritesDisabled()
+  if (isDesktopApp()) {
+    await invoke('delete_bead', { database: data.project, id: data.id })
+    return { ok: true }
+  }
   return webDeleteBead({ data })
 }
 
@@ -202,7 +196,16 @@ export async function createBeadFn({
     parent?: string
   }
 }): Promise<{ id: string }> {
-  if (isDesktopApp()) desktopWritesDisabled()
+  if (isDesktopApp()) {
+    const id = await invoke<string>('create_bead', {
+      database: data.project,
+      title: data.title,
+      description: data.description,
+      type: data.type,
+      parent: data.parent,
+    })
+    return { id }
+  }
   return webCreateBead({ data })
 }
 
@@ -211,6 +214,13 @@ export async function addCommentFn({
 }: {
   data: { project: string; id: string; text: string }
 }): Promise<{ ok: true }> {
-  if (isDesktopApp()) desktopWritesDisabled()
+  if (isDesktopApp()) {
+    await invoke('add_comment', {
+      database: data.project,
+      id: data.id,
+      text: data.text,
+    })
+    return { ok: true }
+  }
   return webAddComment({ data })
 }

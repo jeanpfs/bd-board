@@ -5,8 +5,7 @@ This file tracks public release readiness for `bd-board`.
 ## Current Scope
 
 - Local-first dashboard for bead-enabled repositories.
-- Reads through the local `bd` CLI.
-- Optional write mode behind `BD_BOARD_ALLOW_WRITE=true`.
+- Reads and writes through the local `bd` CLI, enabled by default.
 - TanStack Start, React, TanStack Query, Tailwind CSS, and shadcn/ui.
 
 ## Launch Checklist
@@ -21,5 +20,5 @@ This file tracks public release readiness for `bd-board`.
 
 - The app is intended for local use, not public hosting.
 - Large boards may need list virtualization if repositories grow beyond the current rendering profile.
-- Write mode depends on the exact behavior of the installed local `bd` CLI.
+- Mutations depend on the exact behavior of the installed local `bd` CLI.
 - The default icons are generated scaffold assets and can be replaced by project-specific artwork later.

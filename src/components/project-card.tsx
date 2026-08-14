@@ -13,10 +13,27 @@ interface LegendItem {
   textClassName: string
 }
 
+const SEGMENT_ORDER: {
+  key: 'closed' | 'in_progress' | 'blocked' | 'open'
+  className: string
+}[] = [
+  { key: 'closed', className: 'bg-status-closed' },
+  { key: 'in_progress', className: 'bg-status-progress' },
+  { key: 'blocked', className: 'bg-status-blocked' },
+  { key: 'open', className: 'bg-status-open' },
+]
+
 export function ProjectCard({ project }: { project: Project }) {
   const { counts } = project
   const open = counts.open + counts.deferred
   const pctDone = counts.total > 0 ? (counts.closed / counts.total) * 100 : null
+
+  const barCounts = {
+    closed: counts.closed,
+    in_progress: counts.in_progress,
+    blocked: counts.blocked,
+    open,
+  }
 
   const legend: LegendItem[] = [
     {
@@ -53,51 +70,63 @@ export function ProjectCard({ project }: { project: Project }) {
     <Link
       to="/p/$project"
       params={{ project: project.database }}
-      className="group block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+      className="group block rounded-[12px] outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
     >
-      <div className="flex h-full items-start gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:bg-accent/30 group-hover:ring-primary/40">
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <h3 className="truncate text-base font-medium tracking-tight">
-                {project.name}
-              </h3>
-              <ArrowUpRight
-                className="size-3.5 shrink-0 text-muted-foreground/0 transition-colors duration-200 group-hover:text-muted-foreground/70"
-                aria-hidden="true"
-              />
+      <div className="flex h-full items-start gap-3 rounded-[12px] bg-card p-4 shadow-card ring-1 ring-inset ring-border transition-[background-color,box-shadow,transform] duration-[140ms] ease-out group-hover:-translate-y-0.5 group-hover:bg-card-hover group-hover:shadow-[0_8px_22px_-8px_oklch(0_0_0/60%)] group-hover:ring-ring/45">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <h3 className="truncate text-[15px] font-medium tracking-[-0.01em]">
+                  {project.name}
+                </h3>
+                <ArrowUpRight
+                  className="size-3.5 shrink-0 text-transparent transition-colors duration-[140ms] group-hover:text-primary-text"
+                  aria-hidden="true"
+                />
+              </div>
+              <p className="mt-[3px] font-mono text-[11px] text-faint">
+                {project.database}
+              </p>
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              <span className="font-mono">{project.database}</span>
-              <span className="px-1 text-muted-foreground/40">·</span>
-              {counts.total.toLocaleString('en-US')} beads
-            </p>
+
+            <ProgressRing value={pctDone} />
           </div>
 
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+          {counts.total > 0 ? (
+            <span className="mt-3.5 flex h-[5px] w-full overflow-hidden rounded-full bg-white/7">
+              {SEGMENT_ORDER.filter((s) => barCounts[s.key] > 0).map((s) => (
+                <span
+                  key={s.key}
+                  className={s.className}
+                  style={{
+                    width: `${(barCounts[s.key] / counts.total) * 100}%`,
+                  }}
+                />
+              ))}
+            </span>
+          ) : null}
+
+          <div className="mt-3.5 grid grid-cols-2 gap-x-3.5 gap-y-1.5">
             {legend.map((item) => (
               <span
                 key={item.key}
-                className="inline-flex items-center gap-1.5 text-xs"
+                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
               >
                 <span
                   className={`size-1.5 shrink-0 rounded-full ${item.dotClassName}`}
                   aria-hidden="true"
                 />
                 <span
-                  className={`font-medium tabular-nums ${item.textClassName}`}
+                  className={`font-mono font-medium tabular-nums ${item.textClassName}`}
                 >
                   {item.value}
                 </span>
-                <span className="truncate text-muted-foreground/70">
-                  {item.label}
-                </span>
+                <span className="truncate">{item.label}</span>
               </span>
             ))}
           </div>
         </div>
-
-        <ProgressRing value={pctDone} />
       </div>
     </Link>
   )

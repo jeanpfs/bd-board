@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Preview · Surfaces, text and accent</title>
+    <link rel="stylesheet" href="../assets/bd-dark.css" />
+    <link rel="stylesheet" href="preview.css" />
+    <style>
+      .stack {
+        display: grid;
+        gap: 0;
+        border-radius: var(--radius-3xl);
+        overflow: hidden;
+        box-shadow: var(--ring-inset);
+      }
+
+      .stack div {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 18px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+      }
+
+      .stack div .l {
+        margin-left: auto;
+        color: var(--faint);
+      }
+
+      .pair {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        border-radius: var(--radius-2xl);
+        background: var(--card);
+        padding: 14px 16px;
+        box-shadow: var(--ring-inset);
+      }
+
+      .pair .ratio {
+        margin-left: auto;
+        font-family: var(--font-mono);
+        font-size: 15px;
+        font-weight: 550;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .pass {
+        color: var(--status-closed);
+      }
+
+      .fail {
+        color: var(--status-blocked);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card" data-od-id="card-colors-primary">
+      <header>
+        <span class="eyebrow">Preview 01 · Color</span>
+        <h1>Surfaces, text and the split accent</h1>
+        <p>
+          One hue family at 270. Six surfaces separated only by lightness, three
+          text levels each with a stated contrast floor, and an accent that was
+          deliberately split into two tokens because a single one failed 4.5:1 in
+          both of its roles.
+        </p>
+        <span class="src">assets/bd-dark.css · :root · lines 11–31</span>
+      </header>
+
+      <section class="block" data-od-id="surfaces">
+        <span class="eyebrow">Six elevation steps, one hue</span>
+        <div class="stack">
+          <div style="background: oklch(0.155 0.006 270)">
+            --background<span class="l">0.155 · app canvas, topbar, sheet base</span>
+          </div>
+          <div style="background: oklch(0.168 0.006 270)">
+            --sidebar<span class="l">0.168 · rail, sheet metadata column</span>
+          </div>
+          <div style="background: oklch(0.178 0.006 270)">
+            --canvas<span class="l">0.178 · lane cells, column heads, comments</span>
+          </div>
+          <div style="background: oklch(0.208 0.006 270)">
+            --card<span class="l">0.208 · bead, project, knowledge, link rows</span>
+          </div>
+          <div style="background: oklch(0.222 0.007 270)">
+            --popover<span class="l">0.222 · menus, delete confirmation</span>
+          </div>
+          <div style="background: oklch(0.246 0.008 272)">
+            --card-hover<span class="l">0.246 · card hover, pressed segment</span>
+          </div>
+        </div>
+        <p class="note">
+          The base dropped from <b>0.165</b> to <b>0.155</b> against the origin
+          repo for one reason: it buys an extra elevation step before the top of
+          the stack turns grey.
+        </p>
+      </section>
+
+      <section class="block" data-od-id="text-levels">
+        <span class="eyebrow">Text levels</span>
+        <div class="grid-3">
+          <div class="sw">
+            <div class="chip" style="background: oklch(0.945 0.004 270); color: oklch(0.155 0.006 270)">Aa</div>
+            <div class="meta">
+              <div class="name">--foreground</div>
+              <div class="val">oklch(0.945 0.004 270)</div>
+              <div class="use">Titles, active nav, metric values</div>
+            </div>
+          </div>
+          <div class="sw">
+            <div class="chip" style="background: oklch(0.685 0.012 270); color: oklch(0.155 0.006 270)">Aa</div>
+            <div class="meta">
+              <div class="name">--muted-foreground</div>
+              <div class="val">oklch(0.685 0.012 270)</div>
+              <div class="use">Body, inactive nav, bead ids, counts</div>
+            </div>
+          </div>
+          <div class="sw">
+            <div class="chip" style="background: oklch(0.62 0.011 270); color: oklch(0.155 0.006 270)">Aa</div>
+            <div class="meta">
+              <div class="name">--faint</div>
+              <div class="val">oklch(0.62 0.011 270)</div>
+              <div class="use">Eyebrows, timestamps, placeholders</div>
+            </div>
+          </div>
+        </div>
+        <p class="note">
+          <b>0.62 is a floor, not a taste.</b> It is the lowest lightness that
+          still clears 4.5:1 on <span class="mono">--popover</span>, the
+          lightest surface <span class="mono">--faint</span> ever sits on.
+          Anything quieter fails inside menus.
+        </p>
+      </section>
+
+      <section class="block" data-od-id="split-accent">
+        <span class="eyebrow">The split accent</span>
+        <div class="grid-2">
+          <div class="sw">
+            <div class="chip" style="background: oklch(0.54 0.19 268); color: oklch(0.99 0.003 275)">
+              solid fill only
+            </div>
+            <div class="meta">
+              <div class="name">--primary</div>
+              <div class="val">oklch(0.54 0.19 268)</div>
+              <div class="use">Button and chip fills. Never used as text.</div>
+            </div>
+          </div>
+          <div class="sw">
+            <div class="chip" style="background: oklch(0.208 0.006 270); color: oklch(0.72 0.16 268)">
+              text and icons
+            </div>
+            <div class="meta">
+              <div class="name">--primary-text</div>
+              <div class="val">oklch(0.72 0.16 268)</div>
+              <div class="use">Accent links, active tab underline, epic marks.</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; gap: 10px; margin-top: 12px">
+          <div class="pair">
+            <span style="font-size: 13px">White on <span class="mono">--primary</span></span>
+            <span class="ratio pass">5.15:1</span>
+          </div>
+          <div class="pair">
+            <span style="font-size: 13px"><span class="mono">--primary-text</span> on dark</span>
+            <span class="ratio pass">6.59:1</span>
+          </div>
+          <div class="pair">
+            <span style="font-size: 13px">The origin repo's single accent, in either role</span>
+            <span class="ratio fail">4.34:1</span>
+          </div>
+          <div class="pair">
+            <span style="font-size: 13px">White on a <em>lightened</em> primary hover</span>
+            <span class="ratio fail">3.99:1</span>
+          </div>
+        </div>
+
+        <p class="note">
+          Because lightening fails, <b>hover darkens</b>:
+          <span class="mono">--primary-hover</span> is
+          <span class="mono">oklch(0.47 0.175 268)</span> plus a 55% accent ring.
+          Contrast goes up, not down.
+        </p>
+
+        <div class="row" style="margin-top: 16px">
+          <button class="btn btn-primary" type="button">Primary rest</button>
+          <button class="btn btn-primary" type="button"
+            style="background: var(--primary-hover); box-shadow: 0 0 0 1px oklch(0.72 0.16 268 / 55%)">
+            Primary hover
+          </button>
+          <button class="btn btn-outline" type="button">Outline</button>
+          <button class="btn btn-ghost" type="button">Ghost</button>
+          <a href="#" style="color: var(--primary-text); font-size: 12.5px; font-weight: 550">Accent text link →</a>
+        </div>
+      </section>
+
+      <section class="block" data-od-id="lines-washes">
+        <span class="eyebrow">Lines, washes and scrims</span>
+        <table class="spec">
+          <thead>
+            <tr><th>Token</th><th>Value</th><th>Role</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>--border</td><td>oklch(1 0 0 / 9%)</td><td>Default inset ring on cards, inputs, panels</td></tr>
+            <tr><td>--border-strong</td><td>oklch(1 0 0 / 15%)</td><td>Outline buttons, selects, avatar plate, popover edge</td></tr>
+            <tr><td>--ring</td><td>oklch(0.66 0.18 268)</td><td>:focus-visible outline and focused input ring</td></tr>
+            <tr><td>wash 5 → 9%</td><td>oklch(1 0 0 / 5–9%)</td><td>Input rest, hover fills, pressed nav, avatar plate</td></tr>
+            <tr><td>scrim</td><td>oklch(0.09 0.005 270 / 72%)</td><td>Modal backdrop, with blur(3px)</td></tr>
+            <tr><td>inkwell</td><td>oklch(0 0 0 / 35%)</td><td>bd command preview blocks</td></tr>
+          </tbody>
+        </table>
+        <p class="note">
+          Outlines are <b>inset box-shadow rings</b>, never <span class="mono">border</span>.
+          A ring composes with the drop shadow and the hover accent ring without
+          changing the box's layout size.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

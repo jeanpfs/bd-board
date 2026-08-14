@@ -18,9 +18,11 @@ import { BoardSwimlanes } from '@/components/board-swimlanes'
 import { KanbanColumn } from '@/components/kanban-column'
 import { BeadCard } from '@/components/bead-card'
 import { BeadDetailModal } from '@/components/bead-detail-modal'
+import { KnowledgeDetailModal } from '@/components/knowledge-detail-modal'
 import { CreateBeadDialog } from '@/components/create-bead-dialog'
 import { ProjectKnowledgePanel } from '@/components/project-knowledge-panel'
-import { getBeads, getWriteConfigFn, updateBeadStatusFn } from '@/lib/server'
+import { Button } from '@/components/ui/button'
+import { getBeads, updateBeadStatusFn } from '@/lib/server'
 import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
 import { beadMatches, compareBeads } from '@/lib/sort'
 
@@ -31,14 +33,17 @@ import type { Bead, BeadColumn } from '@/lib/types'
 
 interface BoardSearch {
   bead?: string
+  k?: string
   q?: string
   p?: string
+  ready?: string
+  assignee?: string
   tab?: ProjectTab
   view?: BoardView
   sort?: SortKey
 }
 
-const BOARD_VIEWS = new Set(['status', 'epic'])
+const BOARD_VIEWS = new Set(['status', 'epic', 'priority'])
 const PROJECT_TABS = new Set(['board', 'knowledge'])
 const SORT_KEYS = new Set(['priority', 'recent', 'title'])
 
@@ -67,10 +72,19 @@ export const Route = createFileRoute('/p/$project')({
       typeof search.bead === 'string' && search.bead.length > 0
         ? search.bead
         : undefined,
+    k:
+      typeof search.k === 'string' && search.k.length > 0
+        ? search.k
+        : undefined,
     q: typeof search.q === 'string' && search.q.trim() ? search.q : undefined,
     p:
       typeof search.p === 'string'
         ? serializePriorities(parsePriorityParam(search.p))
+        : undefined,
+    ready: search.ready === '1' ? '1' : undefined,
+    assignee:
+      typeof search.assignee === 'string' && search.assignee.length > 0
+        ? search.assignee
         : undefined,
     tab:
       typeof search.tab === 'string' && PROJECT_TABS.has(search.tab)
@@ -107,6 +121,7 @@ function BoardPage() {
   const [activeBead, setActiveBead] = useState<Bead | null>(null)
 
   const beadParam = boardSearch.bead
+  const knowledgeParam = boardSearch.k
   const search = boardSearch.q ?? ''
   const tab = boardSearch.tab ?? 'board'
   const view = boardSearch.view ?? 'epic'
@@ -114,6 +129,8 @@ function BoardPage() {
     () => parsePriorityParam(boardSearch.p),
     [boardSearch.p],
   )
+  const ready = boardSearch.ready === '1'
+  const assignee = boardSearch.assignee ?? ''
   const sort = boardSearch.sort ?? 'priority'
 
   const sensors = useSensors(
@@ -130,14 +147,7 @@ function BoardPage() {
     staleTime: 3000,
   })
 
-  const writeConfigQuery = useQuery({
-    queryKey: ['write-config'],
-    queryFn: () => getWriteConfigFn(),
-    staleTime: Infinity,
-  })
-
   const beads = beadsQuery.data ?? []
-  const canWrite = writeConfigQuery.data?.writesEnabled === true
 
   const beadsById = useMemo(() => {
     const map = new Map<string, Bead>()
@@ -148,8 +158,11 @@ function BoardPage() {
   const epics = useMemo(() => beads.filter(isEpic), [beads])
 
   const filtered = useMemo(
-    () => beads.filter((bead) => beadMatches(bead, search, priorities)),
-    [beads, search, priorities],
+    () =>
+      beads.filter((bead) =>
+        beadMatches(bead, search, priorities, ready, assignee),
+      ),
+    [beads, search, priorities, ready, assignee],
   )
 
   const columns = useMemo(() => {
@@ -170,7 +183,22 @@ function BoardPage() {
   const modalOpen = beadParam !== undefined
 
   function openBead(bead: Bead) {
-    navigate({ to: '.', search: (prev) => ({ ...prev, bead: bead.id }) })
+    navigate({
+      to: '.',
+      search: (prev) => ({ ...prev, bead: bead.id, k: undefined }),
+    })
+  }
+
+  function openKnowledge(id: string) {
+    navigate({
+      to: '.',
+      search: (prev) => ({ ...prev, k: id, bead: undefined }),
+    })
+  }
+
+  function setKnowledgeOpen(next: boolean) {
+    if (!next)
+      navigate({ to: '.', search: (prev) => ({ ...prev, k: undefined }) })
   }
 
   function patchBoardSearch(patch: Partial<BoardSearch>) {
@@ -231,26 +259,31 @@ function BoardPage() {
 
   return (
     <div className="flex h-[calc(100dvh-6rem)] min-h-0 flex-col">
-      <BoardHeader
-        project={project}
-        beads={tab === 'board' ? filtered : beads}
-        tab={tab}
-        setTab={(value) => patchBoardSearch({ tab: value })}
-        search={search}
-        setSearch={(value) =>
-          patchBoardSearch({ q: value.trim() ? value : undefined })
-        }
-        view={view}
-        setView={(value) => patchBoardSearch({ view: value })}
-        priorities={priorities}
-        setPriorities={(values) =>
-          patchBoardSearch({ p: serializePriorities(values) })
-        }
-        sort={sort}
-        setSort={(value) => patchBoardSearch({ sort: value })}
-        onCreate={() => setCreateOpen(true)}
-        canWrite={canWrite}
-      />
+      {tab === 'board' ? (
+        <BoardHeader
+          search={search}
+          setSearch={(value) =>
+            patchBoardSearch({ q: value.trim() ? value : undefined })
+          }
+          view={view}
+          setView={(value) => patchBoardSearch({ view: value })}
+          priorities={priorities}
+          setPriorities={(values) =>
+            patchBoardSearch({ p: serializePriorities(values) })
+          }
+          ready={ready}
+          setReady={(value) =>
+            patchBoardSearch({ ready: value ? '1' : undefined })
+          }
+          assignee={assignee}
+          setAssignee={(value) =>
+            patchBoardSearch({ assignee: value || undefined })
+          }
+          sort={sort}
+          setSort={(value) => patchBoardSearch({ sort: value })}
+          onCreate={() => setCreateOpen(true)}
+        />
+      ) : null}
 
       {beadsQuery.isLoading ? (
         <BoardSkeleton />
@@ -268,13 +301,17 @@ function BoardPage() {
           project={project}
           beadsById={beadsById}
           onOpenBead={openBead}
+          onOpenKnowledge={openKnowledge}
         />
-      ) : view === 'epic' ? (
+      ) : view === 'epic' || view === 'priority' ? (
         <BoardSwimlanes
           beads={beads}
           search={search}
           priorities={priorities}
+          ready={ready}
+          assignee={assignee}
           sort={sort}
+          groupBy={view}
           onOpen={openBead}
           applyDrop={applyDrop}
         />
@@ -312,6 +349,16 @@ function BoardPage() {
         onOpenChange={setModalOpen}
         onOpenBead={openBead}
         resolveBead={(id) => beadsById.get(id)}
+        onOpenKnowledge={openKnowledge}
+      />
+      <KnowledgeDetailModal
+        project={project}
+        knowledgeId={knowledgeParam ?? null}
+        open={knowledgeParam !== undefined}
+        onOpenChange={setKnowledgeOpen}
+        beadsById={beadsById}
+        onOpenBead={openBead}
+        onOpenKnowledge={openKnowledge}
       />
       <CreateBeadDialog
         project={project}
@@ -347,13 +394,9 @@ function BoardError({
     <div className="flex flex-1 items-center justify-center">
       <div className="flex max-w-sm flex-col items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-6 py-8 text-center">
         <p className="text-sm text-muted-foreground">{message}</p>
-        <button
-          type="button"
-          onClick={onRetry}
-          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
+        <Button size="sm" onClick={onRetry}>
           Try again
-        </button>
+        </Button>
       </div>
     </div>
   )

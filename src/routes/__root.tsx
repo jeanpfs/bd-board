@@ -4,7 +4,8 @@ import {
   createRootRouteWithContext,
 } from '@tanstack/react-router'
 
-import { TopNav } from '@/components/top-nav'
+import { ProjectRail } from '@/components/project-rail'
+import { ProjectTopbar } from '@/components/project-topbar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from '@/components/ui/sonner'
 
@@ -51,15 +52,18 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           <a href="#main-content" className="skip-link">
             Skip to content
           </a>
-          <div className="flex min-h-dvh flex-col bg-background">
-            <TopNav />
-            <main
-              id="main-content"
-              tabIndex={-1}
-              className="mx-auto w-full max-w-[1600px] flex-1 px-3 py-5 outline-none sm:px-4 lg:px-6 lg:py-6"
-            >
-              {children}
-            </main>
+          <div className="flex min-h-dvh bg-background">
+            <ProjectRail />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <ProjectTopbar />
+              <main
+                id="main-content"
+                tabIndex={-1}
+                className="mx-auto w-full max-w-[1600px] flex-1 px-3 py-5 outline-none sm:px-4 lg:px-6 lg:py-6"
+              >
+                {children}
+              </main>
+            </div>
           </div>
           <Toaster richColors position="top-right" />
         </TooltipProvider>

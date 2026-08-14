@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>bd board kit · Composer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../../assets/bd-dark.css" />
+    <style>
+      body {
+        display: flex;
+        gap: 28px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        min-height: 100dvh;
+        padding: 28px;
+      }
+
+      .mount {
+        width: 440px;
+        flex: none;
+        border-radius: 12px;
+        background: var(--background);
+        padding: 18px;
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+
+      .doc {
+        flex: 1;
+        min-width: 320px;
+        max-width: 54ch;
+      }
+
+      .doc h1 {
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+      }
+
+      .doc p {
+        margin-top: 10px;
+        font-size: 12.75px;
+        line-height: 1.65;
+        color: var(--muted-foreground);
+      }
+
+      .doc code {
+        border-radius: 4px;
+        background: oklch(1 0 0 / 8%);
+        padding: 1px 5px;
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        color: oklch(0.86 0.06 268);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- component: composer — the comment field, and how a knowledge entry is written -->
+    <section class="mount" data-od-id="component-composer">
+      <div class="sec-head">
+        <span id="sec-icon"></span>
+        <h3>Comments</h3>
+        <span class="trail" id="count">2</span>
+      </div>
+
+      <div id="thread"></div>
+
+      <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px">
+        <textarea id="box" placeholder="Add a comment…"></textarea>
+        <div style="display: flex; align-items: center; gap: 10px">
+          <span class="faint" style="font-size: 11.5px" id="hint">
+            Start with a prefix to record knowledge
+          </span>
+          <button class="btn btn-primary" type="button" id="send" style="margin-left: auto" disabled>
+            Comment
+          </button>
+        </div>
+        <p class="cmd-preview" id="cmd">bd comment bdb-3k1 "…"</p>
+      </div>
+    </section>
+
+    <div class="doc">
+      <span class="eyebrow">Component · composer</span>
+      <h1>Comment composer</h1>
+      <p>
+        A <code>9px</code> textarea on a 5% wash with an inset ring, a
+        right-aligned primary button, and a live <code>bd</code> command
+        preview. This is the only filled button on the detail sheet.
+      </p>
+      <p>
+        <b>Submit stays disabled until there is something to submit.</b> The
+        button enables on the first non-whitespace character and disables again
+        after posting — no spinner, no optimistic toast.
+      </p>
+      <p>
+        The composer is also how <b>knowledge</b> gets written. There is no
+        knowledge entity in <code>bd</code>: an entry is an ordinary comment
+        whose text opens with one of seven recognised prefixes. Type
+        <code>DECISION:</code>, <code>LEARNED:</code>, <code>FACT:</code>,
+        <code>PATTERN:</code>, <code>INVESTIGATION:</code>,
+        <code>MUST-CHECK:</code> or <code>DEVIATION:</code> and the field
+        acknowledges the type before you post.
+      </p>
+      <p>
+        The command preview updates as you type. Any surface that mutates state
+        shows the exact <code>bd</code> call it will make — the app shells out to
+        a real binary against real repositories, and it says so first.
+      </p>
+    </div>
+
+    <script src="../../../assets/board-data.js"></script>
+    <script>
+      const el = (id) => document.getElementById(id)
+      const bead = beadById('bdb-3k1')
+
+      el('sec-icon').innerHTML = icon('comment', 13)
+
+      const comments = (bead.comments ?? []).slice(0, 2)
+      el('count').textContent = comments.length
+      el('thread').innerHTML = comments
+        .map(
+          (c) => `
+        <div class="comment">
+          <div class="comment-head">
+            <span class="avatar" style="width:18px;height:18px;font-size:8.5px">${initials(c.author)}</span>
+            <b>${c.author}</b><span>·</span><span>${c.created_at}</span>
+          </div>
+          <p>${c.text}</p>
+        </div>`,
+        )
+        .join('')
+
+      const PREFIX = /^(learned|decision|fact|pattern|investigation|must-check|deviation)\s*:/i
+
+      el('box').addEventListener('input', (e) => {
+        const value = e.target.value
+        const trimmed = value.trim()
+        el('send').disabled = trimmed.length === 0
+
+        const match = PREFIX.exec(trimmed)
+        if (match) {
+          const type = match[1].toLowerCase()
+          el('hint').innerHTML =
+            `<span class="ktag k-${type}"><span class="k-dot"></span>${KNOWLEDGE_TYPE_LABEL[type]}</span>`
+        } else {
+          el('hint').textContent = 'Start with a prefix to record knowledge'
+        }
+
+        el('cmd').textContent = `bd comment ${bead.id} "${
+          trimmed ? trimmed.slice(0, 44) + (trimmed.length > 44 ? '…' : '') : '…'
+        }"`
+      })
+
+      el('send').addEventListener('click', () => {
+        const box = el('box')
+        if (!box.value.trim()) return
+        box.closest('div').insertAdjacentHTML(
+          'beforebegin',
+          `<div class="comment"><div class="comment-head">
+             <span class="avatar" style="width:18px;height:18px;font-size:8.5px">JP</span>
+             <b>jean</b><span>·</span><span>just now</span></div>
+           <p>${box.value.replace(/</g, '&lt;')}</p></div>`,
+        )
+        box.value = ''
+        el('send').disabled = true
+        el('hint').textContent = 'Start with a prefix to record knowledge'
+        el('cmd').textContent = `bd comment ${bead.id} "…"`
+        el('count').textContent = document.querySelectorAll('.comment').length
+      })
+    </script>
+  </body>
+</html>

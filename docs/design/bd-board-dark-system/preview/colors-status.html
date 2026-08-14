@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Preview · Status and knowledge hues</title>
+    <link rel="stylesheet" href="../assets/bd-dark.css" />
+    <link rel="stylesheet" href="preview.css" />
+    <style>
+      .hue {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border-radius: var(--radius-2xl);
+        background: var(--card);
+        padding: 12px 14px;
+        box-shadow: var(--ring-inset);
+      }
+
+      .hue .bulb {
+        width: 34px;
+        height: 34px;
+        flex: none;
+        border-radius: var(--radius-md);
+        box-shadow: inset 0 0 0 1px oklch(1 0 0 / 14%);
+      }
+
+      .hue .txt b {
+        display: block;
+        font-size: 13px;
+        font-weight: var(--weight-emphasis);
+      }
+
+      .hue .txt span {
+        display: block;
+        margin-top: 3px;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--faint);
+      }
+
+      .hue .tail {
+        margin-left: auto;
+        text-align: right;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card" data-od-id="card-colors-status">
+      <header>
+        <span class="eyebrow">Preview 02 · Color</span>
+        <h1>Status columns and the knowledge taxonomy</h1>
+        <p>
+          Two categorical sets. Four status hues drive the board columns, the
+          stacked bar and the completion ring; seven taxonomy hues label the
+          knowledge prefixes. Neither set is ever the only channel — every mark
+          carries its label in text.
+        </p>
+        <span class="src">assets/bd-dark.css · lines 33–51 · assets/board-data.js · KNOWLEDGE_TYPES</span>
+      </header>
+
+      <section class="block" data-od-id="status-hues">
+        <span class="eyebrow">Status — the four board columns</span>
+        <div class="grid-2">
+          <div class="hue">
+            <span class="bulb" style="background: var(--status-open)"></span>
+            <span class="txt"><b>Open</b><span>--status-open · oklch(0.7 0.014 270)</span></span>
+            <span class="tail mono" style="color: var(--status-open); font-size: 17px; font-weight: 550">12</span>
+          </div>
+          <div class="hue">
+            <span class="bulb" style="background: var(--status-progress)"></span>
+            <span class="txt"><b>In progress</b><span>--status-progress · oklch(0.74 0.14 248)</span></span>
+            <span class="tail mono" style="color: var(--status-progress); font-size: 17px; font-weight: 550">4</span>
+          </div>
+          <div class="hue">
+            <span class="bulb" style="background: var(--status-blocked)"></span>
+            <span class="txt"><b>Blocked</b><span>--status-blocked · oklch(0.7 0.19 22)</span></span>
+            <span class="tail mono" style="color: var(--status-blocked); font-size: 17px; font-weight: 550">3</span>
+          </div>
+          <div class="hue">
+            <span class="bulb" style="background: var(--status-closed)"></span>
+            <span class="txt"><b>Closed</b><span>--status-closed · oklch(0.74 0.16 152)</span></span>
+            <span class="tail mono" style="color: var(--status-closed); font-size: 17px; font-weight: 550">12</span>
+          </div>
+        </div>
+        <p class="note">
+          <b>Open is near-neutral on purpose.</b> "Not started" is not a state
+          worth spending a hue on; the colour budget goes to work that is moving,
+          stuck, or done. <span class="mono">--warn</span>
+          (<span class="mono">oklch(0.8 0.15 85)</span>) is separate and belongs
+          to the P1 chip and the Pinned tag, not to a column.
+        </p>
+      </section>
+
+      <section class="block" data-od-id="status-applied">
+        <span class="eyebrow">Applied — column head, stacked bar, ring</span>
+        <div class="panel">
+          <div class="col-head-row" style="position: static; padding: 0; background: none; backdrop-filter: none">
+            <div class="col-head col-open"><span class="dot"></span><h2>Open</h2><span class="n">12</span></div>
+            <div class="col-head col-in_progress"><span class="dot"></span><h2>In progress</h2><span class="n">4</span></div>
+            <div class="col-head col-blocked"><span class="dot"></span><h2>Blocked</h2><span class="n">3</span></div>
+            <div class="col-head col-closed"><span class="dot"></span><h2>Closed</h2><span class="n">12</span></div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 20px; margin-top: 20px">
+            <span class="bar" style="flex: 1">
+              <span class="seg-closed" style="width: 37.5%"></span>
+              <span class="seg-in_progress" style="width: 12.5%"></span>
+              <span class="seg-blocked" style="width: 9.4%"></span>
+              <span class="seg-open" style="width: 40.6%"></span>
+            </span>
+            <span class="mono muted" style="font-size: 11.5px">12/32</span>
+            <svg class="ring" width="52" height="52" viewBox="0 0 52 52" role="img" aria-label="38% closed">
+              <circle cx="26" cy="26" r="21" fill="none" stroke="oklch(1 0 0 / 8%)" stroke-width="4" />
+              <circle cx="26" cy="26" r="21" fill="none" stroke="var(--status-closed)" stroke-width="4"
+                stroke-linecap="round" stroke-dasharray="50.1 81.8" transform="rotate(-90 26 26)" />
+              <text x="26" y="30" text-anchor="middle"
+                style="font-family: var(--font-mono); font-size: 12px; font-weight: 550; fill: var(--foreground)">38</text>
+            </svg>
+          </div>
+          <p class="note" style="margin-top: 14px">
+            Segment order is fixed: <b>closed → in progress → blocked → open</b>,
+            so the finished share always reads from the left edge. Every gauge
+            uses a filled encoding; there is no outline-only chart in the system.
+          </p>
+        </div>
+      </section>
+
+      <section class="block" data-od-id="knowledge-hues">
+        <span class="eyebrow">Knowledge taxonomy — seven prefixes, held at L 0.75</span>
+        <div class="grid-2">
+          <div class="hue k-decision">
+            <span class="bulb" style="background: var(--k-decision)"></span>
+            <span class="txt"><b>Decision</b><span>--k-decision · oklch(0.75 0.15 268)</span></span>
+            <span class="tail"><span class="ktag"><span class="k-dot"></span>Decision</span></span>
+          </div>
+          <div class="hue k-learned">
+            <span class="bulb" style="background: var(--k-learned)"></span>
+            <span class="txt"><b>Learned</b><span>--k-learned · oklch(0.75 0.13 200)</span></span>
+            <span class="tail"><span class="ktag"><span class="k-dot"></span>Learned</span></span>
+          </div>
+          <div class="hue k-fact">
+            <span class="bulb" style="background: var(--k-fact)"></span>
+            <span class="txt"><b>Fact</b><span>--k-fact · oklch(0.75 0.15 152)</span></span>
+            <span class="tail"><span class="ktag"><span class="k-dot"></span>Fact</span></span>
+          </div>
+          <div class="hue k-pattern">
+            <span class="bulb" style="background: var(--k-pattern)"></span>
+            <span class="txt"><b>Pattern</b><span>--k-pattern · oklch(0.75 0.15 300)</span></span>
+            <span class="tail"><span class="ktag"><span class="k-dot"></span>Pattern</span></span>
+          </div>
+          <div class="hue k-investigation">
+            <span class="bulb" style="background: var(--k-investigation)"></span>
+            <span class="txt"><b>Investigation</b><span>--k-investigation · oklch(0.79 0.15 90)</span></span>
+            <span class="tail"><span class="ktag"><span class="k-dot"></span>Investigation</span></span>
+          </div>
+          <div class="hue k-must-check">
+            <span class="bulb" style="background: var(--k-must-check)"></span>
+            <span class="txt"><b>Must-check</b><span>--k-must-check · oklch(0.72 0.17 22)</span></span>
+            <span class="tail"><span class="ktag"><span class="k-dot"></span>Must-check</span></span>
+          </div>
+          <div class="hue k-deviation">
+            <span class="bulb" style="background: var(--k-deviation)"></span>
+            <span class="txt"><b>Deviation</b><span>--k-deviation · oklch(0.76 0.15 40)</span></span>
+            <span class="tail"><span class="ktag"><span class="k-dot"></span>Deviation</span></span>
+          </div>
+        </div>
+        <p class="note">
+          All seven sit at <b>L 0.75 ± 0.04</b> so every hue clears <b>7:1</b> on
+          <span class="mono">--card</span>. Consumers derive the chip tint and
+          ring from the one hue —
+          <span class="mono">color-mix(in oklch, var(--k) 15%, transparent)</span>
+          for the fill, <span class="mono">38%</span> for the ring — so a new
+          type needs exactly one new value.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

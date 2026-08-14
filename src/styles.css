@@ -10,98 +10,99 @@
 
 :root {
   --radius: 0.625rem;
-
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.205 0.01 270);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.205 0.01 270);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.205 0.01 270);
-  --primary: oklch(0.52 0.18 275);
-  --primary-foreground: oklch(0.985 0.003 270);
-  --secondary: oklch(0.965 0.004 270);
-  --secondary-foreground: oklch(0.255 0.01 270);
-  --muted: oklch(0.965 0.004 270);
-  --muted-foreground: oklch(0.52 0.012 270);
-  --accent: oklch(0.96 0.006 275);
-  --accent-foreground: oklch(0.255 0.01 270);
-  --destructive: oklch(0.58 0.21 25);
-  --destructive-foreground: oklch(0.985 0.003 270);
-  --border: oklch(0.915 0.004 270);
-  --input: oklch(0.915 0.004 270);
-  --ring: oklch(0.52 0.18 275);
-
-  --chart-1: oklch(0.55 0.18 275);
-  --chart-2: oklch(0.65 0.14 200);
-  --chart-3: oklch(0.7 0.15 145);
-  --chart-4: oklch(0.78 0.15 85);
-  --chart-5: oklch(0.65 0.2 25);
-
-  --sidebar: oklch(0.985 0.002 270);
-  --sidebar-foreground: oklch(0.205 0.01 270);
-  --sidebar-primary: oklch(0.52 0.18 275);
-  --sidebar-primary-foreground: oklch(0.985 0.003 270);
-  --sidebar-accent: oklch(0.96 0.006 275);
-  --sidebar-accent-foreground: oklch(0.255 0.01 270);
-  --sidebar-border: oklch(0.915 0.004 270);
-  --sidebar-ring: oklch(0.52 0.18 275);
-
-  --status-open: oklch(0.62 0.015 270);
-  --status-progress: oklch(0.7 0.15 250);
-  --status-blocked: oklch(0.62 0.2 25);
-  --status-closed: oklch(0.62 0.16 150);
 }
 
+/*
+ * bd board — dark system tokens, sourced verbatim from
+ * docs/design/bd-board-dark-system/colors_and_type.css + tokens.css
+ * (the Open Design redesign package). The app is dark-only — see
+ * `className="dark"` in src/routes/__root.tsx — so this is the only
+ * palette. shadcn tokens without a direct equivalent in the package
+ * are mapped to the closest surface/role: --secondary/--muted -> a
+ * neutral raised surface, --accent -> the hover wash, --destructive
+ * -> the package's scoped danger color.
+ */
 .dark {
-  --background: oklch(0.165 0.006 270);
-  --foreground: oklch(0.925 0.004 270);
-  --card: oklch(0.196 0.006 270);
-  --card-foreground: oklch(0.925 0.004 270);
-  --popover: oklch(0.205 0.007 270);
-  --popover-foreground: oklch(0.925 0.004 270);
-  --primary: oklch(0.58 0.176 275);
-  --primary-foreground: oklch(0.98 0.003 275);
-  --secondary: oklch(0.245 0.008 270);
-  --secondary-foreground: oklch(0.925 0.004 270);
-  --muted: oklch(0.235 0.007 270);
-  --muted-foreground: oklch(0.65 0.012 270);
-  --accent: oklch(0.275 0.012 275);
-  --accent-foreground: oklch(0.95 0.004 270);
-  --destructive: oklch(0.62 0.2 22);
-  --destructive-foreground: oklch(0.98 0.003 270);
+  --background: oklch(0.155 0.006 270);
+  --canvas: oklch(0.178 0.006 270);
+  --card: oklch(0.208 0.006 270);
+  --card-hover: oklch(0.246 0.008 272);
+  --popover: oklch(0.222 0.007 270);
+  --sidebar: oklch(0.168 0.006 270);
+
+  --foreground: oklch(0.945 0.004 270);
+  --card-foreground: oklch(0.945 0.004 270);
+  --popover-foreground: oklch(0.945 0.004 270);
+  --muted-foreground: oklch(0.685 0.012 270);
+  --faint: oklch(0.62 0.011 270);
+
+  --primary: oklch(0.54 0.19 268);
+  --primary-hover: oklch(0.47 0.175 268);
+  --primary-text: oklch(0.72 0.16 268);
+  --primary-foreground: oklch(0.99 0.003 275);
+
+  --secondary: oklch(0.208 0.006 270);
+  --secondary-foreground: oklch(0.945 0.004 270);
+  --muted: oklch(0.178 0.006 270);
+  --accent: oklch(0.246 0.008 272);
+  --accent-foreground: oklch(0.945 0.004 270);
+
+  --danger: oklch(0.5 0.2 22);
+  --danger-hover: oklch(0.44 0.19 22);
+  --danger-foreground: oklch(0.99 0.003 22);
+  --danger-disabled: oklch(0.3 0.05 22);
+  --danger-disabled-foreground: oklch(0.62 0.02 22);
+  --destructive: var(--danger);
+  --destructive-foreground: var(--danger-foreground);
+
   --border: oklch(1 0 0 / 9%);
-  --input: oklch(1 0 0 / 11%);
-  --ring: oklch(0.58 0.176 275);
+  --border-strong: oklch(1 0 0 / 15%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.66 0.18 268);
 
-  --chart-1: oklch(0.58 0.176 275);
-  --chart-2: oklch(0.68 0.13 200);
-  --chart-3: oklch(0.72 0.15 145);
+  --chart-1: oklch(0.72 0.16 268);
+  --chart-2: oklch(0.74 0.14 248);
+  --chart-3: oklch(0.74 0.16 152);
   --chart-4: oklch(0.8 0.15 85);
-  --chart-5: oklch(0.68 0.2 25);
+  --chart-5: oklch(0.7 0.19 22);
 
-  --sidebar: oklch(0.18 0.006 270);
-  --sidebar-foreground: oklch(0.925 0.004 270);
-  --sidebar-primary: oklch(0.58 0.176 275);
-  --sidebar-primary-foreground: oklch(0.98 0.003 275);
-  --sidebar-accent: oklch(0.275 0.012 275);
-  --sidebar-accent-foreground: oklch(0.95 0.004 270);
+  --sidebar-foreground: oklch(0.945 0.004 270);
+  --sidebar-primary: oklch(0.54 0.19 268);
+  --sidebar-primary-foreground: oklch(0.99 0.003 275);
+  --sidebar-accent: oklch(0.246 0.008 272);
+  --sidebar-accent-foreground: oklch(0.945 0.004 270);
   --sidebar-border: oklch(1 0 0 / 9%);
-  --sidebar-ring: oklch(0.58 0.176 275);
+  --sidebar-ring: oklch(0.66 0.18 268);
 
-  --status-open: oklch(0.66 0.014 270);
-  --status-progress: oklch(0.72 0.15 250);
-  --status-blocked: oklch(0.68 0.2 22);
-  --status-closed: oklch(0.7 0.16 150);
+  --status-open: oklch(0.7 0.014 270);
+  --status-progress: oklch(0.74 0.14 248);
+  --status-blocked: oklch(0.7 0.19 22);
+  --status-closed: oklch(0.74 0.16 152);
+  --status-in_progress: var(--status-progress);
+  --warn: oklch(0.8 0.15 85);
+
+  --k-decision: oklch(0.75 0.15 268);
+  --k-learned: oklch(0.75 0.13 200);
+  --k-fact: oklch(0.75 0.15 152);
+  --k-pattern: oklch(0.75 0.15 300);
+  --k-investigation: oklch(0.79 0.15 90);
+  --k-must-check: oklch(0.72 0.17 22);
+  --k-deviation: oklch(0.76 0.15 40);
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-canvas: var(--canvas);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-card-hover: var(--card-hover);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
+  --color-faint: var(--faint);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-text: var(--primary-text);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -111,9 +112,28 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-disabled: var(--danger-disabled);
+  --color-danger-disabled-foreground: var(--danger-disabled-foreground);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  --color-warn: var(--warn);
+  --color-k-decision: var(--k-decision);
+  --color-k-learned: var(--k-learned);
+  --color-k-fact: var(--k-fact);
+  --color-k-pattern: var(--k-pattern);
+  --color-k-investigation: var(--k-investigation);
+  --color-k-must-check: var(--k-must-check);
+  --color-k-deviation: var(--k-deviation);
+
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 40%);
+  --shadow-pop:
+    0 16px 48px -12px oklch(0 0 0 / 70%), 0 0 0 1px var(--border-strong);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -151,6 +171,11 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
   }
 
   html {

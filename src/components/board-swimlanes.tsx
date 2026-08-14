@@ -19,21 +19,39 @@ import { ChevronDown, ChevronRight, Layers } from 'lucide-react'
 import { BeadCard } from '@/components/bead-card'
 import { EpicProgress } from '@/components/epic-progress'
 import { StatusColumnHeader } from '@/components/status-column-header'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { isEpic, mapStatus } from '@/lib/types'
-import { beadMatches, compareBeads } from '@/lib/sort'
+import {
+  PRIORITIES,
+  PRIORITY_TEXT_CLASS,
+  PRIORITY_WORD,
+  beadMatches,
+  compareBeads,
+} from '@/lib/sort'
 
+import type { ReactNode } from 'react'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import type { SortKey } from '@/lib/sort'
 import type { Bead, BeadColumn } from '@/lib/types'
+
+export type SwimlaneGroup = 'epic' | 'priority'
 
 interface BoardSwimlanesProps {
   beads: Bead[]
   search: string
   priorities: number[]
+  ready: boolean
+  assignee: string
   sort: SortKey
+  groupBy: SwimlaneGroup
   onOpen: (bead: Bead) => void
   applyDrop: (activeId: string, toColumn: BeadColumn) => void
+}
+
+const PRIORITY_HINT: Record<number, string> = {
+  0: 'highest',
+  4: 'lowest',
 }
 
 const COLUMN_KEYS: BeadColumn[] = ['open', 'in_progress', 'blocked', 'closed']
@@ -75,7 +93,7 @@ function LaneCell({
     <div
       ref={setNodeRef}
       className={cn(
-        'flex min-h-20 min-w-0 flex-col gap-2 rounded-lg bg-muted/20 p-2 ring-1 ring-inset ring-foreground/5 transition-colors',
+        'flex min-h-19 min-w-0 flex-col gap-2 rounded-[10px] bg-canvas p-2 ring-1 ring-inset ring-white/5 transition-colors',
         isOver && 'bg-primary/5 ring-primary/30',
       )}
     >
@@ -85,7 +103,7 @@ function LaneCell({
         ))}
       </SortableContext>
       {beads.length === 0 ? (
-        <span className="flex flex-1 items-center justify-center py-3 text-[0.7rem] text-muted-foreground/30">
+        <span className="flex flex-1 items-center justify-center py-3 font-mono text-[11px] text-white/22">
           —
         </span>
       ) : null}
@@ -103,7 +121,7 @@ function SwimLane({
   defaultOpen = true,
 }: {
   epic?: Bead
-  title?: string
+  title?: ReactNode
   childBeads: Bead[]
   sort: SortKey
   onOpen: (bead: Bead) => void
@@ -151,51 +169,51 @@ function SwimLane({
 
   return (
     <section className="flex flex-col gap-2">
-      <header className="flex items-center gap-2 rounded-lg bg-card/60 px-2 py-1.5 ring-1 ring-inset ring-foreground/10">
-        <button
-          type="button"
+      <header className="flex items-center gap-2 rounded-[8px] bg-canvas py-1.5 pr-2.5 pl-1.5 ring-1 ring-inset ring-border">
+        <Button
+          variant="ghost"
+          size="icon-xs"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-label={open ? 'Recolher faixa' : 'Expandir faixa'}
-          className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
         >
           {open ? (
             <ChevronDown className="size-4" aria-hidden="true" />
           ) : (
             <ChevronRight className="size-4" aria-hidden="true" />
           )}
-        </button>
+        </Button>
 
         {epic ? (
-          <button
-            type="button"
+          <Button
+            variant="link"
             onClick={() => onOpen(epic)}
-            className="flex min-w-0 items-center gap-2 rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            className="h-auto min-w-0 gap-2 p-0"
           >
             <Layers
-              className="size-3.5 shrink-0 text-primary"
+              className="size-3.5 shrink-0 text-primary-text"
               aria-hidden="true"
             />
-            <span className="font-mono text-[0.7rem] text-muted-foreground">
+            <span className="font-mono text-[11px] text-muted-foreground">
               {epic.id}
             </span>
-            <span className="truncate text-sm font-medium text-foreground hover:text-primary">
+            <span className="truncate text-[13px] font-medium tracking-[-0.005em] text-foreground">
               {epic.title}
             </span>
-          </button>
+          </Button>
         ) : (
-          <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <span className="flex items-center gap-2 text-[13px] font-medium text-muted-foreground">
             {title}
           </span>
         )}
 
         <span className="ml-auto flex shrink-0 items-center gap-3">
           {epic ? (
-            <span className="hidden w-40 sm:block">
+            <span className="hidden w-30 sm:block">
               <EpicProgress childBeads={childBeads} showDots={false} />
             </span>
           ) : null}
-          <span className="text-xs tabular-nums text-muted-foreground">
+          <span className="font-mono text-[11.5px] tabular-nums text-muted-foreground">
             {done}/{childBeads.length}
           </span>
         </span>
@@ -230,50 +248,95 @@ function SwimLane({
   )
 }
 
+interface Lane {
+  key: string
+  epic?: Bead
+  title?: ReactNode
+  children: Bead[]
+}
+
 export function BoardSwimlanes({
   beads,
   search,
   priorities,
+  ready,
+  assignee,
   sort,
+  groupBy,
   onOpen,
   applyDrop,
 }: BoardSwimlanesProps) {
-  const { lanes, noEpic, totals, hasAny } = useMemo(() => {
-    const matches = (b: Bead) => beadMatches(b, search, priorities)
-    const epics = beads.filter(isEpic)
-    const epicIds = new Set(epics.map((e) => e.id))
+  const { lanes, totals, hasAny } = useMemo(() => {
+    const matches = (b: Bead) =>
+      beadMatches(b, search, priorities, ready, assignee)
+    const work = beads.filter((b) => !isEpic(b) && matches(b))
 
-    const childrenByEpic = new Map<string, Bead[]>()
-    for (const b of beads) {
-      if (b.parent && epicIds.has(b.parent) && matches(b)) {
-        const list = childrenByEpic.get(b.parent) ?? []
-        list.push(b)
-        childrenByEpic.set(b.parent, list)
+    let builtLanes: Lane[]
+    if (groupBy === 'priority') {
+      builtLanes = PRIORITIES.map((p) => ({
+        key: `p${p}`,
+        title: (
+          <>
+            <span
+              className={cn(
+                'rounded-[4px] px-1.5 py-px font-mono text-[11px] font-semibold ring-1 ring-inset ring-current',
+                PRIORITY_TEXT_CLASS[p],
+              )}
+            >
+              P{p}
+            </span>
+            <span className="text-foreground">{PRIORITY_WORD[p]}</span>
+            {PRIORITY_HINT[p] ? (
+              <span className="text-[11.5px] text-faint">
+                · {PRIORITY_HINT[p]}
+              </span>
+            ) : null}
+          </>
+        ),
+        children: work.filter((b) => b.priority === p),
+      })).filter((lane) => lane.children.length > 0)
+    } else {
+      const epics = beads.filter(isEpic)
+      const epicIds = new Set(epics.map((e) => e.id))
+
+      const childrenByEpic = new Map<string, Bead[]>()
+      for (const b of work) {
+        if (b.parent && epicIds.has(b.parent)) {
+          const list = childrenByEpic.get(b.parent) ?? []
+          list.push(b)
+          childrenByEpic.set(b.parent, list)
+        }
       }
+
+      const epicOrder = [...epics].sort(compareBeads('priority'))
+      const epicLanes = epicOrder
+        .map((epic) => ({
+          key: epic.id,
+          epic,
+          children: childrenByEpic.get(epic.id) ?? [],
+        }))
+        .filter((lane) => lane.children.length > 0)
+
+      const orphans = work.filter((b) => !b.parent || !epicIds.has(b.parent))
+
+      builtLanes =
+        orphans.length > 0
+          ? [
+              { key: 'no-epic', title: 'No epic', children: orphans },
+              ...epicLanes,
+            ]
+          : epicLanes
     }
-
-    const epicOrder = [...epics].sort(compareBeads('priority'))
-    const builtLanes = epicOrder
-      .map((epic) => ({ epic, children: childrenByEpic.get(epic.id) ?? [] }))
-      .filter((lane) => lane.children.length > 0)
-
-    const orphans = beads.filter(
-      (b) => !isEpic(b) && (!b.parent || !epicIds.has(b.parent)) && matches(b),
-    )
 
     const totalByColumn = emptyByColumn()
-    for (const b of beads) {
-      if (isEpic(b) || !matches(b)) continue
-      totalByColumn[mapStatus(b.status).column].push(b)
-    }
+    for (const b of work) totalByColumn[mapStatus(b.status).column].push(b)
 
     return {
       lanes: builtLanes,
-      noEpic: orphans,
       totals: totalByColumn,
-      hasAny: builtLanes.length > 0 || orphans.length > 0,
+      hasAny: builtLanes.length > 0,
     }
-  }, [beads, search, priorities])
+  }, [beads, search, priorities, ready, assignee, groupBy])
 
   if (!hasAny) {
     return (
@@ -287,7 +350,7 @@ export function BoardSwimlanes({
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto pb-2">
-      <div className="sticky top-0 z-10 grid grid-cols-1 gap-3 bg-background/95 pt-2 pb-3 backdrop-blur md:grid-cols-2 xl:grid-cols-4 supports-[backdrop-filter]:bg-background/80">
+      <div className="sticky top-0 z-10 grid grid-cols-1 gap-3 bg-background/92 pt-3 pb-2.5 backdrop-blur-[8px] md:grid-cols-2 xl:grid-cols-4">
         {COLUMN_KEYS.map((key) => (
           <StatusColumnHeader
             key={key}
@@ -298,21 +361,12 @@ export function BoardSwimlanes({
         ))}
       </div>
 
-      <div className="flex flex-col gap-4">
-        {noEpic.length > 0 ? (
-          <SwimLane
-            title="No epic"
-            childBeads={noEpic}
-            sort={sort}
-            onOpen={onOpen}
-            applyDrop={applyDrop}
-            defaultOpen
-          />
-        ) : null}
+      <div className="flex flex-col gap-3.5">
         {lanes.map((lane) => (
           <SwimLane
-            key={lane.epic.id}
+            key={lane.key}
             epic={lane.epic}
+            title={lane.title}
             childBeads={lane.children}
             sort={sort}
             onOpen={onOpen}

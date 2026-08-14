@@ -1,0 +1,430 @@
+{
+  "schema": "open-design.design-manifest.v1",
+  "title": "81ef6f58-ebd3-4912-a3a6-32b440dc53c1",
+  "entryFile": "index.html",
+  "sourceFiles": {
+    "all": [
+      "assets/bd-dark.css",
+      "assets/board-data.js",
+      "assets/icons/align.svg",
+      "assets/icons/ban.svg",
+      "assets/icons/bolt.svg",
+      "assets/icons/book.svg",
+      "assets/icons/check.svg",
+      "assets/icons/chevron-left.svg",
+      "assets/icons/chevron-right.svg",
+      "assets/icons/chevron.svg",
+      "assets/icons/circle-check.svg",
+      "assets/icons/clock.svg",
+      "assets/icons/columns.svg",
+      "assets/icons/comment.svg",
+      "assets/icons/corner.svg",
+      "assets/icons/dot.svg",
+      "assets/icons/folder.svg",
+      "assets/icons/layers.svg",
+      "assets/icons/link.svg",
+      "assets/icons/lock.svg",
+      "assets/icons/manifest.json",
+      "assets/icons/pencil.svg",
+      "assets/icons/plus.svg",
+      "assets/icons/search.svg",
+      "assets/icons/sliders.svg",
+      "assets/icons/sort.svg",
+      "assets/icons/trash.svg",
+      "assets/icons/tree.svg",
+      "assets/icons/waypoints.svg",
+      "assets/icons/x.svg",
+      "bead-detail.html",
+      "board.html",
+      "colors_and_type.css",
+      "context/provenance.md",
+      "context/source-context.md",
+      "DESIGN.md",
+      "fonts/geist.css",
+      "index.html",
+      "knowledge-detail.html",
+      "preview/applied-surfaces.html",
+      "preview/brand-assets.html",
+      "preview/colors-primary.html",
+      "preview/colors-status.html",
+      "preview/components-buttons.html",
+      "preview/components-cards.html",
+      "preview/index.html",
+      "preview/preview.css",
+      "preview/radius-shadows.html",
+      "preview/spacing-tokens.html",
+      "preview/typography-specimens.html",
+      "projects.html",
+      "README.md",
+      "SKILL.md",
+      "tokens.css",
+      "ui_kits/app/app-shell.html",
+      "ui_kits/app/board-canvas.html",
+      "ui_kits/app/components/bead-card.html",
+      "ui_kits/app/components/composer.html",
+      "ui_kits/app/components/sidebar.html",
+      "ui_kits/app/components/status-column.html",
+      "ui_kits/app/components/topbar.html",
+      "ui_kits/app/controls-and-inputs.html",
+      "ui_kits/app/dashboard-surface.html",
+      "ui_kits/app/detail-sheet.html",
+      "ui_kits/app/index.html",
+      "ui_kits/app/README.md"
+    ],
+    "html": [
+      "bead-detail.html",
+      "board.html",
+      "index.html",
+      "knowledge-detail.html",
+      "preview/applied-surfaces.html",
+      "preview/brand-assets.html",
+      "preview/colors-primary.html",
+      "preview/colors-status.html",
+      "preview/components-buttons.html",
+      "preview/components-cards.html",
+      "preview/index.html",
+      "preview/radius-shadows.html",
+      "preview/spacing-tokens.html",
+      "preview/typography-specimens.html",
+      "projects.html",
+      "ui_kits/app/app-shell.html",
+      "ui_kits/app/board-canvas.html",
+      "ui_kits/app/components/bead-card.html",
+      "ui_kits/app/components/composer.html",
+      "ui_kits/app/components/sidebar.html",
+      "ui_kits/app/components/status-column.html",
+      "ui_kits/app/components/topbar.html",
+      "ui_kits/app/controls-and-inputs.html",
+      "ui_kits/app/dashboard-surface.html",
+      "ui_kits/app/detail-sheet.html",
+      "ui_kits/app/index.html"
+    ],
+    "css": [
+      "assets/bd-dark.css",
+      "colors_and_type.css",
+      "fonts/geist.css",
+      "preview/preview.css",
+      "tokens.css"
+    ],
+    "scriptsAndComponents": [
+      "assets/board-data.js"
+    ],
+    "assets": [
+      "assets/icons/align.svg",
+      "assets/icons/ban.svg",
+      "assets/icons/bolt.svg",
+      "assets/icons/book.svg",
+      "assets/icons/check.svg",
+      "assets/icons/chevron-left.svg",
+      "assets/icons/chevron-right.svg",
+      "assets/icons/chevron.svg",
+      "assets/icons/circle-check.svg",
+      "assets/icons/clock.svg",
+      "assets/icons/columns.svg",
+      "assets/icons/comment.svg",
+      "assets/icons/corner.svg",
+      "assets/icons/dot.svg",
+      "assets/icons/folder.svg",
+      "assets/icons/layers.svg",
+      "assets/icons/link.svg",
+      "assets/icons/lock.svg",
+      "assets/icons/manifest.json",
+      "assets/icons/pencil.svg",
+      "assets/icons/plus.svg",
+      "assets/icons/search.svg",
+      "assets/icons/sliders.svg",
+      "assets/icons/sort.svg",
+      "assets/icons/trash.svg",
+      "assets/icons/tree.svg",
+      "assets/icons/waypoints.svg",
+      "assets/icons/x.svg",
+      "context/provenance.md",
+      "context/source-context.md",
+      "DESIGN.md",
+      "README.md",
+      "SKILL.md",
+      "ui_kits/app/README.md"
+    ]
+  },
+  "screens": [
+    {
+      "file": "bead-detail.html",
+      "role": "screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "board.html",
+      "role": "screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "index.html",
+      "role": "launcher-overview",
+      "implementationNote": "Use this as the navigation/overview entry only; implement each linked screen file as its own route/surface."
+    },
+    {
+      "file": "knowledge-detail.html",
+      "role": "screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "preview/applied-surfaces.html",
+      "role": "product-screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "preview/brand-assets.html",
+      "role": "screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "preview/colors-primary.html",
+      "role": "screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "preview/colors-status.html",
+      "role": "screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "preview/components-buttons.html",
+      "role": "screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "preview/components-cards.html",
+      "role": "screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "preview/index.html",
+      "role": "launcher-overview",
+      "implementationNote": "Use this as the navigation/overview entry only; implement each linked screen file as its own route/surface."
+    },
+    {
+      "file": "preview/radius-shadows.html",
+      "role": "screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "preview/spacing-tokens.html",
+      "role": "screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "preview/typography-specimens.html",
+      "role": "screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "projects.html",
+      "role": "screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "ui_kits/app/app-shell.html",
+      "role": "product-screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "ui_kits/app/board-canvas.html",
+      "role": "product-screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "ui_kits/app/components/bead-card.html",
+      "role": "product-screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "ui_kits/app/components/composer.html",
+      "role": "product-screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "ui_kits/app/components/sidebar.html",
+      "role": "product-screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "ui_kits/app/components/status-column.html",
+      "role": "product-screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "ui_kits/app/components/topbar.html",
+      "role": "product-screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "ui_kits/app/controls-and-inputs.html",
+      "role": "product-screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "ui_kits/app/dashboard-surface.html",
+      "role": "product-screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "ui_kits/app/detail-sheet.html",
+      "role": "product-screen",
+      "implementationNote": "Preserve visual hierarchy, responsive behavior, and interactive states from this screen."
+    },
+    {
+      "file": "ui_kits/app/index.html",
+      "role": "launcher-overview",
+      "implementationNote": "Use this as the navigation/overview entry only; implement each linked screen file as its own route/surface."
+    }
+  ],
+  "screenFilePolicy": {
+    "mode": "screen-file-first",
+    "entryFileRole": "launcher-overview",
+    "rules": [
+      "Each distinct user-facing screen or surface must be delivered and implemented as its own file/route.",
+      "If a landing page is present or requested, keep it in landing.html and do not merge it into the product app screen.",
+      "When multiple HTML screens exist, index.html is a launcher/overview only; it must not be treated as the combined final UI.",
+      "Keep product app screens, landing pages, platform screens, and OS widget surfaces separate in production code."
+    ]
+  },
+  "appModules": [
+    "Identify domain-specific in-app modules from the exported UI; do not reduce them to generic cards.",
+    "For each major module, implement purpose, default/loading/empty/error/success states, and responsive behavior.",
+    "Keep app modules separate from OS home-screen widgets in the production component model."
+  ],
+  "osWidgets": [
+    "If the export includes home-screen, lock-screen, Live Activity, tablet glance, or Android widget surfaces, implement them as platform quick-access surfaces outside the app UI.",
+    "If none are present, do not invent OS widgets unless the product requirements request them."
+  ],
+  "landingPage": {
+    "detection": "Inspect files and screen names for a marketing/landing page surface. If present, keep it separate from product app screens.",
+    "requiredSections": [
+      "hero",
+      "value props",
+      "product proof/screenshots",
+      "feature proof",
+      "CTA"
+    ]
+  },
+  "tokens": {
+    "source": [
+      "assets/bd-dark.css",
+      "colors_and_type.css",
+      "fonts/geist.css",
+      "preview/preview.css",
+      "tokens.css"
+    ],
+    "required": [
+      "background",
+      "surface",
+      "foreground",
+      "muted text",
+      "border",
+      "accent",
+      "radius",
+      "shadow",
+      "spacing",
+      "type scale",
+      "motion"
+    ],
+    "note": "Extract/freeze tokens before framework implementation so coding tools do not substitute default theme colors or typography."
+  },
+  "interactions": {
+    "source": [
+      "assets/board-data.js"
+    ],
+    "requiredStates": [
+      "default",
+      "hover",
+      "focus",
+      "active",
+      "disabled",
+      "loading",
+      "empty",
+      "error",
+      "success"
+    ],
+    "requiredBehaviors": [
+      "forms/validation where present",
+      "tabs/filters where present",
+      "dialogs/sheets/drawers where present",
+      "copy/generate/share actions where present",
+      "player or quick controls where present"
+    ],
+    "note": "If the prototype is static, derive missing behavior from visible controls and document it before coding."
+  },
+  "responsiveViewports": [
+    {
+      "name": "mobile-compact",
+      "width": 360,
+      "height": 800,
+      "category": "mobile",
+      "mustAvoidHorizontalScroll": true
+    },
+    {
+      "name": "mobile-standard",
+      "width": 390,
+      "height": 844,
+      "category": "mobile",
+      "mustAvoidHorizontalScroll": true
+    },
+    {
+      "name": "mobile-large",
+      "width": 430,
+      "height": 932,
+      "category": "mobile",
+      "mustAvoidHorizontalScroll": true
+    },
+    {
+      "name": "foldable-small-tablet",
+      "width": 600,
+      "height": 960,
+      "category": "foldable-tablet",
+      "mustAvoidHorizontalScroll": true
+    },
+    {
+      "name": "tablet-portrait",
+      "width": 820,
+      "height": 1180,
+      "category": "tablet",
+      "mustAvoidHorizontalScroll": true
+    },
+    {
+      "name": "tablet-landscape",
+      "width": 1024,
+      "height": 768,
+      "category": "tablet",
+      "mustAvoidHorizontalScroll": true
+    },
+    {
+      "name": "laptop",
+      "width": 1366,
+      "height": 768,
+      "category": "desktop",
+      "mustAvoidHorizontalScroll": true
+    },
+    {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900,
+      "category": "desktop",
+      "mustAvoidHorizontalScroll": true
+    },
+    {
+      "name": "wide",
+      "width": 1920,
+      "height": 1080,
+      "category": "wide",
+      "mustAvoidHorizontalScroll": true
+    }
+  ],
+  "implementationChecklist": [
+    "Open entryFile first and map screens, modules, tokens, and interactions.",
+    "Extract tokens before writing framework components.",
+    "Implement app-specific modules with real states instead of generic card grids.",
+    "Preserve or rebuild JS interactions for meaningful UX actions.",
+    "Validate screenshots at desktop/tablet/mobile viewports with no horizontal overflow.",
+    "Keep landing pages, in-app modules, and OS widgets as separate implementation surfaces."
+  ]
+}

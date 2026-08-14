@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Preview · Typography specimens</title>
+    <link rel="stylesheet" href="../assets/bd-dark.css" />
+    <link rel="stylesheet" href="preview.css" />
+    <style>
+      .spec-row {
+        display: flex;
+        align-items: baseline;
+        gap: 18px;
+        border-top: 1px solid var(--border);
+        padding: 16px 0;
+      }
+
+      .spec-row:first-of-type {
+        border-top: 0;
+      }
+
+      .spec-row .tag-col {
+        width: 190px;
+        flex: none;
+      }
+
+      .spec-row .tag-col b {
+        display: block;
+        font-size: 12.5px;
+        font-weight: var(--weight-emphasis);
+        color: var(--foreground);
+      }
+
+      .spec-row .tag-col span {
+        display: block;
+        margin-top: 4px;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        line-height: 1.5;
+        color: var(--faint);
+      }
+
+      .spec-row .sample {
+        min-width: 0;
+        flex: 1;
+      }
+
+      .weights {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .weights div {
+        border-radius: var(--radius-2xl);
+        background: var(--card);
+        padding: 14px 16px;
+        box-shadow: var(--ring-inset);
+      }
+
+      .weights p {
+        font-size: 19px;
+        letter-spacing: -0.015em;
+      }
+
+      .weights span {
+        display: block;
+        margin-top: 8px;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--faint);
+      }
+
+      .figs {
+        font-family: var(--font-mono);
+        font-size: 15px;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.9;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card" data-od-id="card-typography">
+      <header>
+        <span class="eyebrow">Preview 03 · Typography</span>
+        <h1>Geist Sans reads, Geist&nbsp;Mono registers</h1>
+        <p>
+          Two families with one job each. Sans carries everything a person reads
+          in sentences; Mono carries everything the machine produced — bead ids,
+          counts, durations, section labels and <span class="mono">bd</span>
+          commands. The split is what makes a dense board scannable.
+        </p>
+        <span class="src">assets/bd-dark.css · --font-sans / --font-mono · fonts/geist.css</span>
+      </header>
+
+      <section class="block" data-od-id="families">
+        <span class="eyebrow">The pair</span>
+        <div class="grid-2">
+          <div class="panel">
+            <p class="eyebrow" style="margin-bottom: 10px">Geist Sans · 300..700</p>
+            <p style="font-size: 30px; font-weight: 600; letter-spacing: -0.025em; line-height: 1.15">
+              Bridge bd CLI calls through Tauri commands
+            </p>
+            <p style="margin-top: 12px; font-size: 13.5px; line-height: 1.68; color: oklch(0.9 0.004 270)">
+              The web build reaches bd through a server function. The desktop
+              build has no Node process, so every read and write has to go
+              through a Rust command that spawns the local binary.
+            </p>
+          </div>
+          <div class="panel">
+            <p class="eyebrow" style="margin-bottom: 10px">Geist Mono · 400..600</p>
+            <p class="figs" style="color: var(--foreground)">
+              bdb-3k1 · bdb-e0f · bdb-7hs<br />
+              0123456789 · 12/32 · 2h · 40m<br />
+              bd show bdb-3k1 --json
+            </p>
+            <p style="margin-top: 12px; font-size: 12.5px; line-height: 1.6; color: var(--muted-foreground)">
+              Always with <span class="mono">tabular-nums</span>, so counts in a
+              column never shift as they change.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="block" data-od-id="scale">
+        <span class="eyebrow">Scale, as measured across the four screens</span>
+        <div class="panel">
+          <div class="spec-row">
+            <span class="tag-col"><b>Overview hero</b><span>34px · 600 · −0.028em · 1.12</span></span>
+            <span class="sample">
+              <span style="font-size: 34px; font-weight: 600; letter-spacing: -0.028em; line-height: 1.12">
+                Quatro telas, um sistema escuro denso
+              </span>
+            </span>
+          </div>
+          <div class="spec-row">
+            <span class="tag-col"><b>Stat tile value</b><span>28px · 600 · −0.025em · tabular</span></span>
+            <span class="sample">
+              <span class="mono" style="font-size: 28px; font-weight: 600; letter-spacing: -0.025em; color: var(--status-progress)">10</span>
+            </span>
+          </div>
+          <div class="spec-row">
+            <span class="tag-col"><b>Page title</b><span>22px · 600 · −0.02em</span></span>
+            <span class="sample">
+              <span style="font-size: 22px; font-weight: 600; letter-spacing: -0.02em">Projects</span>
+            </span>
+          </div>
+          <div class="spec-row">
+            <span class="tag-col"><b>Sheet title</b><span>20px · 600 · −0.015em · 1.28</span></span>
+            <span class="sample">
+              <span style="font-size: 20px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.28">
+                Board throws when a bead points at a missing parent
+              </span>
+            </span>
+          </div>
+          <div class="spec-row">
+            <span class="tag-col"><b>Card heading</b><span>16px · 550 · −0.012em</span></span>
+            <span class="sample">
+              <span style="font-size: 16px; font-weight: 550; letter-spacing: -0.012em">Detalhe do bead</span>
+            </span>
+          </div>
+          <div class="spec-row">
+            <span class="tag-col"><b>Project card title</b><span>15px · 550 · −0.01em</span></span>
+            <span class="sample">
+              <span style="font-size: 15px; font-weight: 550; letter-spacing: -0.01em">kolek-php</span>
+            </span>
+          </div>
+          <div class="spec-row">
+            <span class="tag-col"><b>Prose</b><span>13.5px · 400 · 1.68</span></span>
+            <span class="sample">
+              <span style="font-size: 13.5px; line-height: 1.68; color: oklch(0.9 0.004 270)">
+                Keep the shape identical on both sides — one module decides which
+                transport to use, and nothing above it should know which one is active.
+              </span>
+            </span>
+          </div>
+          <div class="spec-row">
+            <span class="tag-col"><b>UI text</b><span>13px · 400, 550 when active</span></span>
+            <span class="sample">
+              <span style="font-size: 13px; color: var(--muted-foreground)">Assigned to me</span>
+              <span style="font-size: 13px; font-weight: 550; margin-left: 18px">Assigned to me</span>
+            </span>
+          </div>
+          <div class="spec-row">
+            <span class="tag-col"><b>Bead title</b><span>12.75px · 400 · 1.45 · 2-line clamp</span></span>
+            <span class="sample">
+              <span style="font-size: 12.75px; line-height: 1.45">Comment mutation must invalidate the detail query</span>
+            </span>
+          </div>
+          <div class="spec-row">
+            <span class="tag-col"><b>Control label</b><span>12.5px · 500, 550 on primary</span></span>
+            <span class="sample">
+              <span class="row">
+                <button class="btn btn-primary" type="button">New bead</button>
+                <button class="btn btn-outline" type="button">Priority</button>
+              </span>
+            </span>
+          </div>
+          <div class="spec-row">
+            <span class="tag-col"><b>Meta</b><span>11.5px · mono · 1.55</span></span>
+            <span class="sample">
+              <span class="mono" style="font-size: 11.5px; color: var(--muted-foreground)">bd update bdb-3k1 --status closed</span>
+            </span>
+          </div>
+          <div class="spec-row">
+            <span class="tag-col"><b>Ids and counts</b><span>11px · mono</span></span>
+            <span class="sample">
+              <span class="mono" style="font-size: 11px; color: var(--muted-foreground)">bdb-3k1</span>
+              <span class="mono" style="font-size: 11px; color: var(--faint); margin-left: 14px">~/Code/bd-board</span>
+            </span>
+          </div>
+          <div class="spec-row">
+            <span class="tag-col"><b>Eyebrow</b><span>10px · 500 mono · 0.09em · upper</span></span>
+            <span class="sample"><span class="eyebrow">Quick filters</span></span>
+          </div>
+          <div class="spec-row">
+            <span class="tag-col"><b>Tag and priority chip</b><span>10px · 600 · 0.06em</span></span>
+            <span class="sample">
+              <span class="row">
+                <span class="p-chip p0">P0</span>
+                <span class="p-chip p1">P1</span>
+                <span class="tag tag-epic">Epic</span>
+                <span class="tag tag-pinned">Pinned</span>
+                <span class="ktag k-fact"><span class="k-dot"></span>Fact</span>
+              </span>
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section class="block" data-od-id="weights">
+        <span class="eyebrow">Weights in use — 550 is real</span>
+        <div class="weights">
+          <div><p style="font-weight: 400">Board</p><span>400 · body, ids</span></div>
+          <div><p style="font-weight: 500">Board</p><span>500 · controls, eyebrows</span></div>
+          <div><p style="font-weight: 550">Board</p><span>550 · emphasis</span></div>
+          <div><p style="font-weight: 600">Board</p><span>600 · titles, tags</span></div>
+        </div>
+        <p class="note">
+          Geist is variable and <b>550</b> is a genuine instance, load-bearing
+          for lane titles, project card titles, primary button labels and the
+          breadcrumb leaf. Rounding it to 500 or 600 visibly changes the app.
+          Keep <span class="mono">font-feature-settings: 'cv01','cv03','ss01'</span>
+          on <span class="mono">body</span> — without it the digits and the
+          lowercase <em>a</em> and <em>g</em> stop matching every screenshot.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

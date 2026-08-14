@@ -12,7 +12,7 @@ Visual kanban board and multi-project dashboard for [`bd` (beads)](https://githu
 - Epic progress from child beads.
 - Bead detail modal with markdown description, acceptance criteria, comments, parent and child navigation.
 - Drag-and-drop status updates with mouse and keyboard sensors.
-- Optional write mode for creating beads, adding comments, and changing status.
+- Create beads, add comments, edit fields, and delete beads, enabled by default.
 
 ## Requirements
 
@@ -49,9 +49,9 @@ the local `bd` binary through Tauri commands.
 Desktop data flow:
 
 - Web mode uses TanStack Start server functions and the local `bd` adapter.
-- Desktop mode uses Tauri commands for read-only project discovery, board data,
-  bead details, comments, and knowledge.
-- Desktop writes are not enabled yet, even if web write mode is configured.
+- Desktop mode uses Tauri commands for project discovery, board data, bead
+  details, comments, and knowledge, plus the same create/update/delete
+  mutations as web mode.
 - No bead database, `.beads` data, or Lavra memory is bundled into the app.
 
 Desktop packaging:
@@ -101,12 +101,11 @@ Desktop troubleshooting:
 Environment variables:
 
 - `BD_BIN`: path to the `bd` binary. Defaults to `bd`, with `/opt/homebrew/bin/bd` as a fallback.
-- `BD_ROOTS`: platform-delimited directories to scan for bead projects. Defaults to `~/Code`.
-- `BD_BOARD_ALLOW_WRITE`: set to `true`, `1`, or `yes` to enable create, comment, and status update mutations.
+- `BD_ROOTS`: platform-delimited directories to scan for bead projects. Defaults to `~/Code`. A leading `~` is expanded to your home directory. Give multiple directories if your `bd` workspaces don't live inside the project directory (e.g. `~/Code:~/beads-workspaces`). Each root is scanned one level deep for `<root>/<name>/.beads/metadata.json`.
 
 The desktop shell uses the same `BD_BIN` and `BD_ROOTS` configuration.
 
-Reads are enabled by default. Writes are disabled by default because this app executes local `bd` mutations.
+Reads and writes are both enabled by default: the app executes local `bd` mutations (create, edit, comment, status update, delete) with no separate opt-in.
 
 ## Commands
 
@@ -154,9 +153,11 @@ src-tauri/
 
 The app does not store its own database. It shells out to `bd` with `node:child_process` and parses JSON output.
 
+`docs/bd-schema.json` documents that contract as a JSON Schema: the `Bd*` definitions describe what each `bd` command emits, and the remaining definitions describe the normalized shapes the UI consumes.
+
 ## Safety Model
 
-`bd-board` is not designed as a hosted multi-tenant app. Run it locally, bind it only to trusted interfaces, and keep `BD_BOARD_ALLOW_WRITE` disabled unless you want the UI to mutate local bead data.
+`bd-board` is not designed as a hosted multi-tenant app. Run it locally and bind it only to trusted interfaces: writes are always enabled, so anyone who can reach the app can mutate local bead data.
 
 ## License
 

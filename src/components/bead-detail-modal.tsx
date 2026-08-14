@@ -6,15 +6,19 @@ import Markdown from 'react-markdown'
 import {
   AlignLeft,
   AlertTriangle,
+  Ban,
+  BookOpen,
   ChevronRight,
   CircleCheck,
   CornerUpLeft,
   Layers,
+  Link2,
   ListTree,
   Loader2,
   MessageSquare,
   Pencil,
   Trash2,
+  Waypoints,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -26,9 +30,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { InteractiveRow } from '@/components/ui/interactive-row'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -39,13 +44,20 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn } from '@/lib/utils'
-import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
+import { cn, initials } from '@/lib/utils'
+import { COLUMNS, groupBeadLinks, isEpic, mapStatus } from '@/lib/types'
+import { PRIORITY_TEXT_CLASS, PRIORITY_WORD } from '@/lib/sort'
+import {
+  KNOWLEDGE_TYPE_BG_CLASS as K_BG_CLASS,
+  KNOWLEDGE_TYPE_DOT_CLASS as K_DOT_CLASS,
+  KNOWLEDGE_TYPE_LABEL,
+  KNOWLEDGE_TYPE_TEXT_CLASS as K_TEXT_CLASS,
+} from '@/lib/knowledge'
 import {
   addCommentFn,
   deleteBeadFn,
   getBeadDetailFn,
-  getWriteConfigFn,
+  getProjectKnowledgeFn,
   previewDeleteBeadFn,
   updateBeadFn,
   updateBeadStatusFn,
@@ -62,6 +74,7 @@ interface BeadDetailModalProps {
   onOpenChange: (open: boolean) => void
   onOpenBead: (bead: Bead) => void
   resolveBead: (id: string) => Bead | undefined
+  onOpenKnowledge: (id: string) => void
 }
 
 const COLUMN_LABEL: Record<BeadColumn, string> = {
@@ -71,12 +84,10 @@ const COLUMN_LABEL: Record<BeadColumn, string> = {
   closed: 'Closed',
 }
 
-const COLUMN_BADGE: Record<BeadColumn, string> = {
-  open: 'border-status-open/40 bg-status-open/10 text-status-open',
-  in_progress:
-    'border-status-progress/40 bg-status-progress/10 text-status-progress',
-  blocked: 'border-status-blocked/40 bg-status-blocked/10 text-status-blocked',
-  closed: 'border-status-closed/40 bg-status-closed/10 text-status-closed',
+const BADGE_TONE: Record<'warning' | 'muted' | 'info', string> = {
+  warning: 'bg-warn/16 text-warn',
+  muted: 'bg-white/7 text-muted-foreground',
+  info: 'bg-status-progress/18 text-status-progress',
 }
 
 const DOT_CLASS: Record<BeadColumn, string> = {
@@ -84,6 +95,13 @@ const DOT_CLASS: Record<BeadColumn, string> = {
   in_progress: 'bg-status-progress',
   blocked: 'bg-status-blocked',
   closed: 'bg-status-closed',
+}
+
+const COLUMN_TEXT: Record<BeadColumn, string> = {
+  open: 'text-status-open',
+  in_progress: 'text-status-progress',
+  blocked: 'text-status-blocked',
+  closed: 'text-status-closed',
 }
 
 const EDIT_TYPES = [
@@ -111,6 +129,100 @@ function labelsFromText(value: string): string[] {
     .filter(Boolean)
 }
 
+function LinkedBeadList({
+  items,
+  resolveBead,
+  onOpenBead,
+}: {
+  items: { id: string; note?: string }[]
+  resolveBead: (id: string) => Bead | undefined
+  onOpenBead: (bead: Bead) => void
+}) {
+  return (
+    <ul className="flex flex-col gap-1.5">
+      {items.map(({ id, note }) => {
+        const target = resolveBead(id)
+        const column = target ? mapStatus(target.status).column : null
+        return (
+          <li key={`${id}:${note ?? ''}`}>
+            <InteractiveRow
+              disabled={!target}
+              onClick={() => {
+                if (target) onOpenBead(target)
+              }}
+            >
+              <span
+                className={cn(
+                  'size-2 shrink-0 rounded-full',
+                  column ? DOT_CLASS[column] : 'bg-muted-foreground/30',
+                )}
+                aria-hidden="true"
+              />
+              <span className="font-mono text-[11px] text-muted-foreground">
+                {id}
+              </span>
+              <span
+                className={cn(
+                  'truncate text-[12.75px]',
+                  !target && 'text-muted-foreground/60 italic',
+                )}
+              >
+                {target?.title ?? 'Not on this board'}
+              </span>
+              <span className="ml-auto flex shrink-0 items-center gap-1.5">
+                {note ? (
+                  <span className="font-mono text-[10.5px] tracking-[0.05em] text-muted-foreground uppercase">
+                    {note}
+                  </span>
+                ) : column ? (
+                  <span
+                    className={cn(
+                      'font-mono text-[10.5px] tracking-[0.05em] uppercase',
+                      COLUMN_TEXT[column],
+                    )}
+                  >
+                    {COLUMN_LABEL[column]}
+                  </span>
+                ) : null}
+                {target ? (
+                  <ChevronRight
+                    className="size-3.5 text-muted-foreground/50"
+                    aria-hidden="true"
+                  />
+                ) : null}
+              </span>
+            </InteractiveRow>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function LinkGroup({
+  label,
+  items,
+  resolveBead,
+  onOpenBead,
+}: {
+  label: string
+  items: { id: string; note?: string }[]
+  resolveBead: (id: string) => Bead | undefined
+  onOpenBead: (bead: Bead) => void
+}) {
+  if (items.length === 0) return null
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="px-2 text-[11.5px] text-faint">{label}</span>
+      <LinkedBeadList
+        items={items}
+        resolveBead={resolveBead}
+        onOpenBead={onOpenBead}
+      />
+    </div>
+  )
+}
+
 function SectionHeader({
   icon: Icon,
   label,
@@ -121,16 +233,35 @@ function SectionHeader({
   trailing?: ReactNode
 }) {
   return (
-    <div className="mb-3 flex items-center gap-2 border-b border-border/60 pb-2">
-      <Icon className="size-3.5 text-muted-foreground" aria-hidden="true" />
-      <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
+    <div className="mb-2.5 flex items-center gap-1.5 text-muted-foreground">
+      <Icon className="size-3.5" aria-hidden="true" />
+      <h3 className="font-mono text-[10.5px] font-medium tracking-[0.09em] uppercase">
         {label}
       </h3>
       {trailing != null ? (
-        <span className="ml-auto text-xs tabular-nums text-muted-foreground/70">
+        <span className="ml-auto font-mono text-[11px] tabular-nums text-faint">
           {trailing}
         </span>
       ) : null}
+    </div>
+  )
+}
+
+function MetaField({
+  label,
+  children,
+}: {
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <div className="flex flex-col [&+&]:mt-4">
+      <span className="mb-[7px] block font-mono text-[10px] font-medium tracking-[0.09em] text-faint uppercase">
+        {label}
+      </span>
+      <div className="flex items-center gap-1.5 text-[13px] text-foreground">
+        {children}
+      </div>
     </div>
   )
 }
@@ -579,6 +710,7 @@ export function BeadDetailModal({
   onOpenChange,
   onOpenBead,
   resolveBead,
+  onOpenKnowledge,
 }: BeadDetailModalProps) {
   const queryClient = useQueryClient()
   const [comment, setComment] = useState('')
@@ -592,11 +724,19 @@ export function BeadDetailModal({
     staleTime: 3000,
   })
 
-  const writeConfigQuery = useQuery({
-    queryKey: ['write-config'],
-    queryFn: () => getWriteConfigFn(),
-    staleTime: Infinity,
+  const knowledgeQuery = useQuery({
+    queryKey: ['project-knowledge', project],
+    queryFn: () => getProjectKnowledgeFn({ data: { project } }),
+    enabled: open && !!bead,
+    staleTime: 4000,
   })
+  const beadKnowledge = useMemo(
+    () =>
+      (knowledgeQuery.data?.knowledge ?? []).filter(
+        (entry) => entry.bead_id === bead?.id,
+      ),
+    [knowledgeQuery.data, bead?.id],
+  )
 
   const detail = detailQuery.data
   const column: BeadColumn = bead ? mapStatus(bead.status).column : 'open'
@@ -606,6 +746,11 @@ export function BeadDetailModal({
       childBeads.filter((c) => mapStatus(c.status).column === 'closed').length,
     [childBeads],
   )
+  const { blockedBy, blocking, related } = useMemo(
+    () => groupBeadLinks(bead?.links),
+    [bead?.links],
+  )
+  const linkCount = blockedBy.length + blocking.length + related.length
 
   const statusMutation = useMutation({
     mutationFn: (status: BeadColumn) =>
@@ -630,7 +775,6 @@ export function BeadDetailModal({
   const description = detail?.description ?? bead?.description ?? ''
   const acceptance = detail?.acceptance_criteria ?? bead?.acceptance_criteria
   const comments = detail?.comments ?? []
-  const canWrite = writeConfigQuery.data?.writesEnabled === true
 
   return (
     <>
@@ -644,68 +788,67 @@ export function BeadDetailModal({
           onOpenChange(next)
         }}
       >
-        <DialogContent className="flex max-h-[86vh] w-[94vw] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl lg:max-w-4xl">
+        <DialogContent className="grid max-h-[86vh] w-[94vw] max-w-3xl grid-cols-1 grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden rounded-[14px] bg-background p-0 shadow-pop sm:max-w-3xl lg:max-w-[1080px] lg:grid-cols-[minmax(0,1fr)_268px]">
           {bead ? (
             <>
-              <DialogHeader className="space-y-0 border-b border-border px-6 py-5 text-left">
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-start justify-between gap-3 pr-8">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {bead.id}
+              <div className="flex min-h-0 min-w-0 flex-col">
+                <DialogHeader className="space-y-0 border-b border-border bg-canvas px-[22px] pt-4 pb-3.5 text-left">
+                  <div className="flex flex-wrap items-center gap-1.5 pr-16">
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {bead.id}
+                    </span>
+                    {isEpic(bead) ? (
+                      <span className="inline-flex items-center gap-1 rounded-[4px] bg-primary/30 px-1.5 py-px text-[10px] font-semibold tracking-[0.06em] text-primary-text uppercase ring-1 ring-inset ring-ring/45">
+                        <Layers className="size-3" aria-hidden="true" />
+                        Epic
                       </span>
+                    ) : (
+                      <span className="rounded-[4px] bg-white/7 px-1.5 py-px text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+                        {bead.issue_type}
+                      </span>
+                    )}
+                    <span
+                      className={cn(
+                        'rounded-[4px] px-1 py-px font-mono text-[10px] font-semibold tabular-nums ring-1 ring-inset ring-current',
+                        PRIORITY_TEXT_CLASS[
+                          Math.max(0, Math.min(4, bead.priority))
+                        ],
+                      )}
+                    >
+                      P{Math.max(0, Math.min(4, bead.priority))}
+                    </span>
+                    {mapStatus(bead.status).badge ? (
                       <span
                         className={cn(
-                          'rounded border px-1.5 py-px text-[0.65rem] font-medium',
-                          COLUMN_BADGE[column],
+                          'rounded-[4px] px-1.5 py-px text-[10px] font-semibold tracking-[0.06em] uppercase',
+                          BADGE_TONE[mapStatus(bead.status).badge!.tone],
                         )}
                       >
-                        {COLUMN_LABEL[column]}
-                      </span>
-                      {isEpic(bead) ? (
-                        <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-px text-[0.65rem] font-semibold uppercase tracking-wide text-primary ring-1 ring-inset ring-primary/25">
-                          <Layers className="size-3" aria-hidden="true" />
-                          Epic
-                        </span>
-                      ) : (
-                        <span className="rounded border border-border px-1.5 py-px text-[0.65rem] text-muted-foreground">
-                          {bead.issue_type}
-                        </span>
-                      )}
-                      <span className="rounded border border-border px-1.5 py-px text-[0.65rem] tabular-nums text-muted-foreground">
-                        P{Math.max(0, Math.min(4, bead.priority))}
-                      </span>
-                    </div>
-
-                    {canWrite ? (
-                      <div className="flex shrink-0 items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8"
-                          onClick={() => setEditOpen(true)}
-                        >
-                          <Pencil className="size-3.5" aria-hidden="true" />
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="h-8"
-                          onClick={() => setDeleteOpen(true)}
-                        >
-                          <Trash2 className="size-3.5" aria-hidden="true" />
-                          Delete
-                        </Button>
-                      </div>
-                    ) : writeConfigQuery.isSuccess ? (
-                      <span className="shrink-0 rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
-                        Read-only
+                        {mapStatus(bead.status).badge!.label}
                       </span>
                     ) : null}
+
+                    <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditOpen(true)}
+                      >
+                        <Pencil className="size-3.5" aria-hidden="true" />
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setDeleteOpen(true)}
+                      >
+                        <Trash2 className="size-3.5" aria-hidden="true" />
+                        Delete
+                      </Button>
+                    </div>
                   </div>
 
-                  <DialogTitle className="text-xl leading-tight font-semibold tracking-tight text-balance">
+                  <DialogTitle className="mt-2.5 text-[20px] leading-[1.28] font-semibold tracking-[-0.015em] text-balance">
                     {bead.title}
                   </DialogTitle>
                   <DialogDescription className="sr-only">
@@ -713,237 +856,373 @@ export function BeadDetailModal({
                   </DialogDescription>
 
                   {parentBead ? (
-                    <button
-                      type="button"
+                    <Button
+                      variant="link"
                       onClick={() => onOpenBead(parentBead)}
-                      className="-mt-0.5 inline-flex w-fit items-center gap-1 rounded text-xs text-muted-foreground transition-colors hover:text-foreground"
+                      className="mt-2 h-auto w-fit max-w-full gap-1.5 p-0 text-xs text-muted-foreground"
                     >
-                      <CornerUpLeft className="size-3" aria-hidden="true" />
-                      Epic: <span className="font-mono">{parentBead.id}</span>
-                    </button>
+                      <CornerUpLeft
+                        className="size-3 shrink-0"
+                        aria-hidden="true"
+                      />
+                      {isEpic(parentBead) ? 'Epic' : 'Parent'}:{' '}
+                      <span className="font-mono">{parentBead.id}</span>
+                      <span className="truncate">{parentBead.title}</span>
+                    </Button>
                   ) : null}
+                </DialogHeader>
 
-                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground/70">
-                        Status
-                      </span>
-                      <Select
-                        value={column}
-                        disabled={!canWrite}
-                        onValueChange={(v) =>
-                          statusMutation.mutate(v as BeadColumn)
-                        }
-                      >
-                        <SelectTrigger
-                          size="sm"
-                          className="h-7 w-40"
-                          aria-label="Change status"
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {COLUMNS.map((c) => (
-                            <SelectItem key={c.key} value={c.key}>
+                <div className="min-h-0 flex-1 overflow-y-auto px-[22px] py-[22px]">
+                  <div className="flex flex-col gap-[26px]">
+                    {isEpic(bead) || childBeads.length > 0 ? (
+                      <section>
+                        <SectionHeader
+                          icon={ListTree}
+                          label="Subtasks"
+                          trailing={`${doneChildren}/${childBeads.length} completed`}
+                        />
+                        {childBeads.length === 0 ? (
+                          <p className="text-xs text-muted-foreground/70">
+                            No subtasks.
+                          </p>
+                        ) : (
+                          <LinkedBeadList
+                            items={childBeads.map((child) => ({
+                              id: child.id,
+                            }))}
+                            resolveBead={resolveBead}
+                            onOpenBead={onOpenBead}
+                          />
+                        )}
+                      </section>
+                    ) : null}
+
+                    {linkCount > 0 ? (
+                      <section>
+                        <SectionHeader
+                          icon={Link2}
+                          label="Dependencies"
+                          trailing={linkCount}
+                        />
+                        <div className="flex flex-col gap-3">
+                          <LinkGroup
+                            label="Blocked by"
+                            items={blockedBy.map((id) => ({ id }))}
+                            resolveBead={resolveBead}
+                            onOpenBead={onOpenBead}
+                          />
+                          <LinkGroup
+                            label="Blocking"
+                            items={blocking.map((id) => ({ id }))}
+                            resolveBead={resolveBead}
+                            onOpenBead={onOpenBead}
+                          />
+                          <LinkGroup
+                            label="Related"
+                            items={related.map((link) => ({
+                              id: link.id,
+                              note:
+                                link.direction === 'outgoing'
+                                  ? link.type
+                                  : `${link.type} (reverse)`,
+                            }))}
+                            resolveBead={resolveBead}
+                            onOpenBead={onOpenBead}
+                          />
+                        </div>
+                      </section>
+                    ) : null}
+
+                    {beadKnowledge.length > 0 ? (
+                      <section>
+                        <SectionHeader
+                          icon={BookOpen}
+                          label="Knowledge recorded here"
+                          trailing={beadKnowledge.length}
+                        />
+                        <div className="flex flex-col gap-1.5">
+                          {beadKnowledge.map((entry) => (
+                            <InteractiveRow
+                              key={entry.id}
+                              size="cozy"
+                              onClick={() => onOpenKnowledge(entry.id)}
+                            >
                               <span
                                 className={cn(
-                                  'size-1.5 rounded-full',
-                                  DOT_CLASS[c.key],
+                                  'w-0.5 shrink-0 self-stretch rounded-full',
+                                  K_DOT_CLASS[entry.type],
                                 )}
                                 aria-hidden="true"
                               />
-                              {COLUMN_LABEL[c.key]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {statusMutation.isPending ? (
-                        <Loader2
-                          className="size-3.5 animate-spin text-muted-foreground"
-                          aria-hidden="true"
-                        />
-                      ) : null}
-                    </div>
-
-                    {bead.assignee ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground/70">
-                          Assignee
-                        </span>
-                        <span className="text-sm text-foreground/90">
-                          {bead.assignee}
-                        </span>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {bead.labels && bead.labels.length > 0 ? (
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground/70">
-                        Labels
-                      </span>
-                      {bead.labels.map((label) => (
-                        <Badge
-                          key={label}
-                          variant="outline"
-                          className="h-5 px-1.5 text-[0.65rem] font-normal"
-                        >
-                          {label}
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              </DialogHeader>
-
-              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-                <div className="flex flex-col gap-7">
-                  {isEpic(bead) ? (
-                    <section>
-                      <SectionHeader
-                        icon={ListTree}
-                        label="Child tasks"
-                        trailing={`${doneChildren}/${childBeads.length} completed`}
-                      />
-                      {childBeads.length === 0 ? (
-                        <p className="text-xs text-muted-foreground/70">
-                          No child tasks.
-                        </p>
-                      ) : (
-                        <ul className="flex flex-col gap-0.5">
-                          {childBeads.map((child) => {
-                            const col = mapStatus(child.status).column
-                            return (
-                              <li key={child.id}>
-                                <button
-                                  type="button"
-                                  onClick={() => onOpenBead(child)}
-                                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/50"
-                                >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
                                   <span
                                     className={cn(
-                                      'size-2 shrink-0 rounded-full',
-                                      DOT_CLASS[col],
+                                      'inline-flex items-center gap-[5px] rounded-[4px] px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-[0.08em] uppercase',
+                                      K_BG_CLASS[entry.type],
+                                      K_TEXT_CLASS[entry.type],
                                     )}
-                                    aria-hidden="true"
-                                  />
-                                  <span className="font-mono text-[0.7rem] text-muted-foreground">
-                                    {child.id}
+                                  >
+                                    <span
+                                      className={cn(
+                                        'size-[5px] shrink-0 rounded-full',
+                                        K_DOT_CLASS[entry.type],
+                                      )}
+                                      aria-hidden="true"
+                                    />
+                                    {KNOWLEDGE_TYPE_LABEL[entry.type]}
                                   </span>
-                                  <span className="truncate text-sm">
-                                    {child.title}
+                                  <span className="ml-auto font-mono text-[10.5px] text-faint">
+                                    {relativeDate(entry.created_at)}
                                   </span>
-                                  <ChevronRight
-                                    className="ml-auto size-3.5 shrink-0 text-muted-foreground/50"
-                                    aria-hidden="true"
-                                  />
-                                </button>
-                              </li>
-                            )
-                          })}
-                        </ul>
+                                </div>
+                                <p className="mt-1.5 line-clamp-2 text-[12.75px] leading-[1.58] text-foreground/90">
+                                  {entry.content}
+                                </p>
+                              </div>
+                            </InteractiveRow>
+                          ))}
+                        </div>
+                      </section>
+                    ) : null}
+
+                    <section>
+                      <SectionHeader icon={AlignLeft} label="Description" />
+                      {detailQuery.isLoading && !description ? (
+                        <div className="flex flex-col gap-2">
+                          <Skeleton className="h-3 w-full" />
+                          <Skeleton className="h-3 w-5/6" />
+                          <Skeleton className="h-3 w-2/3" />
+                        </div>
+                      ) : description ? (
+                        <div className="prose prose-invert prose-sm max-w-none prose-headings:scroll-mt-4 prose-pre:bg-muted prose-pre:text-xs">
+                          <Markdown>{description}</Markdown>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground/70">
+                          No description.
+                        </p>
                       )}
                     </section>
-                  ) : null}
 
-                  <section>
-                    <SectionHeader icon={AlignLeft} label="Description" />
-                    {detailQuery.isLoading && !description ? (
-                      <div className="flex flex-col gap-2">
-                        <Skeleton className="h-3 w-full" />
-                        <Skeleton className="h-3 w-5/6" />
-                        <Skeleton className="h-3 w-2/3" />
-                      </div>
-                    ) : description ? (
-                      <div className="prose prose-invert prose-sm max-w-none prose-headings:scroll-mt-4 prose-pre:bg-muted prose-pre:text-xs">
-                        <Markdown>{description}</Markdown>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground/70">
-                        No description.
-                      </p>
-                    )}
-                  </section>
+                    {acceptance ? (
+                      <section>
+                        <SectionHeader
+                          icon={CircleCheck}
+                          label="Acceptance criteria"
+                        />
+                        <div className="prose prose-invert prose-sm max-w-none">
+                          <Markdown>{acceptance}</Markdown>
+                        </div>
+                      </section>
+                    ) : null}
 
-                  {acceptance ? (
                     <section>
                       <SectionHeader
-                        icon={CircleCheck}
-                        label="Acceptance criteria"
+                        icon={MessageSquare}
+                        label="Comments"
+                        trailing={
+                          comments.length > 0 ? comments.length : undefined
+                        }
                       />
-                      <div className="prose prose-invert prose-sm max-w-none">
-                        <Markdown>{acceptance}</Markdown>
+                      {detailQuery.isLoading ? (
+                        <Skeleton className="h-12 w-full" />
+                      ) : comments.length === 0 ? (
+                        <p className="text-xs text-muted-foreground/70">
+                          No comments yet.
+                        </p>
+                      ) : (
+                        <ul className="flex flex-col gap-2">
+                          {comments.map((c) => (
+                            <li
+                              key={c.id}
+                              className="rounded-[9px] bg-canvas px-3 py-2.5 ring-1 ring-inset ring-border"
+                            >
+                              <div className="flex items-center gap-2 text-[11.5px] text-faint">
+                                <span className="font-medium text-foreground/90">
+                                  {c.author ?? 'Anonymous'}
+                                </span>
+                                {c.created_at ? (
+                                  <span>· {relativeDate(c.created_at)}</span>
+                                ) : null}
+                              </div>
+                              <p className="mt-1.5 text-[13px] whitespace-pre-wrap">
+                                {c.text}
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      <div className="mt-3 flex flex-col gap-2">
+                        <Textarea
+                          name="comment"
+                          value={comment}
+                          onChange={(e) => setComment(e.target.value)}
+                          placeholder="Add a comment..."
+                          className="min-h-20 resize-none"
+                        />
+                        <Button
+                          size="sm"
+                          className="w-fit self-end"
+                          disabled={
+                            !comment.trim() || commentMutation.isPending
+                          }
+                          onClick={() => commentMutation.mutate(comment.trim())}
+                        >
+                          {commentMutation.isPending ? (
+                            <Loader2
+                              className="size-3.5 animate-spin"
+                              aria-hidden="true"
+                            />
+                          ) : null}
+                          Comment
+                        </Button>
                       </div>
                     </section>
-                  ) : null}
+                  </div>
+                </div>
+              </div>
 
-                  <section>
-                    <SectionHeader
-                      icon={MessageSquare}
-                      label="Comments"
-                      trailing={
-                        comments.length > 0 ? comments.length : undefined
-                      }
-                    />
-                    {detailQuery.isLoading ? (
-                      <Skeleton className="h-12 w-full" />
-                    ) : comments.length === 0 ? (
-                      <p className="text-xs text-muted-foreground/70">
-                        No comments yet.
-                      </p>
-                    ) : (
-                      <ul className="flex flex-col gap-3">
-                        {comments.map((c) => (
-                          <li
-                            key={c.id}
-                            className="rounded-lg bg-muted/40 px-3 py-2"
-                          >
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span className="font-medium text-foreground/80">
-                                {c.author ?? 'Anonymous'}
-                              </span>
-                              {c.created_at ? (
-                                <span>· {relativeDate(c.created_at)}</span>
-                              ) : null}
-                            </div>
-                            <p className="mt-1 text-sm whitespace-pre-wrap">
-                              {c.text}
-                            </p>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-
-                    <div className="mt-3 flex flex-col gap-2">
-                      <Textarea
-                        name="comment"
-                        value={comment}
-                        onChange={(e) => setComment(e.target.value)}
-                        placeholder="Add a comment..."
-                        className="min-h-20 resize-none"
-                        disabled={!canWrite}
-                      />
-                      <Button
-                        size="sm"
-                        className="w-fit self-end"
-                        disabled={
-                          !canWrite ||
-                          !comment.trim() ||
-                          commentMutation.isPending
-                        }
-                        onClick={() => commentMutation.mutate(comment.trim())}
-                      >
-                        {commentMutation.isPending ? (
-                          <Loader2
-                            className="size-3.5 animate-spin"
+              <div className="flex min-h-0 flex-col overflow-y-auto border-t border-border bg-sidebar p-[18px] lg:border-t-0 lg:border-l">
+                <MetaField label="Status">
+                  <Select
+                    value={column}
+                    onValueChange={(v) =>
+                      statusMutation.mutate(v as BeadColumn)
+                    }
+                  >
+                    <SelectTrigger
+                      size="sm"
+                      className="h-[30px] w-full rounded-[7px]"
+                      aria-label="Change status"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COLUMNS.map((c) => (
+                        <SelectItem key={c.key} value={c.key}>
+                          <span
+                            className={cn(
+                              'size-1.5 rounded-full',
+                              DOT_CLASS[c.key],
+                            )}
                             aria-hidden="true"
                           />
-                        ) : null}
-                        Comment
-                      </Button>
-                    </div>
-                  </section>
-                </div>
+                          {COLUMN_LABEL[c.key]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {statusMutation.isPending ? (
+                    <Loader2
+                      className="size-3.5 animate-spin text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                </MetaField>
+
+                <MetaField label="Assignee">
+                  {bead.assignee ? (
+                    <>
+                      <Avatar size="sm" className="size-[19px] bg-white/9">
+                        <AvatarFallback className="bg-transparent text-[9px] font-semibold text-foreground">
+                          {initials(bead.assignee)}
+                        </AvatarFallback>
+                      </Avatar>
+                      {bead.assignee}
+                    </>
+                  ) : (
+                    <span className="text-faint">Unassigned</span>
+                  )}
+                </MetaField>
+
+                <MetaField label="Priority">
+                  {(() => {
+                    const p = Math.max(0, Math.min(4, bead.priority))
+                    return (
+                      <>
+                        <span
+                          className={cn(
+                            'rounded-[4px] px-1 py-px font-mono text-[10px] font-semibold tabular-nums ring-1 ring-inset ring-current',
+                            PRIORITY_TEXT_CLASS[p],
+                          )}
+                        >
+                          P{p}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {PRIORITY_WORD[p]}
+                        </span>
+                      </>
+                    )
+                  })()}
+                </MetaField>
+
+                <MetaField label="Type">
+                  <span className="font-mono text-[12.5px]">
+                    {bead.issue_type}
+                  </span>
+                </MetaField>
+
+                <MetaField label="Labels">
+                  {bead.labels && bead.labels.length > 0 ? (
+                    <span className="flex flex-wrap gap-1.5">
+                      {bead.labels.map((label) => (
+                        <span
+                          key={label}
+                          className="max-w-[92px] truncate rounded-[4px] px-[5px] text-[10.5px] leading-[1.6] text-muted-foreground ring-1 ring-inset ring-border-strong"
+                        >
+                          {label}
+                        </span>
+                      ))}
+                    </span>
+                  ) : (
+                    <span className="text-faint">None</span>
+                  )}
+                </MetaField>
+
+                <hr className="my-4 border-border" />
+
+                <MetaField label="Updated">
+                  <span className="font-mono text-[12.5px] text-muted-foreground">
+                    {relativeDate(bead.updated_at)}
+                  </span>
+                </MetaField>
+
+                <MetaField label="Edges">
+                  <span className="flex items-center gap-3 text-[12.5px] text-muted-foreground">
+                    <span
+                      className="inline-flex items-center gap-1"
+                      title={`${blockedBy.length} blocked by`}
+                    >
+                      <Ban className="size-3" aria-hidden="true" />
+                      {blockedBy.length}
+                    </span>
+                    <span
+                      className="inline-flex items-center gap-1"
+                      title={`${blocking.length} blocking`}
+                    >
+                      <Waypoints className="size-3" aria-hidden="true" />
+                      {blocking.length}
+                    </span>
+                    <span
+                      className="inline-flex items-center gap-1"
+                      title={`${related.length} related`}
+                    >
+                      <Link2 className="size-3" aria-hidden="true" />
+                      {related.length}
+                    </span>
+                  </span>
+                </MetaField>
+
+                <hr className="my-4 border-border" />
+
+                <span className="mb-[7px] block font-mono text-[10px] font-medium tracking-[0.09em] text-faint uppercase">
+                  bd command
+                </span>
+                <p className="rounded-[7px] bg-black/35 px-[11px] py-[9px] font-mono text-[11.5px] leading-[1.55] text-muted-foreground ring-1 ring-inset ring-border">
+                  bd show {bead.id} --json
+                </p>
               </div>
             </>
           ) : (
