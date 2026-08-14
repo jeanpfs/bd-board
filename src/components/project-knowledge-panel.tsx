@@ -13,6 +13,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { InteractiveRow } from '@/components/ui/interactive-row'
 import {
   Select,
   SelectContent,
@@ -260,10 +261,11 @@ export function ProjectKnowledgePanel({
                         aria-hidden="true"
                       />
                       <div className="flex min-w-0 flex-1 items-start gap-2 px-3 py-2.5">
-                        <button
-                          type="button"
+                        <InteractiveRow
+                          variant="plain"
+                          size="flush"
                           onClick={() => onOpenKnowledge(entry.id)}
-                          className="min-w-0 flex-1 text-left"
+                          className="min-w-0 flex-1 rounded-[6px]"
                         >
                           <div className="flex flex-wrap items-center gap-2">
                             <TypeBadge type={entry.type} />
@@ -283,7 +285,7 @@ export function ProjectKnowledgePanel({
                               {entry.bead_title}
                             </p>
                           ) : null}
-                        </button>
+                        </InteractiveRow>
                         <OpenBeadButton
                           bead={bead}
                           beadId={entry.bead_id}
