@@ -126,7 +126,7 @@ export function BoardHeader({
                 <SlidersHorizontal className="size-3.5" aria-hidden="true" />
                 Priority
                 {priorities.length > 0 ? (
-                  <span className="rounded bg-primary/15 px-1 text-[0.65rem] font-semibold tabular-nums text-primary">
+                  <span className="rounded bg-primary/15 px-1 text-[0.65rem] font-semibold tabular-nums text-primary-text">
                     {priorities.length}
                   </span>
                 ) : null}

@@ -55,7 +55,7 @@ export function DesktopProbeCard() {
   return (
     <Card className="gap-3 p-4">
       <div className="flex items-start gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-inset ring-primary/20">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary-text ring-1 ring-inset ring-primary/20">
           <LaptopMinimal className="size-4" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">

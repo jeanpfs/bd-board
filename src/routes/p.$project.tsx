@@ -20,6 +20,7 @@ import { BeadCard } from '@/components/bead-card'
 import { BeadDetailModal } from '@/components/bead-detail-modal'
 import { CreateBeadDialog } from '@/components/create-bead-dialog'
 import { ProjectKnowledgePanel } from '@/components/project-knowledge-panel'
+import { Button } from '@/components/ui/button'
 import { getBeads, getWriteConfigFn, updateBeadStatusFn } from '@/lib/server'
 import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
 import { beadMatches, compareBeads } from '@/lib/sort'
@@ -353,13 +354,9 @@ function BoardError({
     <div className="flex flex-1 items-center justify-center">
       <div className="flex max-w-sm flex-col items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-6 py-8 text-center">
         <p className="text-sm text-muted-foreground">{message}</p>
-        <button
-          type="button"
-          onClick={onRetry}
-          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
+        <Button size="sm" onClick={onRetry}>
           Try again
-        </button>
+        </Button>
       </div>
     </div>
   )
