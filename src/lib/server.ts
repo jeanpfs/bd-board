@@ -98,10 +98,6 @@ const webAddComment = createServerFn({ method: 'POST' })
     return { ok: true as const }
   })
 
-function desktopWritesDisabled(): never {
-  throw new Error('Writes are disabled in desktop mode')
-}
-
 export async function getProjects(): Promise<Project[]> {
   if (isDesktopApp()) return invoke<Project[]>('discover_projects')
   return webGetProjects()
@@ -160,7 +156,14 @@ export async function updateBeadStatusFn({
 }: {
   data: { project: string; id: string; status: string }
 }): Promise<{ ok: true }> {
-  if (isDesktopApp()) desktopWritesDisabled()
+  if (isDesktopApp()) {
+    await invoke('update_bead_status', {
+      database: data.project,
+      id: data.id,
+      status: data.status,
+    })
+    return { ok: true }
+  }
   return webUpdateBeadStatus({ data })
 }
 
@@ -169,7 +172,14 @@ export async function updateBeadFn({
 }: {
   data: { project: string; id: string; update: BeadUpdate }
 }): Promise<{ ok: true }> {
-  if (isDesktopApp()) desktopWritesDisabled()
+  if (isDesktopApp()) {
+    await invoke('update_bead', {
+      database: data.project,
+      id: data.id,
+      update: data.update,
+    })
+    return { ok: true }
+  }
   return webUpdateBead({ data })
 }
 
@@ -178,7 +188,13 @@ export async function previewDeleteBeadFn({
 }: {
   data: { project: string; id: string }
 }): Promise<{ preview: string }> {
-  if (isDesktopApp()) desktopWritesDisabled()
+  if (isDesktopApp()) {
+    const preview = await invoke<string>('preview_delete_bead', {
+      database: data.project,
+      id: data.id,
+    })
+    return { preview }
+  }
   return webPreviewDeleteBead({ data })
 }
 
@@ -187,7 +203,10 @@ export async function deleteBeadFn({
 }: {
   data: { project: string; id: string }
 }): Promise<{ ok: true }> {
-  if (isDesktopApp()) desktopWritesDisabled()
+  if (isDesktopApp()) {
+    await invoke('delete_bead', { database: data.project, id: data.id })
+    return { ok: true }
+  }
   return webDeleteBead({ data })
 }
 
@@ -202,7 +221,16 @@ export async function createBeadFn({
     parent?: string
   }
 }): Promise<{ id: string }> {
-  if (isDesktopApp()) desktopWritesDisabled()
+  if (isDesktopApp()) {
+    const id = await invoke<string>('create_bead', {
+      database: data.project,
+      title: data.title,
+      description: data.description,
+      type: data.type,
+      parent: data.parent,
+    })
+    return { id }
+  }
   return webCreateBead({ data })
 }
 
@@ -211,6 +239,13 @@ export async function addCommentFn({
 }: {
   data: { project: string; id: string; text: string }
 }): Promise<{ ok: true }> {
-  if (isDesktopApp()) desktopWritesDisabled()
+  if (isDesktopApp()) {
+    await invoke('add_comment', {
+      database: data.project,
+      id: data.id,
+      text: data.text,
+    })
+    return { ok: true }
+  }
   return webAddComment({ data })
 }

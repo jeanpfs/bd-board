@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::env;
 use std::fs;
@@ -113,6 +113,19 @@ pub struct BeadDetail {
 #[serde(rename_all = "camelCase")]
 pub struct WriteConfig {
     pub writes_enabled: bool,
+}
+
+#[derive(Deserialize, Default)]
+pub struct BeadUpdateInput {
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub acceptance_criteria: Option<String>,
+    pub design: Option<String>,
+    pub notes: Option<String>,
+    pub priority: Option<i64>,
+    pub issue_type: Option<String>,
+    pub assignee: Option<String>,
+    pub labels: Option<Vec<String>>,
 }
 
 fn bd_binary() -> String {
@@ -575,8 +588,7 @@ fn build_project_knowledge(issues: &[Value]) -> ProjectKnowledge {
         b.as_deref().unwrap_or("").cmp(a.as_deref().unwrap_or(""))
     };
 
-    let mut comments: Vec<ProjectComment> =
-        raw_comments.iter().map(map_project_comment).collect();
+    let mut comments: Vec<ProjectComment> = raw_comments.iter().map(map_project_comment).collect();
     comments.sort_by(|a, b| by_date_desc(&a.created_at, &b.created_at));
     comments.truncate(COMMENTS_LIMIT);
 
@@ -602,6 +614,145 @@ fn get_project_knowledge_inner(database: &str) -> Result<ProjectKnowledge, Strin
             knowledge: Vec::new(),
         }),
     }
+}
+
+fn run_bd_mut(dir: &Path, args: &[String]) -> Result<String, String> {
+    let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    run_bd(dir, &arg_refs)
+}
+
+fn update_bead_status_inner(database: &str, id: &str, status: &str) -> Result<(), String> {
+    let dir = resolve_dir(database)?;
+    run_bd(&dir, &["update", id, "--status", status])?;
+    Ok(())
+}
+
+fn build_update_bead_args(
+    id: &str,
+    update: &BeadUpdateInput,
+    existing_labels: &[String],
+) -> Vec<String> {
+    let mut args = vec!["update".to_string(), id.to_string()];
+
+    if let Some(title) = &update.title {
+        args.push("--title".to_string());
+        args.push(title.clone());
+    }
+    if let Some(description) = &update.description {
+        args.push("--description".to_string());
+        args.push(description.clone());
+    }
+    if let Some(acceptance) = &update.acceptance_criteria {
+        args.push("--acceptance".to_string());
+        args.push(acceptance.clone());
+    }
+    if let Some(design) = &update.design {
+        args.push("--design".to_string());
+        args.push(design.clone());
+    }
+    if let Some(notes) = &update.notes {
+        args.push("--notes".to_string());
+        args.push(notes.clone());
+    }
+    if let Some(priority) = update.priority {
+        args.push("--priority".to_string());
+        args.push(priority.to_string());
+    }
+    if let Some(issue_type) = &update.issue_type {
+        args.push("--type".to_string());
+        args.push(issue_type.clone());
+    }
+    if let Some(assignee) = &update.assignee {
+        args.push("--assignee".to_string());
+        args.push(assignee.clone());
+    }
+    if let Some(labels) = &update.labels {
+        if !labels.is_empty() {
+            args.push("--set-labels".to_string());
+            args.push(labels.join(","));
+        } else {
+            for label in existing_labels {
+                args.push("--remove-label".to_string());
+                args.push(label.clone());
+            }
+        }
+    }
+
+    args
+}
+
+fn update_bead_inner(database: &str, id: &str, update: BeadUpdateInput) -> Result<(), String> {
+    let dir = resolve_dir(database)?;
+    let existing_labels = if update.labels.is_some() {
+        get_bead_detail_inner(database, id)?.bead.labels
+    } else {
+        Vec::new()
+    };
+    let args = build_update_bead_args(id, &update, &existing_labels);
+    if args.len() <= 2 {
+        return Ok(());
+    }
+    run_bd_mut(&dir, &args)?;
+    Ok(())
+}
+
+fn build_preview_delete_bead_args(id: &str) -> Vec<String> {
+    vec!["delete".to_string(), id.to_string()]
+}
+
+fn build_delete_bead_args(id: &str) -> Vec<String> {
+    vec!["delete".to_string(), id.to_string(), "--force".to_string()]
+}
+
+fn preview_delete_bead_inner(database: &str, id: &str) -> Result<String, String> {
+    let dir = resolve_dir(database)?;
+    let args = build_preview_delete_bead_args(id);
+    let out = run_bd_mut(&dir, &args)?;
+    Ok(out.trim().to_string())
+}
+
+fn delete_bead_inner(database: &str, id: &str) -> Result<(), String> {
+    let dir = resolve_dir(database)?;
+    let args = build_delete_bead_args(id);
+    run_bd_mut(&dir, &args)
+        .map(|_| ())
+        .map_err(|err| format!("Unable to delete bead. {err}"))
+}
+
+fn create_bead_inner(
+    database: &str,
+    title: &str,
+    description: Option<&str>,
+    kind: Option<&str>,
+    parent: Option<&str>,
+) -> Result<String, String> {
+    let dir = resolve_dir(database)?;
+    let mut args = vec![
+        "create".to_string(),
+        "--title".to_string(),
+        title.to_string(),
+        "--silent".to_string(),
+    ];
+    if let Some(description) = description.filter(|s| !s.is_empty()) {
+        args.push("-d".to_string());
+        args.push(description.to_string());
+    }
+    if let Some(kind) = kind.filter(|s| !s.is_empty()) {
+        args.push("--type".to_string());
+        args.push(kind.to_string());
+    }
+    if let Some(parent) = parent.filter(|s| !s.is_empty()) {
+        args.push("--parent".to_string());
+        args.push(parent.to_string());
+    }
+    let out = run_bd_mut(&dir, &args)?;
+    Ok(out.trim().to_string())
+}
+
+fn add_comment_inner(database: &str, id: &str, text: &str) -> Result<(), String> {
+    let dir = resolve_dir(database)?;
+    run_bd(&dir, &["comment", id, text])?;
+    Ok(())
 }
 
 fn is_write_enabled() -> bool {
@@ -639,6 +790,65 @@ pub fn get_write_config() -> Result<WriteConfig, String> {
     Ok(WriteConfig {
         writes_enabled: is_write_enabled(),
     })
+}
+
+fn assert_writes_enabled() -> Result<(), String> {
+    if is_write_enabled() {
+        Ok(())
+    } else {
+        Err(
+            "Writes are disabled. Set BD_BOARD_ALLOW_WRITE=true to create, edit, comment, or delete beads."
+                .to_string(),
+        )
+    }
+}
+
+#[tauri::command]
+pub fn update_bead_status(database: String, id: String, status: String) -> Result<(), String> {
+    assert_writes_enabled()?;
+    update_bead_status_inner(&database, &id, &status)
+}
+
+#[tauri::command]
+pub fn update_bead(database: String, id: String, update: BeadUpdateInput) -> Result<(), String> {
+    assert_writes_enabled()?;
+    update_bead_inner(&database, &id, update)
+}
+
+#[tauri::command]
+pub fn preview_delete_bead(database: String, id: String) -> Result<String, String> {
+    assert_writes_enabled()?;
+    preview_delete_bead_inner(&database, &id)
+}
+
+#[tauri::command]
+pub fn delete_bead(database: String, id: String) -> Result<(), String> {
+    assert_writes_enabled()?;
+    delete_bead_inner(&database, &id)
+}
+
+#[tauri::command]
+pub fn create_bead(
+    database: String,
+    title: String,
+    description: Option<String>,
+    r#type: Option<String>,
+    parent: Option<String>,
+) -> Result<String, String> {
+    assert_writes_enabled()?;
+    create_bead_inner(
+        &database,
+        &title,
+        description.as_deref(),
+        r#type.as_deref(),
+        parent.as_deref(),
+    )
+}
+
+#[tauri::command]
+pub fn add_comment(database: String, id: String, text: String) -> Result<(), String> {
+    assert_writes_enabled()?;
+    add_comment_inner(&database, &id, &text)
 }
 
 #[cfg(test)]
@@ -807,6 +1017,87 @@ mod tests {
 
         let result = build_project_knowledge(&issues);
         assert_eq!(result.comments.len(), COMMENTS_LIMIT);
-        assert_eq!(result.knowledge.len(), KNOWLEDGE_LIMIT.min(COMMENTS_LIMIT + 20));
+        assert_eq!(
+            result.knowledge.len(),
+            KNOWLEDGE_LIMIT.min(COMMENTS_LIMIT + 20)
+        );
+    }
+
+    #[test]
+    fn build_update_bead_args_builds_arguments_for_editable_fields() {
+        let update = BeadUpdateInput {
+            title: Some("Updated title".to_string()),
+            description: Some("Updated description".to_string()),
+            acceptance_criteria: Some("Updated acceptance".to_string()),
+            design: Some("Updated design".to_string()),
+            notes: Some("Updated notes".to_string()),
+            priority: Some(0),
+            issue_type: Some("feature".to_string()),
+            assignee: Some("Jean".to_string()),
+            labels: Some(vec!["backend".to_string(), "ui".to_string()]),
+        };
+
+        let args = build_update_bead_args("bd-board-a2k", &update, &[]);
+
+        assert_eq!(
+            args,
+            vec![
+                "update",
+                "bd-board-a2k",
+                "--title",
+                "Updated title",
+                "--description",
+                "Updated description",
+                "--acceptance",
+                "Updated acceptance",
+                "--design",
+                "Updated design",
+                "--notes",
+                "Updated notes",
+                "--priority",
+                "0",
+                "--type",
+                "feature",
+                "--assignee",
+                "Jean",
+                "--set-labels",
+                "backend,ui",
+            ]
+        );
+    }
+
+    #[test]
+    fn build_update_bead_args_removes_existing_labels_when_labels_explicitly_empty() {
+        let update = BeadUpdateInput {
+            labels: Some(vec![]),
+            ..Default::default()
+        };
+        let existing = vec!["old".to_string(), "ui".to_string()];
+
+        let args = build_update_bead_args("bd-board-a2k", &update, &existing);
+
+        assert_eq!(
+            args,
+            vec![
+                "update",
+                "bd-board-a2k",
+                "--remove-label",
+                "old",
+                "--remove-label",
+                "ui",
+            ]
+        );
+    }
+
+    #[test]
+    fn delete_bead_args_keep_preview_and_confirmed_commands_separate() {
+        assert_eq!(
+            build_preview_delete_bead_args("bd-board-a2k"),
+            vec!["delete", "bd-board-a2k"]
+        );
+        assert_eq!(
+            build_delete_bead_args("bd-board-a2k"),
+            vec!["delete", "bd-board-a2k", "--force"]
+        );
     }
 }
