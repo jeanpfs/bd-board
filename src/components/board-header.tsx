@@ -5,9 +5,9 @@ import {
   Plus,
   Search,
   SlidersHorizontal,
-  X,
 } from 'lucide-react'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -21,7 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { cn } from '@/lib/utils'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { PRIORITIES, SORT_OPTIONS } from '@/lib/sort'
 
 import type { LucideIcon } from 'lucide-react'
@@ -83,54 +83,37 @@ export function BoardHeader({
   return (
     <header className="flex flex-col gap-3 pb-4">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <div
-          className="inline-flex items-center gap-0.5 rounded-md bg-muted/60 p-0.5"
-          role="group"
+        <ToggleGroup
+          type="single"
+          value={view}
+          onValueChange={(value) => value && setView(value as BoardView)}
           aria-label="Group by"
         >
           {VIEWS.map((v) => {
             const Icon = v.icon
-            const active = view === v.key
             return (
-              <button
-                key={v.key}
-                type="button"
-                onClick={() => setView(v.key)}
-                aria-pressed={active}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-                  active
-                    ? 'bg-background text-foreground ring-1 ring-foreground/10 shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
+              <ToggleGroupItem key={v.key} value={v.key} aria-label={v.label}>
                 <Icon className="size-3.5" aria-hidden="true" />
                 {v.label}
-              </button>
+              </ToggleGroupItem>
             )
           })}
-        </div>
+        </ToggleGroup>
 
         {ready ? (
-          <button
-            type="button"
-            onClick={() => setReady(false)}
-            className="inline-flex h-6 items-center gap-1 rounded-full bg-primary/26 px-2 text-xs font-medium text-primary-text ring-1 ring-inset ring-ring/55 transition-colors hover:bg-primary/35"
-          >
+          <Badge variant="filter" onRemove={() => setReady(false)}>
             Ready
-            <X className="size-3" aria-hidden="true" />
-          </button>
+          </Badge>
         ) : null}
 
         {assignee ? (
-          <button
-            type="button"
-            onClick={() => setAssignee('')}
-            className="inline-flex h-6 max-w-48 items-center gap-1 rounded-full bg-primary/26 px-2 text-xs font-medium text-primary-text ring-1 ring-inset ring-ring/55 transition-colors hover:bg-primary/35"
+          <Badge
+            variant="filter"
+            className="max-w-48"
+            onRemove={() => setAssignee('')}
           >
             <span className="truncate">{assignee}</span>
-            <X className="size-3 shrink-0" aria-hidden="true" />
-          </button>
+          </Badge>
         ) : null}
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
