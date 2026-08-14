@@ -37,6 +37,7 @@ interface BoardSearch {
   q?: string
   p?: string
   ready?: string
+  assignee?: string
   tab?: ProjectTab
   view?: BoardView
   sort?: SortKey
@@ -81,6 +82,10 @@ export const Route = createFileRoute('/p/$project')({
         ? serializePriorities(parsePriorityParam(search.p))
         : undefined,
     ready: search.ready === '1' ? '1' : undefined,
+    assignee:
+      typeof search.assignee === 'string' && search.assignee.length > 0
+        ? search.assignee
+        : undefined,
     tab:
       typeof search.tab === 'string' && PROJECT_TABS.has(search.tab)
         ? (search.tab as ProjectTab)
@@ -125,6 +130,7 @@ function BoardPage() {
     [boardSearch.p],
   )
   const ready = boardSearch.ready === '1'
+  const assignee = boardSearch.assignee ?? ''
   const sort = boardSearch.sort ?? 'priority'
 
   const sensors = useSensors(
@@ -159,8 +165,11 @@ function BoardPage() {
   const epics = useMemo(() => beads.filter(isEpic), [beads])
 
   const filtered = useMemo(
-    () => beads.filter((bead) => beadMatches(bead, search, priorities, ready)),
-    [beads, search, priorities, ready],
+    () =>
+      beads.filter((bead) =>
+        beadMatches(bead, search, priorities, ready, assignee),
+      ),
+    [beads, search, priorities, ready, assignee],
   )
 
   const columns = useMemo(() => {
@@ -273,6 +282,10 @@ function BoardPage() {
           setReady={(value) =>
             patchBoardSearch({ ready: value ? '1' : undefined })
           }
+          assignee={assignee}
+          setAssignee={(value) =>
+            patchBoardSearch({ assignee: value || undefined })
+          }
           sort={sort}
           setSort={(value) => patchBoardSearch({ sort: value })}
           onCreate={() => setCreateOpen(true)}
@@ -304,6 +317,7 @@ function BoardPage() {
           search={search}
           priorities={priorities}
           ready={ready}
+          assignee={assignee}
           sort={sort}
           groupBy={view}
           onOpen={openBead}

@@ -70,8 +70,10 @@ export function beadMatches(
   search: string,
   priorities: number[],
   ready = false,
+  assignee = '',
 ): boolean {
   if (ready && !isReady(bead)) return false
+  if (assignee && bead.assignee !== assignee) return false
   if (
     priorities.length > 0 &&
     !priorities.includes(clampPriority(bead.priority))

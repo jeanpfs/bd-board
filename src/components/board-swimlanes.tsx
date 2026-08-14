@@ -41,6 +41,7 @@ interface BoardSwimlanesProps {
   search: string
   priorities: number[]
   ready: boolean
+  assignee: string
   sort: SortKey
   groupBy: SwimlaneGroup
   onOpen: (bead: Bead) => void
@@ -258,13 +259,15 @@ export function BoardSwimlanes({
   search,
   priorities,
   ready,
+  assignee,
   sort,
   groupBy,
   onOpen,
   applyDrop,
 }: BoardSwimlanesProps) {
   const { lanes, totals, hasAny } = useMemo(() => {
-    const matches = (b: Bead) => beadMatches(b, search, priorities, ready)
+    const matches = (b: Bead) =>
+      beadMatches(b, search, priorities, ready, assignee)
     const work = beads.filter((b) => !isEpic(b) && matches(b))
 
     let builtLanes: Lane[]
@@ -332,7 +335,7 @@ export function BoardSwimlanes({
       totals: totalByColumn,
       hasAny: builtLanes.length > 0,
     }
-  }, [beads, search, priorities, ready, groupBy])
+  }, [beads, search, priorities, ready, assignee, groupBy])
 
   if (!hasAny) {
     return (

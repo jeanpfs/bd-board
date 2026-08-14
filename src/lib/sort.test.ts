@@ -112,6 +112,21 @@ describe('beadMatches', () => {
     expect(beadMatches(inProgress, '', [], true)).toBe(false)
     expect(beadMatches(openBlocked, '', [], false)).toBe(true)
   })
+
+  it('filters by assignee when requested', () => {
+    const mine = bead({ assignee: 'jean.pfs2@gmail.com' })
+    const someoneElse = bead({ assignee: 'claude-agent' })
+    const unassigned = bead({ assignee: undefined })
+
+    expect(beadMatches(mine, '', [], false, 'jean.pfs2@gmail.com')).toBe(true)
+    expect(beadMatches(someoneElse, '', [], false, 'jean.pfs2@gmail.com')).toBe(
+      false,
+    )
+    expect(beadMatches(unassigned, '', [], false, 'jean.pfs2@gmail.com')).toBe(
+      false,
+    )
+    expect(beadMatches(someoneElse, '', [], false, '')).toBe(true)
+  })
 })
 
 describe('isReady', () => {

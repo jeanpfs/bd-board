@@ -1,10 +1,12 @@
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearch } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { BookOpen, Columns3, Folder } from 'lucide-react'
+import { BookOpen, Columns3, Folder, X } from 'lucide-react'
 
 import { AppIcon } from '@/components/app-icon'
 import { cn } from '@/lib/utils'
 import { getBeads, getProjects, isDesktopApp } from '@/lib/server'
+import { getStoredIdentity, setStoredIdentity } from '@/lib/identity'
 import { isReady } from '@/lib/sort'
 import { mapStatus } from '@/lib/types'
 
@@ -105,6 +107,25 @@ export function ProjectRail() {
     (b) => mapStatus(b.status).column === 'blocked',
   ).length
 
+  const [identity, setIdentity] = useState<string | null>(null)
+  useEffect(() => {
+    setIdentity(getStoredIdentity())
+  }, [])
+
+  const assigneeOptions = useMemo(() => {
+    const seen = new Set<string>()
+    for (const b of beads) if (b.assignee) seen.add(b.assignee)
+    return [...seen].sort()
+  }, [beads])
+  const mineCount = identity
+    ? beads.filter((b) => b.assignee === identity).length
+    : 0
+
+  function chooseIdentity(value: string) {
+    setStoredIdentity(value)
+    setIdentity(value)
+  }
+
   return (
     <aside className="flex w-[232px] shrink-0 flex-col overflow-hidden bg-sidebar">
       <div className="flex h-12 shrink-0 items-center gap-2 px-3">
@@ -178,6 +199,54 @@ export function ProjectRail() {
               >
                 Blocked
               </RailLink>
+              {identity ? (
+                <li className="group/mine flex h-7 items-center gap-1 rounded-md pr-1 pl-2 text-[13px] text-muted-foreground hover:bg-foreground/6 hover:text-foreground">
+                  <Link
+                    to="/p/$project"
+                    params={{ project }}
+                    search={{ assignee: identity }}
+                    className="flex min-w-0 flex-1 items-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  >
+                    <span
+                      className="size-1.5 shrink-0 rounded-full bg-primary-text"
+                      aria-hidden="true"
+                    />
+                    <span className="min-w-0 flex-1 truncate">
+                      Assigned to me
+                    </span>
+                    <span className="shrink-0 font-mono text-[11px] tabular-nums text-faint">
+                      {mineCount}
+                    </span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => chooseIdentity('')}
+                    aria-label="Forget who I am"
+                    title={`Signed in as ${identity}`}
+                    className="flex size-5 shrink-0 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none group-hover/mine:opacity-100"
+                  >
+                    <X className="size-3" aria-hidden="true" />
+                  </button>
+                </li>
+              ) : assigneeOptions.length > 0 ? (
+                <li className="px-2">
+                  <select
+                    defaultValue=""
+                    onChange={(event) => chooseIdentity(event.target.value)}
+                    aria-label="Which assignee is me?"
+                    className="h-7 w-full appearance-none rounded-md bg-transparent px-2 text-[13px] text-muted-foreground outline-none hover:bg-foreground/6 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
+                  >
+                    <option value="" disabled>
+                      Assigned to me…
+                    </option>
+                    {assigneeOptions.map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </select>
+                </li>
+              ) : null}
             </RailGroup>
           </>
         ) : null}

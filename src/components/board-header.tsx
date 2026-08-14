@@ -39,6 +39,8 @@ interface BoardHeaderProps {
   setPriorities: (value: number[]) => void
   ready: boolean
   setReady: (value: boolean) => void
+  assignee: string
+  setAssignee: (value: string) => void
   sort: SortKey
   setSort: (value: SortKey) => void
   onCreate: () => void
@@ -65,6 +67,8 @@ export function BoardHeader({
   setPriorities,
   ready,
   setReady,
+  assignee,
+  setAssignee,
   sort,
   setSort,
   onCreate,
@@ -117,6 +121,17 @@ export function BoardHeader({
           >
             Ready
             <X className="size-3" aria-hidden="true" />
+          </button>
+        ) : null}
+
+        {assignee ? (
+          <button
+            type="button"
+            onClick={() => setAssignee('')}
+            className="inline-flex h-6 max-w-48 items-center gap-1 rounded-full bg-primary/26 px-2 text-xs font-medium text-primary-text ring-1 ring-inset ring-ring/55 transition-colors hover:bg-primary/35"
+          >
+            <span className="truncate">{assignee}</span>
+            <X className="size-3 shrink-0" aria-hidden="true" />
           </button>
         ) : null}
 
