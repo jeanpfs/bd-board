@@ -7,6 +7,7 @@ import type { BdAdapter } from './bd-contract.ts'
 import type {
   Bead,
   BeadDetail,
+  BeadLink,
   BeadUpdate,
   Comment,
   Project,
@@ -23,8 +24,8 @@ const execFileAsync = promisify(execFile)
 const BD_PRIMARY = process.env['BD_BIN'] ?? 'bd'
 const BD_FALLBACK = '/opt/homebrew/bin/bd'
 const MAX_BUFFER = 64 * 1024 * 1024
-const COMMENTS_LIMIT = 250
-const KNOWLEDGE_LIMIT = 500
+export const COMMENTS_LIMIT = 250
+export const KNOWLEDGE_LIMIT = 500
 
 let dirCache: Map<string, string> | null = null
 
@@ -51,6 +52,15 @@ async function bdJson<T>(dir: string, args: string[]): Promise<T> {
   const trimmed = raw.trim()
   if (!trimmed) return [] as unknown as T
   return JSON.parse(trimmed) as T
+}
+
+async function bdJsonLines<T>(dir: string, args: string[]): Promise<T[]> {
+  const raw = await bdRaw(dir, args)
+  return raw
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as T)
 }
 
 function buildCounts(
@@ -89,14 +99,18 @@ function buildCounts(
   return totals
 }
 
+export function buildCountsFromGroups(
+  groups: { group: string; count: number }[],
+): ProjectCounts {
+  return buildCounts(groups.map((g) => ({ status: g.group, c: g.count })))
+}
+
 async function counts(dir: string): Promise<ProjectCounts> {
   try {
-    const rows = await bdJson<{ status: string; c: string | number }[]>(dir, [
-      'sql',
-      '--json',
-      'SELECT status, COUNT(*) AS c FROM issues GROUP BY status',
-    ])
-    return buildCounts(rows)
+    const result = await bdJson<{
+      groups?: { group: string; count: number }[]
+    }>(dir, ['count', '--by-status', '--json'])
+    return buildCountsFromGroups(result.groups ?? [])
   } catch {
     return {
       open: 0,
@@ -109,10 +123,18 @@ async function counts(dir: string): Promise<ProjectCounts> {
   }
 }
 
+export function expandHome(p: string): string {
+  if (p === '~') return os.homedir()
+  if (p.startsWith('~/')) return path.join(os.homedir(), p.slice(2))
+  return p
+}
+
 async function resolveRoots(): Promise<string[]> {
   const env = process.env['BD_ROOTS']
-  if (env) return splitConfiguredRoots(env, path.delimiter)
-  return [path.join(os.homedir(), 'Code')]
+  const roots = env
+    ? splitConfiguredRoots(env, path.delimiter)
+    : [path.join(os.homedir(), 'Code')]
+  return roots.map(expandHome)
 }
 
 export function splitConfiguredRoots(raw: string, delimiter: string): string[] {
@@ -171,6 +193,98 @@ async function resolveDir(database: string): Promise<string> {
       `Unknown database: ${database}. Run discoverProjects first.`,
     )
   return dir
+}
+
+interface DependencyEdge {
+  from: string
+  to: string
+  type: string
+}
+
+/**
+ * Edges only exist in the `bd list`/`bd export` shape, where each entry carries
+ * `depends_on_id`. `bd show` reuses the same field name for expanded beads, so
+ * entries without `depends_on_id` are skipped.
+ */
+function parseDependencyEdges(raw: Record<string, unknown>): DependencyEdge[] {
+  const list = Array.isArray(raw['dependencies'])
+    ? (raw['dependencies'] as Record<string, unknown>[])
+    : []
+  const ownerId = typeof raw['id'] === 'string' ? raw['id'] : ''
+
+  return list.flatMap((entry) => {
+    const to = entry['depends_on_id']
+    if (typeof to !== 'string' || !to) return []
+    const from =
+      typeof entry['issue_id'] === 'string' ? entry['issue_id'] : ownerId
+    if (!from) return []
+    return [{ from, to, type: String(entry['type'] ?? 'blocks') }]
+  })
+}
+
+function collectEdges(
+  rawBeads: Record<string, unknown>[],
+  knownIds: Set<string>,
+): DependencyEdge[] {
+  const seen = new Set<string>()
+  const edges: DependencyEdge[] = []
+
+  for (const raw of rawBeads) {
+    for (const edge of parseDependencyEdges(raw)) {
+      if (!knownIds.has(edge.from) || !knownIds.has(edge.to)) continue
+      const key = `${edge.from}|${edge.to}|${edge.type}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      edges.push(edge)
+    }
+  }
+
+  return edges
+}
+
+function pushLink(
+  target: Map<string, BeadLink[]>,
+  id: string,
+  link: BeadLink,
+): void {
+  const list = target.get(id) ?? []
+  list.push(link)
+  target.set(id, list)
+}
+
+export function buildBeadGraph(rawBeads: Record<string, unknown>[]): Bead[] {
+  const beads = rawBeads.map(mapRawBead)
+  const knownIds = new Set(beads.map((b) => b.id))
+  const edges = collectEdges(rawBeads, knownIds)
+
+  const linksById = new Map<string, BeadLink[]>()
+  const parentById = new Map<string, string>()
+
+  for (const edge of edges) {
+    pushLink(linksById, edge.from, {
+      id: edge.to,
+      type: edge.type,
+      direction: 'outgoing',
+    })
+    pushLink(linksById, edge.to, {
+      id: edge.from,
+      type: edge.type,
+      direction: 'incoming',
+    })
+    if (edge.type === 'parent-child') parentById.set(edge.from, edge.to)
+  }
+
+  const withLinks = beads.map((bead) => {
+    const links = linksById.get(bead.id)
+    const parent = bead.parent ?? parentById.get(bead.id)
+    return {
+      ...bead,
+      ...(parent ? { parent } : {}),
+      ...(links ? { links } : {}),
+    }
+  })
+
+  return deriveChildren(withLinks)
 }
 
 function deriveChildren(beads: Bead[]): Bead[] {
@@ -275,8 +389,7 @@ async function listBeads(database: string): Promise<Bead[]> {
     '--all',
     '--json',
   ])
-  const beads = raw.map(mapRawBead)
-  return deriveChildren(beads)
+  return buildBeadGraph(raw)
 }
 
 async function getBeadDetail(
@@ -312,56 +425,42 @@ async function getBeadDetail(
   return { ...bead, dependencies, comments }
 }
 
+export function buildProjectKnowledge(
+  issues: Record<string, unknown>[],
+): ProjectKnowledge {
+  const rawComments = issues.flatMap((issue) => {
+    const issueComments = Array.isArray(issue['comments'])
+      ? (issue['comments'] as Record<string, unknown>[])
+      : []
+    return issueComments.map((c) => ({ ...c, title: issue['title'] }))
+  })
+
+  const byDateDesc = (a: { created_at?: string }, b: { created_at?: string }) =>
+    (b.created_at ?? '').localeCompare(a.created_at ?? '')
+
+  const comments = rawComments
+    .map(mapProjectComment)
+    .sort(byDateDesc)
+    .slice(0, COMMENTS_LIMIT)
+
+  const knowledge = rawComments
+    .map(mapKnowledgeEntry)
+    .filter((entry): entry is ProjectKnowledgeEntry => entry !== null)
+    .sort(byDateDesc)
+    .slice(0, KNOWLEDGE_LIMIT)
+
+  return { comments, knowledge }
+}
+
 async function getProjectKnowledge(
   database: string,
 ): Promise<ProjectKnowledge> {
   const dir = await resolveDir(database)
-
-  const commentQuery = `
-    SELECT
-      c.id AS id,
-      c.issue_id AS bead_id,
-      i.title AS bead_title,
-      c.author AS author,
-      c.text AS text,
-      c.created_at AS created_at
-    FROM comments c
-    LEFT JOIN issues i ON i.id = c.issue_id
-    ORDER BY c.created_at DESC
-    LIMIT ${COMMENTS_LIMIT}
-  `
-
-  const knowledgeQuery = `
-    SELECT
-      c.id AS id,
-      c.issue_id AS bead_id,
-      i.title AS bead_title,
-      c.author AS author,
-      c.text AS text,
-      c.created_at AS created_at
-    FROM comments c
-    LEFT JOIN issues i ON i.id = c.issue_id
-    WHERE c.text LIKE 'LEARNED:%'
-       OR c.text LIKE 'DECISION:%'
-       OR c.text LIKE 'FACT:%'
-       OR c.text LIKE 'PATTERN:%'
-       OR c.text LIKE 'INVESTIGATION:%'
-       OR c.text LIKE 'MUST-CHECK:%'
-       OR c.text LIKE 'DEVIATION:%'
-    ORDER BY c.created_at DESC
-    LIMIT ${KNOWLEDGE_LIMIT}
-  `
-
-  const [rawComments, rawKnowledge] = await Promise.all([
-    bdJson<Record<string, unknown>[]>(dir, ['sql', '--json', commentQuery]),
-    bdJson<Record<string, unknown>[]>(dir, ['sql', '--json', knowledgeQuery]),
-  ])
-
-  return {
-    comments: rawComments.map(mapProjectComment),
-    knowledge: rawKnowledge
-      .map(mapKnowledgeEntry)
-      .filter((entry): entry is ProjectKnowledgeEntry => entry !== null),
+  try {
+    const issues = await bdJsonLines<Record<string, unknown>>(dir, ['export'])
+    return buildProjectKnowledge(issues)
+  } catch {
+    return { comments: [], knowledge: [] }
   }
 }
 

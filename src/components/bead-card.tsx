@@ -1,13 +1,22 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, Layers, MessageSquare } from 'lucide-react'
+import {
+  Ban,
+  GripVertical,
+  Layers,
+  Link2,
+  ListTree,
+  MessageSquare,
+  Waypoints,
+} from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { EpicProgress } from '@/components/epic-progress'
 import { cn } from '@/lib/utils'
-import { isEpic, mapStatus } from '@/lib/types'
+import { groupBeadLinks, isEpic, mapStatus } from '@/lib/types'
 
+import type { LucideIcon } from 'lucide-react'
 import type { Bead } from '@/lib/types'
 
 interface BeadCardProps {
@@ -40,6 +49,29 @@ function initials(name: string): string {
   return (parts[0][0] + parts[1][0]).toUpperCase()
 }
 
+function LinkStat({
+  icon: Icon,
+  count,
+  label,
+  className,
+}: {
+  icon: LucideIcon
+  count: number
+  label: string
+  className?: string
+}) {
+  return (
+    <span
+      className={cn('inline-flex items-center gap-0.5 tabular-nums', className)}
+      title={label}
+    >
+      <Icon className="size-3" aria-hidden="true" />
+      {count}
+      <span className="sr-only">{label}</span>
+    </span>
+  )
+}
+
 export function BeadCard({ bead, onOpen, overlay = false }: BeadCardProps) {
   const {
     attributes,
@@ -54,6 +86,8 @@ export function BeadCard({ bead, onOpen, overlay = false }: BeadCardProps) {
   const badge = mapStatus(bead.status).badge
   const labels = bead.labels ?? []
   const childBeads = bead.childBeads ?? []
+  const childCount = bead.children?.length ?? childBeads.length
+  const { blockedBy, blocking, related } = groupBeadLinks(bead.links)
   const priority = Math.max(0, Math.min(4, bead.priority))
 
   const style = overlay
@@ -136,6 +170,35 @@ export function BeadCard({ bead, onOpen, overlay = false }: BeadCardProps) {
           ))}
 
           <span className="ml-auto flex items-center gap-2 text-[0.7rem] text-muted-foreground">
+            {childCount > 0 ? (
+              <LinkStat
+                icon={ListTree}
+                count={childCount}
+                label={`${childCount} ${childCount === 1 ? 'subtask' : 'subtasks'}`}
+              />
+            ) : null}
+            {blockedBy.length > 0 ? (
+              <LinkStat
+                icon={Ban}
+                count={blockedBy.length}
+                label={`blocked by ${blockedBy.length}`}
+                className="text-status-blocked"
+              />
+            ) : null}
+            {blocking.length > 0 ? (
+              <LinkStat
+                icon={Waypoints}
+                count={blocking.length}
+                label={`blocking ${blocking.length}`}
+              />
+            ) : null}
+            {related.length > 0 ? (
+              <LinkStat
+                icon={Link2}
+                count={related.length}
+                label={`${related.length} related`}
+              />
+            ) : null}
             {bead.comment_count ? (
               <span className="inline-flex items-center gap-0.5 tabular-nums">
                 <MessageSquare className="size-3" aria-hidden="true" />

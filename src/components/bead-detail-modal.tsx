@@ -10,6 +10,7 @@ import {
   CircleCheck,
   CornerUpLeft,
   Layers,
+  Link2,
   ListTree,
   Loader2,
   MessageSquare,
@@ -40,7 +41,7 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
+import { COLUMNS, groupBeadLinks, isEpic, mapStatus } from '@/lib/types'
 import {
   addCommentFn,
   deleteBeadFn,
@@ -109,6 +110,95 @@ function labelsFromText(value: string): string[] {
     .split(',')
     .map((label) => label.trim())
     .filter(Boolean)
+}
+
+function LinkedBeadList({
+  items,
+  resolveBead,
+  onOpenBead,
+}: {
+  items: { id: string; note?: string }[]
+  resolveBead: (id: string) => Bead | undefined
+  onOpenBead: (bead: Bead) => void
+}) {
+  return (
+    <ul className="flex flex-col gap-0.5">
+      {items.map(({ id, note }) => {
+        const target = resolveBead(id)
+        const column = target ? mapStatus(target.status).column : null
+        return (
+          <li key={`${id}:${note ?? ''}`}>
+            <button
+              type="button"
+              disabled={!target}
+              onClick={() => {
+                if (target) onOpenBead(target)
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/50 disabled:cursor-default disabled:hover:bg-transparent"
+            >
+              <span
+                className={cn(
+                  'size-2 shrink-0 rounded-full',
+                  column ? DOT_CLASS[column] : 'bg-muted-foreground/30',
+                )}
+                aria-hidden="true"
+              />
+              <span className="font-mono text-[0.7rem] text-muted-foreground">
+                {id}
+              </span>
+              <span
+                className={cn(
+                  'truncate text-sm',
+                  !target && 'text-muted-foreground/60 italic',
+                )}
+              >
+                {target?.title ?? 'Not on this board'}
+              </span>
+              <span className="ml-auto flex shrink-0 items-center gap-1.5">
+                {note ? (
+                  <span className="rounded border border-border px-1 py-px text-[0.6rem] text-muted-foreground">
+                    {note}
+                  </span>
+                ) : null}
+                {target ? (
+                  <ChevronRight
+                    className="size-3.5 text-muted-foreground/50"
+                    aria-hidden="true"
+                  />
+                ) : null}
+              </span>
+            </button>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function LinkGroup({
+  label,
+  items,
+  resolveBead,
+  onOpenBead,
+}: {
+  label: string
+  items: { id: string; note?: string }[]
+  resolveBead: (id: string) => Bead | undefined
+  onOpenBead: (bead: Bead) => void
+}) {
+  if (items.length === 0) return null
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="px-2 text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground/70">
+        {label}
+      </span>
+      <LinkedBeadList
+        items={items}
+        resolveBead={resolveBead}
+        onOpenBead={onOpenBead}
+      />
+    </div>
+  )
 }
 
 function SectionHeader({
@@ -606,6 +696,11 @@ export function BeadDetailModal({
       childBeads.filter((c) => mapStatus(c.status).column === 'closed').length,
     [childBeads],
   )
+  const { blockedBy, blocking, related } = useMemo(
+    () => groupBeadLinks(bead?.links),
+    [bead?.links],
+  )
+  const linkCount = blockedBy.length + blocking.length + related.length
 
   const statusMutation = useMutation({
     mutationFn: (status: BeadColumn) =>
@@ -716,10 +811,15 @@ export function BeadDetailModal({
                     <button
                       type="button"
                       onClick={() => onOpenBead(parentBead)}
-                      className="-mt-0.5 inline-flex w-fit items-center gap-1 rounded text-xs text-muted-foreground transition-colors hover:text-foreground"
+                      className="-mt-0.5 inline-flex w-fit max-w-full items-center gap-1 rounded text-xs text-muted-foreground transition-colors hover:text-foreground"
                     >
-                      <CornerUpLeft className="size-3" aria-hidden="true" />
-                      Epic: <span className="font-mono">{parentBead.id}</span>
+                      <CornerUpLeft
+                        className="size-3 shrink-0"
+                        aria-hidden="true"
+                      />
+                      {isEpic(parentBead) ? 'Epic' : 'Parent'}:{' '}
+                      <span className="font-mono">{parentBead.id}</span>
+                      <span className="truncate">{parentBead.title}</span>
                     </button>
                   ) : null}
 
@@ -798,51 +898,60 @@ export function BeadDetailModal({
 
               <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
                 <div className="flex flex-col gap-7">
-                  {isEpic(bead) ? (
+                  {isEpic(bead) || childBeads.length > 0 ? (
                     <section>
                       <SectionHeader
                         icon={ListTree}
-                        label="Child tasks"
+                        label="Subtasks"
                         trailing={`${doneChildren}/${childBeads.length} completed`}
                       />
                       {childBeads.length === 0 ? (
                         <p className="text-xs text-muted-foreground/70">
-                          No child tasks.
+                          No subtasks.
                         </p>
                       ) : (
-                        <ul className="flex flex-col gap-0.5">
-                          {childBeads.map((child) => {
-                            const col = mapStatus(child.status).column
-                            return (
-                              <li key={child.id}>
-                                <button
-                                  type="button"
-                                  onClick={() => onOpenBead(child)}
-                                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/50"
-                                >
-                                  <span
-                                    className={cn(
-                                      'size-2 shrink-0 rounded-full',
-                                      DOT_CLASS[col],
-                                    )}
-                                    aria-hidden="true"
-                                  />
-                                  <span className="font-mono text-[0.7rem] text-muted-foreground">
-                                    {child.id}
-                                  </span>
-                                  <span className="truncate text-sm">
-                                    {child.title}
-                                  </span>
-                                  <ChevronRight
-                                    className="ml-auto size-3.5 shrink-0 text-muted-foreground/50"
-                                    aria-hidden="true"
-                                  />
-                                </button>
-                              </li>
-                            )
-                          })}
-                        </ul>
+                        <LinkedBeadList
+                          items={childBeads.map((child) => ({ id: child.id }))}
+                          resolveBead={resolveBead}
+                          onOpenBead={onOpenBead}
+                        />
                       )}
+                    </section>
+                  ) : null}
+
+                  {linkCount > 0 ? (
+                    <section>
+                      <SectionHeader
+                        icon={Link2}
+                        label="Dependencies"
+                        trailing={linkCount}
+                      />
+                      <div className="flex flex-col gap-3">
+                        <LinkGroup
+                          label="Blocked by"
+                          items={blockedBy.map((id) => ({ id }))}
+                          resolveBead={resolveBead}
+                          onOpenBead={onOpenBead}
+                        />
+                        <LinkGroup
+                          label="Blocking"
+                          items={blocking.map((id) => ({ id }))}
+                          resolveBead={resolveBead}
+                          onOpenBead={onOpenBead}
+                        />
+                        <LinkGroup
+                          label="Related"
+                          items={related.map((link) => ({
+                            id: link.id,
+                            note:
+                              link.direction === 'outgoing'
+                                ? link.type
+                                : `${link.type} (reverse)`,
+                          }))}
+                          resolveBead={resolveBead}
+                          onOpenBead={onOpenBead}
+                        />
+                      </div>
                     </section>
                   ) : null}
 

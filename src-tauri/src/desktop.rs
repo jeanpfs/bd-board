@@ -164,9 +164,39 @@ fn bd_json(dir: &Path, args: &[&str]) -> Result<Value, String> {
     serde_json::from_str(trimmed).map_err(|err| err.to_string())
 }
 
+fn bd_json_lines(dir: &Path, args: &[&str]) -> Result<Vec<Value>, String> {
+    let raw = run_bd(dir, args)?;
+    raw.lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(|line| serde_json::from_str(line).map_err(|err| err.to_string()))
+        .collect()
+}
+
+fn expand_home_with(path: PathBuf, home: Option<PathBuf>) -> PathBuf {
+    let path_str = path.to_string_lossy();
+    if path_str != "~" && !path_str.starts_with("~/") {
+        return path;
+    }
+    let Some(home) = home else {
+        return path;
+    };
+    if path_str == "~" {
+        return home;
+    }
+    home.join(&path_str[2..])
+}
+
+fn expand_home(path: PathBuf) -> PathBuf {
+    let home = env::var_os("HOME")
+        .or_else(|| env::var_os("USERPROFILE"))
+        .map(PathBuf::from);
+    expand_home_with(path, home)
+}
+
 fn env_roots() -> Vec<PathBuf> {
     if let Some(raw_roots) = env::var_os("BD_ROOTS") {
-        return env::split_paths(&raw_roots).collect();
+        return env::split_paths(&raw_roots).map(expand_home).collect();
     }
 
     env::var_os("HOME")
@@ -392,9 +422,7 @@ fn discover_projects_inner() -> Result<Vec<Project>, String> {
     Ok(projects)
 }
 
-fn project_counts(dir: &Path) -> ProjectCounts {
-    let query = "SELECT status, COUNT(*) AS c FROM issues GROUP BY status";
-    let rows = bd_json(dir, &["sql", "--json", query]).ok();
+fn build_counts_from_groups(rows: &[Value]) -> ProjectCounts {
     let mut counts = ProjectCounts {
         open: 0,
         in_progress: 0,
@@ -404,17 +432,10 @@ fn project_counts(dir: &Path) -> ProjectCounts {
         total: 0,
     };
 
-    let Some(Value::Array(rows)) = rows else {
-        return counts;
-    };
-
     for row in rows {
-        let status = row
-            .get("status")
-            .and_then(Value::as_str)
-            .unwrap_or_default();
+        let status = row.get("group").and_then(Value::as_str).unwrap_or_default();
         let n = row
-            .get("c")
+            .get("count")
             .and_then(|v| v.as_i64().or_else(|| v.as_u64().map(|n| n as i64)))
             .unwrap_or(0);
         counts.total += n;
@@ -429,6 +450,17 @@ fn project_counts(dir: &Path) -> ProjectCounts {
     }
 
     counts
+}
+
+fn project_counts(dir: &Path) -> ProjectCounts {
+    let result = bd_json(dir, &["count", "--by-status", "--json"]).ok();
+    let groups = result
+        .as_ref()
+        .and_then(|v| v.get("groups"))
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    build_counts_from_groups(&groups)
 }
 
 fn resolve_dir(database: &str) -> Result<PathBuf, String> {
@@ -524,70 +556,52 @@ fn get_bead_detail_inner(database: &str, id: &str) -> Result<BeadDetail, String>
     })
 }
 
-fn get_project_knowledge_inner(database: &str) -> Result<ProjectKnowledge, String> {
-    let dir = resolve_dir(database)?;
-    let comment_query = format!(
-        "
-    SELECT
-      c.id AS id,
-      c.issue_id AS bead_id,
-      i.title AS bead_title,
-      c.author AS author,
-      c.text AS text,
-      c.created_at AS created_at
-    FROM comments c
-    LEFT JOIN issues i ON i.id = c.issue_id
-    ORDER BY c.created_at DESC
-    LIMIT {COMMENTS_LIMIT}
-  "
-    );
+fn build_project_knowledge(issues: &[Value]) -> ProjectKnowledge {
+    let mut raw_comments: Vec<Value> = Vec::new();
+    for issue in issues {
+        let title = issue.get("title").cloned().unwrap_or(Value::Null);
+        if let Some(Value::Array(issue_comments)) = issue.get("comments") {
+            for comment in issue_comments {
+                let mut merged = comment.clone();
+                if let Value::Object(map) = &mut merged {
+                    map.insert("title".to_string(), title.clone());
+                }
+                raw_comments.push(merged);
+            }
+        }
+    }
 
-    let knowledge_query = format!(
-        "
-    SELECT
-      c.id AS id,
-      c.issue_id AS bead_id,
-      i.title AS bead_title,
-      c.author AS author,
-      c.text AS text,
-      c.created_at AS created_at
-    FROM comments c
-    LEFT JOIN issues i ON i.id = c.issue_id
-    WHERE c.text LIKE 'LEARNED:%'
-       OR c.text LIKE 'DECISION:%'
-       OR c.text LIKE 'FACT:%'
-       OR c.text LIKE 'PATTERN:%'
-       OR c.text LIKE 'INVESTIGATION:%'
-       OR c.text LIKE 'MUST-CHECK:%'
-       OR c.text LIKE 'DEVIATION:%'
-    ORDER BY c.created_at DESC
-    LIMIT {KNOWLEDGE_LIMIT}
-  "
-    );
+    let by_date_desc = |a: &Option<String>, b: &Option<String>| {
+        b.as_deref().unwrap_or("").cmp(a.as_deref().unwrap_or(""))
+    };
 
-    let raw_comments = bd_json(&dir, &["sql", "--json", &comment_query])?;
-    let raw_knowledge = bd_json(&dir, &["sql", "--json", &knowledge_query])?;
+    let mut comments: Vec<ProjectComment> =
+        raw_comments.iter().map(map_project_comment).collect();
+    comments.sort_by(|a, b| by_date_desc(&a.created_at, &b.created_at));
+    comments.truncate(COMMENTS_LIMIT);
 
-    let comments = raw_comments
-        .as_array()
-        .cloned()
-        .unwrap_or_default()
-        .into_iter()
-        .map(|value| map_project_comment(&value))
+    let mut knowledge: Vec<ProjectKnowledgeEntry> = raw_comments
+        .iter()
+        .filter_map(map_knowledge_entry)
         .collect();
+    knowledge.sort_by(|a, b| by_date_desc(&a.created_at, &b.created_at));
+    knowledge.truncate(KNOWLEDGE_LIMIT);
 
-    let knowledge = raw_knowledge
-        .as_array()
-        .cloned()
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|value| map_knowledge_entry(&value))
-        .collect();
-
-    Ok(ProjectKnowledge {
+    ProjectKnowledge {
         comments,
         knowledge,
-    })
+    }
+}
+
+fn get_project_knowledge_inner(database: &str) -> Result<ProjectKnowledge, String> {
+    let dir = resolve_dir(database)?;
+    match bd_json_lines(&dir, &["export"]) {
+        Ok(issues) => Ok(build_project_knowledge(&issues)),
+        Err(_) => Ok(ProjectKnowledge {
+            comments: Vec::new(),
+            knowledge: Vec::new(),
+        }),
+    }
 }
 
 fn is_write_enabled() -> bool {
@@ -625,4 +639,174 @@ pub fn get_write_config() -> Result<WriteConfig, String> {
     Ok(WriteConfig {
         writes_enabled: is_write_enabled(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn expand_home_expands_bare_tilde() {
+        let home = PathBuf::from("/Users/me");
+        assert_eq!(
+            expand_home_with(PathBuf::from("~"), Some(home.clone())),
+            home
+        );
+    }
+
+    #[test]
+    fn expand_home_expands_tilde_prefixed_path() {
+        let home = PathBuf::from("/Users/me");
+        assert_eq!(
+            expand_home_with(PathBuf::from("~/Code"), Some(home)),
+            PathBuf::from("/Users/me/Code")
+        );
+    }
+
+    #[test]
+    fn expand_home_leaves_absolute_path_unchanged() {
+        let home = PathBuf::from("/Users/me");
+        assert_eq!(
+            expand_home_with(PathBuf::from("/Users/me/Code"), Some(home)),
+            PathBuf::from("/Users/me/Code")
+        );
+    }
+
+    #[test]
+    fn expand_home_leaves_relative_non_tilde_path_unchanged() {
+        assert_eq!(
+            expand_home_with(PathBuf::from("../Code"), Some(PathBuf::from("/Users/me"))),
+            PathBuf::from("../Code")
+        );
+    }
+
+    #[test]
+    fn build_counts_from_groups_maps_bd_count_by_status_groups() {
+        let rows = vec![
+            json!({"group": "open", "count": 16}),
+            json!({"group": "blocked", "count": 9}),
+        ];
+        let counts = build_counts_from_groups(&rows);
+        assert_eq!(counts.open, 16);
+        assert_eq!(counts.blocked, 9);
+        assert_eq!(counts.in_progress, 0);
+        assert_eq!(counts.closed, 0);
+        assert_eq!(counts.deferred, 0);
+        assert_eq!(counts.total, 25);
+    }
+
+    #[test]
+    fn build_counts_from_groups_handles_empty_groups() {
+        let counts = build_counts_from_groups(&[]);
+        assert_eq!(counts.total, 0);
+        assert_eq!(counts.open, 0);
+    }
+
+    #[test]
+    fn build_counts_from_groups_folds_hooked_into_in_progress() {
+        let rows = vec![json!({"group": "hooked", "count": 3})];
+        let counts = build_counts_from_groups(&rows);
+        assert_eq!(counts.in_progress, 3);
+        assert_eq!(counts.total, 3);
+    }
+
+    #[test]
+    fn build_project_knowledge_combines_and_orders_comments_newest_first() {
+        let issues = vec![
+            json!({
+                "id": "ravo-fvs",
+                "title": "Primeiro deploy manual",
+                "comments": [{
+                    "id": "c1",
+                    "issue_id": "ravo-fvs",
+                    "author": "Jean",
+                    "text": "ping",
+                    "created_at": "2026-08-10T00:00:00Z",
+                }],
+            }),
+            json!({
+                "id": "ravo-cbf",
+                "title": "Ligar backup automático",
+                "comments": [{
+                    "id": "c2",
+                    "issue_id": "ravo-cbf",
+                    "author": "Jean",
+                    "text": "LEARNED: backups precisam de restore testado",
+                    "created_at": "2026-08-12T00:00:00Z",
+                }],
+            }),
+        ];
+
+        let result = build_project_knowledge(&issues);
+        let ids: Vec<&str> = result.comments.iter().map(|c| c.id.as_str()).collect();
+        assert_eq!(ids, vec!["c2", "c1"]);
+        assert_eq!(result.comments[0].bead_id, "ravo-cbf");
+        assert_eq!(
+            result.comments[0].bead_title.as_deref(),
+            Some("Ligar backup automático")
+        );
+    }
+
+    #[test]
+    fn build_project_knowledge_splits_tagged_and_plain_comments() {
+        let issues = vec![json!({
+            "id": "ravo-cbf",
+            "title": "Ligar backup automático",
+            "comments": [
+                {
+                    "id": "c1",
+                    "issue_id": "ravo-cbf",
+                    "author": "Jean",
+                    "text": "LEARNED: backups precisam de restore testado",
+                    "created_at": "2026-08-12T00:00:00Z",
+                },
+                {
+                    "id": "c2",
+                    "issue_id": "ravo-cbf",
+                    "author": "Jean",
+                    "text": "just a note",
+                    "created_at": "2026-08-11T00:00:00Z",
+                },
+            ],
+        })];
+
+        let result = build_project_knowledge(&issues);
+        assert_eq!(result.comments.len(), 2);
+        assert_eq!(result.knowledge.len(), 1);
+        assert_eq!(result.knowledge[0].id, "c1");
+        assert_eq!(result.knowledge[0].kind, "learned");
+        assert_eq!(
+            result.knowledge[0].content,
+            "backups precisam de restore testado"
+        );
+    }
+
+    #[test]
+    fn build_project_knowledge_handles_issue_without_comments() {
+        let issues = vec![json!({"id": "ravo-nyu", "title": "No comments"})];
+        let result = build_project_knowledge(&issues);
+        assert!(result.comments.is_empty());
+        assert!(result.knowledge.is_empty());
+    }
+
+    #[test]
+    fn build_project_knowledge_truncates_to_configured_limits() {
+        let many: Vec<Value> = (0..(COMMENTS_LIMIT + 20))
+            .map(|i| {
+                json!({
+                    "id": format!("c{i}"),
+                    "issue_id": "ravo-many",
+                    "author": "Jean",
+                    "text": format!("LEARNED: entry {i}"),
+                    "created_at": format!("2026-08-{:02}T00:00:00Z", (i % 28) + 1),
+                })
+            })
+            .collect();
+        let issues = vec![json!({"id": "ravo-many", "title": "Many comments", "comments": many})];
+
+        let result = build_project_knowledge(&issues);
+        assert_eq!(result.comments.len(), COMMENTS_LIMIT);
+        assert_eq!(result.knowledge.len(), KNOWLEDGE_LIMIT.min(COMMENTS_LIMIT + 20));
+    }
 }

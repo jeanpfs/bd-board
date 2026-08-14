@@ -101,7 +101,7 @@ Desktop troubleshooting:
 Environment variables:
 
 - `BD_BIN`: path to the `bd` binary. Defaults to `bd`, with `/opt/homebrew/bin/bd` as a fallback.
-- `BD_ROOTS`: platform-delimited directories to scan for bead projects. Defaults to `~/Code`.
+- `BD_ROOTS`: platform-delimited directories to scan for bead projects. Defaults to `~/Code`. A leading `~` is expanded to your home directory. Give multiple directories if your `bd` workspaces don't live inside the project directory (e.g. `~/Code:~/beads-workspaces`). Each root is scanned one level deep for `<root>/<name>/.beads/metadata.json`.
 - `BD_BOARD_ALLOW_WRITE`: set to `true`, `1`, or `yes` to enable create, comment, and status update mutations.
 
 The desktop shell uses the same `BD_BIN` and `BD_ROOTS` configuration.
@@ -153,6 +153,8 @@ src-tauri/
 ```
 
 The app does not store its own database. It shells out to `bd` with `node:child_process` and parses JSON output.
+
+`docs/bd-schema.json` documents that contract as a JSON Schema: the `Bd*` definitions describe what each `bd` command emits, and the remaining definitions describe the normalized shapes the UI consumes.
 
 ## Safety Model
 
