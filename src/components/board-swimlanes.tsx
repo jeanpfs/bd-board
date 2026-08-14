@@ -19,6 +19,7 @@ import { ChevronDown, ChevronRight, Layers } from 'lucide-react'
 import { BeadCard } from '@/components/bead-card'
 import { EpicProgress } from '@/components/epic-progress'
 import { StatusColumnHeader } from '@/components/status-column-header'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { isEpic, mapStatus } from '@/lib/types'
 import {
@@ -169,25 +170,25 @@ function SwimLane({
   return (
     <section className="flex flex-col gap-2">
       <header className="flex items-center gap-2 rounded-[8px] bg-canvas py-1.5 pr-2.5 pl-1.5 ring-1 ring-inset ring-border">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon-xs"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-label={open ? 'Recolher faixa' : 'Expandir faixa'}
-          className="flex size-[22px] shrink-0 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-white/8 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
         >
           {open ? (
             <ChevronDown className="size-4" aria-hidden="true" />
           ) : (
             <ChevronRight className="size-4" aria-hidden="true" />
           )}
-        </button>
+        </Button>
 
         {epic ? (
-          <button
-            type="button"
+          <Button
+            variant="link"
             onClick={() => onOpen(epic)}
-            className="flex min-w-0 items-center gap-2 rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            className="h-auto min-w-0 gap-2 p-0"
           >
             <Layers
               className="size-3.5 shrink-0 text-primary-text"
@@ -196,10 +197,10 @@ function SwimLane({
             <span className="font-mono text-[11px] text-muted-foreground">
               {epic.id}
             </span>
-            <span className="truncate text-[13px] font-medium tracking-[-0.005em] text-foreground hover:text-primary-text">
+            <span className="truncate text-[13px] font-medium tracking-[-0.005em] text-foreground">
               {epic.title}
             </span>
-          </button>
+          </Button>
         ) : (
           <span className="flex items-center gap-2 text-[13px] font-medium text-muted-foreground">
             {title}
