@@ -11,6 +11,8 @@ import {
 } from 'lucide-react'
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
+import { InteractiveRow } from '@/components/ui/interactive-row'
 import { EpicProgress } from '@/components/epic-progress'
 import { cn, initials } from '@/lib/utils'
 import { groupBeadLinks, isEpic, mapStatus } from '@/lib/types'
@@ -88,21 +90,23 @@ export function BeadCard({ bead, onOpen, overlay = false }: BeadCardProps) {
       )}
     >
       {!overlay ? (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon-xs"
           {...attributes}
           {...listeners}
           aria-label="Drag bead"
-          className="absolute top-1.5 right-1.5 z-10 flex cursor-grab touch-none items-center rounded p-0.5 text-muted-foreground/30 opacity-0 transition-opacity group-hover/card:opacity-100 hover:text-muted-foreground active:cursor-grabbing"
+          className="absolute top-1.5 right-1.5 z-10 size-auto cursor-grab touch-none p-0.5 text-muted-foreground/30 opacity-0 group-hover/card:opacity-100 hover:bg-transparent hover:text-muted-foreground active:cursor-grabbing"
         >
           <GripVertical className="size-3.5" aria-hidden="true" />
-        </button>
+        </Button>
       ) : null}
 
-      <button
-        type="button"
+      <InteractiveRow
+        variant="plain"
+        size="flush"
         onClick={() => onOpen(bead)}
-        className="flex w-full cursor-pointer flex-col gap-[7px] rounded-[8px] px-[10px] py-[9px] text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        className="flex cursor-pointer flex-col gap-[7px] rounded-[8px] px-[10px] py-[9px]"
       >
         <span className="flex items-center gap-1.5 pr-5">
           <span className="font-mono text-[11px] tracking-[0.01em] text-muted-foreground">
@@ -198,7 +202,7 @@ export function BeadCard({ bead, onOpen, overlay = false }: BeadCardProps) {
             ) : null}
           </span>
         </span>
-      </button>
+      </InteractiveRow>
     </div>
   )
 }
