@@ -12,6 +12,22 @@ export const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 
 export const PRIORITIES = [0, 1, 2, 3, 4]
 
+export const PRIORITY_TEXT_CLASS: Record<number, string> = {
+  0: 'text-status-blocked',
+  1: 'text-warn',
+  2: 'text-muted-foreground',
+  3: 'text-faint',
+  4: 'text-faint',
+}
+
+export const PRIORITY_WORD: Record<number, string> = {
+  0: 'Critical',
+  1: 'High',
+  2: 'Normal',
+  3: 'Low',
+  4: 'Backlog',
+}
+
 export function priorityLabel(p: number): string {
   return `P${Math.max(0, Math.min(4, p))}`
 }

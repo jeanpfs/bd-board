@@ -30,6 +30,7 @@ import {
   KNOWLEDGE_TYPE_TEXT_CLASS as K_TEXT_CLASS,
 } from '@/lib/knowledge'
 import { mapStatus } from '@/lib/types'
+import { PRIORITY_TEXT_CLASS } from '@/lib/sort'
 import { cn, initials } from '@/lib/utils'
 
 import type { Bead, KnowledgeType, ProjectKnowledgeEntry } from '@/lib/types'
@@ -292,7 +293,7 @@ export function KnowledgeDetailModal({
                         <span
                           className={cn(
                             'ml-auto shrink-0 rounded-[4px] px-1 py-px font-mono text-[10px] font-semibold tabular-nums ring-1 ring-inset ring-current',
-                            PRIORITY_TEXT[beadPriority],
+                            PRIORITY_TEXT_CLASS[beadPriority],
                           )}
                         >
                           P{beadPriority}
@@ -408,7 +409,7 @@ export function KnowledgeDetailModal({
                     <span
                       className={cn(
                         'ml-auto rounded-[4px] px-1 py-px font-mono text-[10px] font-semibold tabular-nums ring-1 ring-inset ring-current',
-                        PRIORITY_TEXT[beadPriority],
+                        PRIORITY_TEXT_CLASS[beadPriority],
                       )}
                     >
                       P{beadPriority}
@@ -520,12 +521,4 @@ export function KnowledgeDetailModal({
       </DialogContent>
     </Dialog>
   )
-}
-
-const PRIORITY_TEXT: Record<number, string> = {
-  0: 'text-status-blocked',
-  1: 'text-warn',
-  2: 'text-muted-foreground',
-  3: 'text-faint',
-  4: 'text-faint',
 }

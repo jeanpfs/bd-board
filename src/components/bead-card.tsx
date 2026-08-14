@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { EpicProgress } from '@/components/epic-progress'
 import { cn, initials } from '@/lib/utils'
 import { groupBeadLinks, isEpic, mapStatus } from '@/lib/types'
+import { PRIORITY_TEXT_CLASS } from '@/lib/sort'
 
 import type { LucideIcon } from 'lucide-react'
 import type { Bead } from '@/lib/types'
@@ -22,14 +23,6 @@ interface BeadCardProps {
   bead: Bead
   onOpen: (bead: Bead) => void
   overlay?: boolean
-}
-
-const PRIORITY_STYLES: Record<number, string> = {
-  0: 'text-status-blocked',
-  1: 'text-warn',
-  2: 'text-muted-foreground',
-  3: 'text-faint',
-  4: 'text-faint',
 }
 
 const BADGE_TONES: Record<'warning' | 'muted' | 'info', string> = {
@@ -118,7 +111,7 @@ export function BeadCard({ bead, onOpen, overlay = false }: BeadCardProps) {
           <span
             className={cn(
               'rounded-[4px] px-1 py-px font-mono text-[10px] leading-[1.5] font-semibold tabular-nums ring-1 ring-inset ring-current',
-              PRIORITY_STYLES[priority],
+              PRIORITY_TEXT_CLASS[priority],
             )}
           >
             P{priority}

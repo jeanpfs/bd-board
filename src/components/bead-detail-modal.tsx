@@ -45,6 +45,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn, initials } from '@/lib/utils'
 import { COLUMNS, groupBeadLinks, isEpic, mapStatus } from '@/lib/types'
+import { PRIORITY_TEXT_CLASS, PRIORITY_WORD } from '@/lib/sort'
 import {
   KNOWLEDGE_TYPE_BG_CLASS as K_BG_CLASS,
   KNOWLEDGE_TYPE_DOT_CLASS as K_DOT_CLASS,
@@ -81,22 +82,6 @@ const COLUMN_LABEL: Record<BeadColumn, string> = {
   in_progress: 'In progress',
   blocked: 'Blocked',
   closed: 'Closed',
-}
-
-const PRIORITY_TEXT: Record<number, string> = {
-  0: 'text-status-blocked',
-  1: 'text-warn',
-  2: 'text-muted-foreground',
-  3: 'text-faint',
-  4: 'text-faint',
-}
-
-const PRIORITY_WORD: Record<number, string> = {
-  0: 'Critical',
-  1: 'High',
-  2: 'Normal',
-  3: 'Low',
-  4: 'Backlog',
 }
 
 const BADGE_TONE: Record<'warning' | 'muted' | 'info', string> = {
@@ -834,7 +819,9 @@ export function BeadDetailModal({
                     <span
                       className={cn(
                         'rounded-[4px] px-1 py-px font-mono text-[10px] font-semibold tabular-nums ring-1 ring-inset ring-current',
-                        PRIORITY_TEXT[Math.max(0, Math.min(4, bead.priority))],
+                        PRIORITY_TEXT_CLASS[
+                          Math.max(0, Math.min(4, bead.priority))
+                        ],
                       )}
                     >
                       P{Math.max(0, Math.min(4, bead.priority))}
@@ -1174,7 +1161,7 @@ export function BeadDetailModal({
                         <span
                           className={cn(
                             'rounded-[4px] px-1 py-px font-mono text-[10px] font-semibold tabular-nums ring-1 ring-inset ring-current',
-                            PRIORITY_TEXT[p],
+                            PRIORITY_TEXT_CLASS[p],
                           )}
                         >
                           P{p}
