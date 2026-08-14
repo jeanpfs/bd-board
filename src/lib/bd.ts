@@ -538,11 +538,11 @@ async function deleteBead(database: string, id: string): Promise<void> {
 }
 
 function buildPreviewDeleteBeadArgs(id: string): string[] {
-  return ['delete', id]
+  return ['delete', id, '--cascade']
 }
 
 function buildDeleteBeadArgs(id: string): string[] {
-  return ['delete', id, '--force']
+  return ['delete', id, '--cascade', '--force']
 }
 
 async function createBead(

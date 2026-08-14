@@ -691,11 +691,20 @@ fn update_bead_inner(database: &str, id: &str, update: BeadUpdateInput) -> Resul
 }
 
 fn build_preview_delete_bead_args(id: &str) -> Vec<String> {
-    vec!["delete".to_string(), id.to_string()]
+    vec![
+        "delete".to_string(),
+        id.to_string(),
+        "--cascade".to_string(),
+    ]
 }
 
 fn build_delete_bead_args(id: &str) -> Vec<String> {
-    vec!["delete".to_string(), id.to_string(), "--force".to_string()]
+    vec![
+        "delete".to_string(),
+        id.to_string(),
+        "--cascade".to_string(),
+        "--force".to_string(),
+    ]
 }
 
 fn preview_delete_bead_inner(database: &str, id: &str) -> Result<String, String> {
@@ -1053,11 +1062,11 @@ mod tests {
     fn delete_bead_args_keep_preview_and_confirmed_commands_separate() {
         assert_eq!(
             build_preview_delete_bead_args("bd-board-a2k"),
-            vec!["delete", "bd-board-a2k"]
+            vec!["delete", "bd-board-a2k", "--cascade"]
         );
         assert_eq!(
             build_delete_bead_args("bd-board-a2k"),
-            vec!["delete", "bd-board-a2k", "--force"]
+            vec!["delete", "bd-board-a2k", "--cascade", "--force"]
         );
     }
 }

@@ -72,10 +72,12 @@ describe('delete bead arguments', () => {
     expect(buildPreviewDeleteBeadArgs('bd-board-a2k')).toEqual([
       'delete',
       'bd-board-a2k',
+      '--cascade',
     ])
     expect(buildDeleteBeadArgs('bd-board-a2k')).toEqual([
       'delete',
       'bd-board-a2k',
+      '--cascade',
       '--force',
     ])
   })
