@@ -42,13 +42,27 @@ interface ProjectKnowledgePanelProps {
 }
 
 const TYPE_BADGE: Record<KnowledgeType, string> = {
-  learned: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200',
-  decision: 'border-sky-400/30 bg-sky-400/10 text-sky-200',
-  fact: 'border-violet-400/30 bg-violet-400/10 text-violet-200',
-  pattern: 'border-amber-400/30 bg-amber-400/10 text-amber-200',
-  investigation: 'border-cyan-400/30 bg-cyan-400/10 text-cyan-200',
-  'must-check': 'border-red-400/40 bg-red-400/10 text-red-200',
-  deviation: 'border-orange-400/40 bg-orange-400/10 text-orange-200',
+  learned: 'bg-k-learned/15 text-k-learned ring-1 ring-inset ring-k-learned/38',
+  decision:
+    'bg-k-decision/15 text-k-decision ring-1 ring-inset ring-k-decision/38',
+  fact: 'bg-k-fact/15 text-k-fact ring-1 ring-inset ring-k-fact/38',
+  pattern: 'bg-k-pattern/15 text-k-pattern ring-1 ring-inset ring-k-pattern/38',
+  investigation:
+    'bg-k-investigation/15 text-k-investigation ring-1 ring-inset ring-k-investigation/38',
+  'must-check':
+    'bg-k-must-check/15 text-k-must-check ring-1 ring-inset ring-k-must-check/38',
+  deviation:
+    'bg-k-deviation/15 text-k-deviation ring-1 ring-inset ring-k-deviation/38',
+}
+
+const KNOWLEDGE_DOT: Record<KnowledgeType, string> = {
+  learned: 'bg-k-learned',
+  decision: 'bg-k-decision',
+  fact: 'bg-k-fact',
+  pattern: 'bg-k-pattern',
+  investigation: 'bg-k-investigation',
+  'must-check': 'bg-k-must-check',
+  deviation: 'bg-k-deviation',
 }
 
 function relativeDate(value?: string): string {
@@ -78,7 +92,13 @@ function matchesText(
 
 function TypeBadge({ type }: { type: KnowledgeType }) {
   return (
-    <Badge variant="outline" className={cn('capitalize', TYPE_BADGE[type])}>
+    <Badge
+      variant="outline"
+      className={cn(
+        'border-transparent font-mono text-[10px] tracking-[0.08em] uppercase',
+        TYPE_BADGE[type],
+      )}
+    >
       {KNOWLEDGE_TYPE_LABEL[type]}
     </Badge>
   )
@@ -176,7 +196,7 @@ export function ProjectKnowledgePanel({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-card/60 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-2 rounded-[8px] bg-canvas px-3 py-2 ring-1 ring-inset ring-border">
         <div className="relative min-w-56 flex-1 sm:max-w-md">
           <Search
             className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
@@ -218,7 +238,7 @@ export function ProjectKnowledgePanel({
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.18fr)_minmax(22rem,0.82fr)]">
-        <section className="flex min-h-0 flex-col rounded-lg border border-border/70 bg-card/60">
+        <section className="flex min-h-0 flex-col rounded-[10px] bg-canvas ring-1 ring-inset ring-border">
           <PanelHeader
             icon={BookOpen}
             title="Knowledge"
@@ -234,31 +254,40 @@ export function ProjectKnowledgePanel({
                   return (
                     <li
                       key={entry.id}
-                      className="rounded-lg border border-border/50 bg-background/35 px-3 py-2.5"
+                      className="flex gap-[11px] rounded-[9px] bg-card px-3 py-2.5 ring-1 ring-inset ring-border transition-colors hover:bg-card-hover"
                     >
-                      <div className="flex flex-wrap items-center gap-2">
-                        <TypeBadge type={entry.type} />
-                        <OpenBeadButton
-                          bead={bead}
-                          beadId={entry.bead_id}
-                          onOpenBead={onOpenBead}
-                        />
-                        {entry.created_at ? (
-                          <span className="text-xs text-muted-foreground">
-                            {relativeDate(entry.created_at)}
-                          </span>
+                      <span
+                        className={cn(
+                          'w-0.5 shrink-0 self-stretch rounded-full',
+                          KNOWLEDGE_DOT[entry.type],
+                        )}
+                        aria-hidden="true"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <TypeBadge type={entry.type} />
+                          <OpenBeadButton
+                            bead={bead}
+                            beadId={entry.bead_id}
+                            onOpenBead={onOpenBead}
+                          />
+                          {entry.created_at ? (
+                            <span className="text-[11.25px] text-faint">
+                              {relativeDate(entry.created_at)}
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <p className="mt-1.5 text-[12.75px] leading-[1.58] whitespace-pre-wrap text-foreground/90">
+                          {entry.content}
+                        </p>
+
+                        {entry.bead_title ? (
+                          <p className="mt-1.5 truncate text-[11.25px] text-faint">
+                            {entry.bead_title}
+                          </p>
                         ) : null}
                       </div>
-
-                      <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
-                        {entry.content}
-                      </p>
-
-                      {entry.bead_title ? (
-                        <p className="mt-2 truncate text-xs text-muted-foreground">
-                          {entry.bead_title}
-                        </p>
-                      ) : null}
                     </li>
                   )
                 })}
@@ -267,7 +296,7 @@ export function ProjectKnowledgePanel({
           </div>
         </section>
 
-        <section className="flex min-h-0 flex-col rounded-lg border border-border/70 bg-card/60">
+        <section className="flex min-h-0 flex-col rounded-[10px] bg-canvas ring-1 ring-inset ring-border">
           <PanelHeader
             icon={MessageSquare}
             title="Comments"
@@ -283,9 +312,9 @@ export function ProjectKnowledgePanel({
                   return (
                     <li
                       key={comment.id}
-                      className="rounded-lg bg-muted/30 px-3 py-2"
+                      className="rounded-[9px] bg-canvas px-3 py-2.5 ring-1 ring-inset ring-border"
                     >
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2 text-[11.5px] text-faint">
                         {comment.knowledge_type ? (
                           <TypeBadge type={comment.knowledge_type} />
                         ) : null}
@@ -294,18 +323,12 @@ export function ProjectKnowledgePanel({
                           beadId={comment.bead_id}
                           onOpenBead={onOpenBead}
                         />
-                        {comment.author ? (
-                          <span className="text-xs text-muted-foreground">
-                            {comment.author}
-                          </span>
-                        ) : null}
+                        {comment.author ? <span>{comment.author}</span> : null}
                         {comment.created_at ? (
-                          <span className="text-xs text-muted-foreground">
-                            {relativeDate(comment.created_at)}
-                          </span>
+                          <span>· {relativeDate(comment.created_at)}</span>
                         ) : null}
                       </div>
-                      <p className="mt-1.5 text-sm whitespace-pre-wrap">
+                      <p className="mt-1.5 text-[13px] whitespace-pre-wrap">
                         {comment.text}
                       </p>
                     </li>
@@ -330,10 +353,12 @@ function PanelHeader({
   count: number
 }) {
   return (
-    <header className="flex items-center gap-2 border-b border-border/70 px-3 py-2">
-      <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
-      <h2 className="text-sm font-semibold">{title}</h2>
-      <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground">
+    <header className="flex items-center gap-1.5 border-b border-border px-3 py-2 text-muted-foreground">
+      <Icon className="size-3.5" aria-hidden="true" />
+      <h2 className="font-mono text-[10.5px] font-medium tracking-[0.09em] uppercase">
+        {title}
+      </h2>
+      <span className="ml-auto font-mono text-[11px] tabular-nums text-faint">
         {count}
       </span>
     </header>
@@ -354,7 +379,7 @@ function KnowledgeSkeleton() {
       {[0, 1].map((index) => (
         <div
           key={index}
-          className="flex min-h-0 flex-col rounded-lg border border-border/70 bg-card/60 p-3"
+          className="flex min-h-0 flex-col rounded-[10px] bg-canvas ring-1 ring-inset ring-border p-3"
         >
           <Skeleton className="h-5 w-32" />
           <div className="mt-4 flex flex-col gap-2">

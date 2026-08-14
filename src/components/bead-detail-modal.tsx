@@ -27,7 +27,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -73,11 +72,10 @@ const COLUMN_LABEL: Record<BeadColumn, string> = {
 }
 
 const COLUMN_BADGE: Record<BeadColumn, string> = {
-  open: 'border-status-open/40 bg-status-open/10 text-status-open',
-  in_progress:
-    'border-status-progress/40 bg-status-progress/10 text-status-progress',
-  blocked: 'border-status-blocked/40 bg-status-blocked/10 text-status-blocked',
-  closed: 'border-status-closed/40 bg-status-closed/10 text-status-closed',
+  open: 'bg-status-open/15 text-status-open',
+  in_progress: 'bg-status-progress/18 text-status-progress',
+  blocked: 'bg-status-blocked/18 text-status-blocked',
+  closed: 'bg-status-closed/18 text-status-closed',
 }
 
 const DOT_CLASS: Record<BeadColumn, string> = {
@@ -122,7 +120,7 @@ function LinkedBeadList({
   onOpenBead: (bead: Bead) => void
 }) {
   return (
-    <ul className="flex flex-col gap-0.5">
+    <ul className="flex flex-col gap-1.5">
       {items.map(({ id, note }) => {
         const target = resolveBead(id)
         const column = target ? mapStatus(target.status).column : null
@@ -134,7 +132,7 @@ function LinkedBeadList({
               onClick={() => {
                 if (target) onOpenBead(target)
               }}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/50 disabled:cursor-default disabled:hover:bg-transparent"
+              className="flex w-full items-center gap-2.5 rounded-[8px] bg-card px-[10px] py-2 text-left ring-1 ring-inset ring-border transition-colors hover:bg-card-hover hover:ring-ring/40 disabled:cursor-default disabled:hover:bg-card disabled:hover:ring-border"
             >
               <span
                 className={cn(
@@ -143,12 +141,12 @@ function LinkedBeadList({
                 )}
                 aria-hidden="true"
               />
-              <span className="font-mono text-[0.7rem] text-muted-foreground">
+              <span className="font-mono text-[11px] text-muted-foreground">
                 {id}
               </span>
               <span
                 className={cn(
-                  'truncate text-sm',
+                  'truncate text-[12.75px]',
                   !target && 'text-muted-foreground/60 italic',
                 )}
               >
@@ -156,7 +154,7 @@ function LinkedBeadList({
               </span>
               <span className="ml-auto flex shrink-0 items-center gap-1.5">
                 {note ? (
-                  <span className="rounded border border-border px-1 py-px text-[0.6rem] text-muted-foreground">
+                  <span className="rounded-[4px] bg-white/7 px-1.5 py-px font-mono text-[10px] tracking-[0.06em] text-muted-foreground uppercase">
                     {note}
                   </span>
                 ) : null}
@@ -189,9 +187,7 @@ function LinkGroup({
   if (items.length === 0) return null
   return (
     <div className="flex flex-col gap-1">
-      <span className="px-2 text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground/70">
-        {label}
-      </span>
+      <span className="px-2 text-[11.5px] text-faint">{label}</span>
       <LinkedBeadList
         items={items}
         resolveBead={resolveBead}
@@ -211,16 +207,35 @@ function SectionHeader({
   trailing?: ReactNode
 }) {
   return (
-    <div className="mb-3 flex items-center gap-2 border-b border-border/60 pb-2">
-      <Icon className="size-3.5 text-muted-foreground" aria-hidden="true" />
-      <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
+    <div className="mb-2.5 flex items-center gap-1.5 text-muted-foreground">
+      <Icon className="size-3.5" aria-hidden="true" />
+      <h3 className="font-mono text-[10.5px] font-medium tracking-[0.09em] uppercase">
         {label}
       </h3>
       {trailing != null ? (
-        <span className="ml-auto text-xs tabular-nums text-muted-foreground/70">
+        <span className="ml-auto font-mono text-[11px] tabular-nums text-faint">
           {trailing}
         </span>
       ) : null}
+    </div>
+  )
+}
+
+function MetaField({
+  label,
+  children,
+}: {
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <div className="flex flex-col [&+&]:mt-4">
+      <span className="mb-[7px] block font-mono text-[10px] font-medium tracking-[0.09em] text-faint uppercase">
+        {label}
+      </span>
+      <div className="flex items-center gap-1.5 text-[13px] text-foreground">
+        {children}
+      </div>
     </div>
   )
 }
@@ -739,68 +754,36 @@ export function BeadDetailModal({
           onOpenChange(next)
         }}
       >
-        <DialogContent className="flex max-h-[86vh] w-[94vw] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl lg:max-w-4xl">
+        <DialogContent className="grid max-h-[86vh] w-[94vw] max-w-3xl grid-cols-1 gap-0 overflow-hidden rounded-[14px] bg-background p-0 shadow-pop sm:max-w-3xl lg:max-w-[1080px] lg:grid-cols-[minmax(0,1fr)_268px]">
           {bead ? (
             <>
-              <DialogHeader className="space-y-0 border-b border-border px-6 py-5 text-left">
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-start justify-between gap-3 pr-8">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {bead.id}
-                      </span>
-                      <span
-                        className={cn(
-                          'rounded border px-1.5 py-px text-[0.65rem] font-medium',
-                          COLUMN_BADGE[column],
-                        )}
-                      >
-                        {COLUMN_LABEL[column]}
-                      </span>
-                      {isEpic(bead) ? (
-                        <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-px text-[0.65rem] font-semibold uppercase tracking-wide text-primary ring-1 ring-inset ring-primary/25">
-                          <Layers className="size-3" aria-hidden="true" />
-                          Epic
-                        </span>
-                      ) : (
-                        <span className="rounded border border-border px-1.5 py-px text-[0.65rem] text-muted-foreground">
-                          {bead.issue_type}
-                        </span>
+              <div className="flex min-h-0 min-w-0 flex-col">
+                <DialogHeader className="space-y-0 border-b border-border bg-canvas px-[22px] pt-4 pb-3.5 text-left">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {bead.id}
+                    </span>
+                    <span
+                      className={cn(
+                        'rounded-[4px] px-1.5 py-px text-[10px] font-semibold tracking-[0.06em] uppercase',
+                        COLUMN_BADGE[column],
                       )}
-                      <span className="rounded border border-border px-1.5 py-px text-[0.65rem] tabular-nums text-muted-foreground">
-                        P{Math.max(0, Math.min(4, bead.priority))}
+                    >
+                      {COLUMN_LABEL[column]}
+                    </span>
+                    {isEpic(bead) ? (
+                      <span className="inline-flex items-center gap-1 rounded-[4px] bg-primary/30 px-1.5 py-px text-[10px] font-semibold tracking-[0.06em] text-primary-text uppercase ring-1 ring-inset ring-ring/45">
+                        <Layers className="size-3" aria-hidden="true" />
+                        Epic
                       </span>
-                    </div>
-
-                    {canWrite ? (
-                      <div className="flex shrink-0 items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8"
-                          onClick={() => setEditOpen(true)}
-                        >
-                          <Pencil className="size-3.5" aria-hidden="true" />
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="h-8"
-                          onClick={() => setDeleteOpen(true)}
-                        >
-                          <Trash2 className="size-3.5" aria-hidden="true" />
-                          Delete
-                        </Button>
-                      </div>
-                    ) : writeConfigQuery.isSuccess ? (
-                      <span className="shrink-0 rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
-                        Read-only
+                    ) : (
+                      <span className="rounded-[4px] bg-white/7 px-1.5 py-px text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+                        {bead.issue_type}
                       </span>
-                    ) : null}
+                    )}
                   </div>
 
-                  <DialogTitle className="text-xl leading-tight font-semibold tracking-tight text-balance">
+                  <DialogTitle className="mt-2.5 text-[20px] leading-[1.28] font-semibold tracking-[-0.015em] text-balance">
                     {bead.title}
                   </DialogTitle>
                   <DialogDescription className="sr-only">
@@ -811,7 +794,7 @@ export function BeadDetailModal({
                     <button
                       type="button"
                       onClick={() => onOpenBead(parentBead)}
-                      className="-mt-0.5 inline-flex w-fit max-w-full items-center gap-1 rounded text-xs text-muted-foreground transition-colors hover:text-foreground"
+                      className="mt-2 inline-flex w-fit max-w-full items-center gap-1.5 rounded text-xs text-muted-foreground transition-colors hover:text-primary-text"
                     >
                       <CornerUpLeft
                         className="size-3 shrink-0"
@@ -822,237 +805,258 @@ export function BeadDetailModal({
                       <span className="truncate">{parentBead.title}</span>
                     </button>
                   ) : null}
+                </DialogHeader>
 
-                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground/70">
-                        Status
-                      </span>
-                      <Select
-                        value={column}
-                        disabled={!canWrite}
-                        onValueChange={(v) =>
-                          statusMutation.mutate(v as BeadColumn)
-                        }
-                      >
-                        <SelectTrigger
-                          size="sm"
-                          className="h-7 w-40"
-                          aria-label="Change status"
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {COLUMNS.map((c) => (
-                            <SelectItem key={c.key} value={c.key}>
-                              <span
-                                className={cn(
-                                  'size-1.5 rounded-full',
-                                  DOT_CLASS[c.key],
-                                )}
-                                aria-hidden="true"
-                              />
-                              {COLUMN_LABEL[c.key]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {statusMutation.isPending ? (
-                        <Loader2
-                          className="size-3.5 animate-spin text-muted-foreground"
-                          aria-hidden="true"
+                <div className="min-h-0 flex-1 overflow-y-auto px-[22px] py-[22px]">
+                  <div className="flex flex-col gap-[26px]">
+                    {isEpic(bead) || childBeads.length > 0 ? (
+                      <section>
+                        <SectionHeader
+                          icon={ListTree}
+                          label="Subtasks"
+                          trailing={`${doneChildren}/${childBeads.length} completed`}
                         />
-                      ) : null}
-                    </div>
-
-                    {bead.assignee ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground/70">
-                          Assignee
-                        </span>
-                        <span className="text-sm text-foreground/90">
-                          {bead.assignee}
-                        </span>
-                      </div>
+                        {childBeads.length === 0 ? (
+                          <p className="text-xs text-muted-foreground/70">
+                            No subtasks.
+                          </p>
+                        ) : (
+                          <LinkedBeadList
+                            items={childBeads.map((child) => ({
+                              id: child.id,
+                            }))}
+                            resolveBead={resolveBead}
+                            onOpenBead={onOpenBead}
+                          />
+                        )}
+                      </section>
                     ) : null}
-                  </div>
 
-                  {bead.labels && bead.labels.length > 0 ? (
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground/70">
-                        Labels
-                      </span>
-                      {bead.labels.map((label) => (
-                        <Badge
-                          key={label}
-                          variant="outline"
-                          className="h-5 px-1.5 text-[0.65rem] font-normal"
-                        >
-                          {label}
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              </DialogHeader>
-
-              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-                <div className="flex flex-col gap-7">
-                  {isEpic(bead) || childBeads.length > 0 ? (
-                    <section>
-                      <SectionHeader
-                        icon={ListTree}
-                        label="Subtasks"
-                        trailing={`${doneChildren}/${childBeads.length} completed`}
-                      />
-                      {childBeads.length === 0 ? (
-                        <p className="text-xs text-muted-foreground/70">
-                          No subtasks.
-                        </p>
-                      ) : (
-                        <LinkedBeadList
-                          items={childBeads.map((child) => ({ id: child.id }))}
-                          resolveBead={resolveBead}
-                          onOpenBead={onOpenBead}
+                    {linkCount > 0 ? (
+                      <section>
+                        <SectionHeader
+                          icon={Link2}
+                          label="Dependencies"
+                          trailing={linkCount}
                         />
+                        <div className="flex flex-col gap-3">
+                          <LinkGroup
+                            label="Blocked by"
+                            items={blockedBy.map((id) => ({ id }))}
+                            resolveBead={resolveBead}
+                            onOpenBead={onOpenBead}
+                          />
+                          <LinkGroup
+                            label="Blocking"
+                            items={blocking.map((id) => ({ id }))}
+                            resolveBead={resolveBead}
+                            onOpenBead={onOpenBead}
+                          />
+                          <LinkGroup
+                            label="Related"
+                            items={related.map((link) => ({
+                              id: link.id,
+                              note:
+                                link.direction === 'outgoing'
+                                  ? link.type
+                                  : `${link.type} (reverse)`,
+                            }))}
+                            resolveBead={resolveBead}
+                            onOpenBead={onOpenBead}
+                          />
+                        </div>
+                      </section>
+                    ) : null}
+
+                    <section>
+                      <SectionHeader icon={AlignLeft} label="Description" />
+                      {detailQuery.isLoading && !description ? (
+                        <div className="flex flex-col gap-2">
+                          <Skeleton className="h-3 w-full" />
+                          <Skeleton className="h-3 w-5/6" />
+                          <Skeleton className="h-3 w-2/3" />
+                        </div>
+                      ) : description ? (
+                        <div className="prose prose-invert prose-sm max-w-none prose-headings:scroll-mt-4 prose-pre:bg-muted prose-pre:text-xs">
+                          <Markdown>{description}</Markdown>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground/70">
+                          No description.
+                        </p>
                       )}
                     </section>
-                  ) : null}
 
-                  {linkCount > 0 ? (
+                    {acceptance ? (
+                      <section>
+                        <SectionHeader
+                          icon={CircleCheck}
+                          label="Acceptance criteria"
+                        />
+                        <div className="prose prose-invert prose-sm max-w-none">
+                          <Markdown>{acceptance}</Markdown>
+                        </div>
+                      </section>
+                    ) : null}
+
                     <section>
                       <SectionHeader
-                        icon={Link2}
-                        label="Dependencies"
-                        trailing={linkCount}
-                      />
-                      <div className="flex flex-col gap-3">
-                        <LinkGroup
-                          label="Blocked by"
-                          items={blockedBy.map((id) => ({ id }))}
-                          resolveBead={resolveBead}
-                          onOpenBead={onOpenBead}
-                        />
-                        <LinkGroup
-                          label="Blocking"
-                          items={blocking.map((id) => ({ id }))}
-                          resolveBead={resolveBead}
-                          onOpenBead={onOpenBead}
-                        />
-                        <LinkGroup
-                          label="Related"
-                          items={related.map((link) => ({
-                            id: link.id,
-                            note:
-                              link.direction === 'outgoing'
-                                ? link.type
-                                : `${link.type} (reverse)`,
-                          }))}
-                          resolveBead={resolveBead}
-                          onOpenBead={onOpenBead}
-                        />
-                      </div>
-                    </section>
-                  ) : null}
-
-                  <section>
-                    <SectionHeader icon={AlignLeft} label="Description" />
-                    {detailQuery.isLoading && !description ? (
-                      <div className="flex flex-col gap-2">
-                        <Skeleton className="h-3 w-full" />
-                        <Skeleton className="h-3 w-5/6" />
-                        <Skeleton className="h-3 w-2/3" />
-                      </div>
-                    ) : description ? (
-                      <div className="prose prose-invert prose-sm max-w-none prose-headings:scroll-mt-4 prose-pre:bg-muted prose-pre:text-xs">
-                        <Markdown>{description}</Markdown>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground/70">
-                        No description.
-                      </p>
-                    )}
-                  </section>
-
-                  {acceptance ? (
-                    <section>
-                      <SectionHeader
-                        icon={CircleCheck}
-                        label="Acceptance criteria"
-                      />
-                      <div className="prose prose-invert prose-sm max-w-none">
-                        <Markdown>{acceptance}</Markdown>
-                      </div>
-                    </section>
-                  ) : null}
-
-                  <section>
-                    <SectionHeader
-                      icon={MessageSquare}
-                      label="Comments"
-                      trailing={
-                        comments.length > 0 ? comments.length : undefined
-                      }
-                    />
-                    {detailQuery.isLoading ? (
-                      <Skeleton className="h-12 w-full" />
-                    ) : comments.length === 0 ? (
-                      <p className="text-xs text-muted-foreground/70">
-                        No comments yet.
-                      </p>
-                    ) : (
-                      <ul className="flex flex-col gap-3">
-                        {comments.map((c) => (
-                          <li
-                            key={c.id}
-                            className="rounded-lg bg-muted/40 px-3 py-2"
-                          >
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span className="font-medium text-foreground/80">
-                                {c.author ?? 'Anonymous'}
-                              </span>
-                              {c.created_at ? (
-                                <span>· {relativeDate(c.created_at)}</span>
-                              ) : null}
-                            </div>
-                            <p className="mt-1 text-sm whitespace-pre-wrap">
-                              {c.text}
-                            </p>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-
-                    <div className="mt-3 flex flex-col gap-2">
-                      <Textarea
-                        name="comment"
-                        value={comment}
-                        onChange={(e) => setComment(e.target.value)}
-                        placeholder="Add a comment..."
-                        className="min-h-20 resize-none"
-                        disabled={!canWrite}
-                      />
-                      <Button
-                        size="sm"
-                        className="w-fit self-end"
-                        disabled={
-                          !canWrite ||
-                          !comment.trim() ||
-                          commentMutation.isPending
+                        icon={MessageSquare}
+                        label="Comments"
+                        trailing={
+                          comments.length > 0 ? comments.length : undefined
                         }
-                        onClick={() => commentMutation.mutate(comment.trim())}
-                      >
-                        {commentMutation.isPending ? (
-                          <Loader2
-                            className="size-3.5 animate-spin"
+                      />
+                      {detailQuery.isLoading ? (
+                        <Skeleton className="h-12 w-full" />
+                      ) : comments.length === 0 ? (
+                        <p className="text-xs text-muted-foreground/70">
+                          No comments yet.
+                        </p>
+                      ) : (
+                        <ul className="flex flex-col gap-2">
+                          {comments.map((c) => (
+                            <li
+                              key={c.id}
+                              className="rounded-[9px] bg-canvas px-3 py-2.5 ring-1 ring-inset ring-border"
+                            >
+                              <div className="flex items-center gap-2 text-[11.5px] text-faint">
+                                <span className="font-medium text-foreground/90">
+                                  {c.author ?? 'Anonymous'}
+                                </span>
+                                {c.created_at ? (
+                                  <span>· {relativeDate(c.created_at)}</span>
+                                ) : null}
+                              </div>
+                              <p className="mt-1.5 text-[13px] whitespace-pre-wrap">
+                                {c.text}
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      <div className="mt-3 flex flex-col gap-2">
+                        <Textarea
+                          name="comment"
+                          value={comment}
+                          onChange={(e) => setComment(e.target.value)}
+                          placeholder="Add a comment..."
+                          className="min-h-20 resize-none"
+                          disabled={!canWrite}
+                        />
+                        <Button
+                          size="sm"
+                          className="w-fit self-end"
+                          disabled={
+                            !canWrite ||
+                            !comment.trim() ||
+                            commentMutation.isPending
+                          }
+                          onClick={() => commentMutation.mutate(comment.trim())}
+                        >
+                          {commentMutation.isPending ? (
+                            <Loader2
+                              className="size-3.5 animate-spin"
+                              aria-hidden="true"
+                            />
+                          ) : null}
+                          Comment
+                        </Button>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex min-h-0 flex-col overflow-y-auto border-t border-border bg-sidebar p-[18px] lg:border-t-0 lg:border-l">
+                <MetaField label="Status">
+                  <Select
+                    value={column}
+                    disabled={!canWrite}
+                    onValueChange={(v) =>
+                      statusMutation.mutate(v as BeadColumn)
+                    }
+                  >
+                    <SelectTrigger
+                      size="sm"
+                      className="h-[30px] w-full rounded-[7px]"
+                      aria-label="Change status"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COLUMNS.map((c) => (
+                        <SelectItem key={c.key} value={c.key}>
+                          <span
+                            className={cn(
+                              'size-1.5 rounded-full',
+                              DOT_CLASS[c.key],
+                            )}
                             aria-hidden="true"
                           />
-                        ) : null}
-                        Comment
-                      </Button>
-                    </div>
-                  </section>
-                </div>
+                          {COLUMN_LABEL[c.key]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {statusMutation.isPending ? (
+                    <Loader2
+                      className="size-3.5 animate-spin text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                </MetaField>
+
+                <MetaField label="Priority">
+                  P{Math.max(0, Math.min(4, bead.priority))}
+                </MetaField>
+
+                {bead.assignee ? (
+                  <MetaField label="Assignee">{bead.assignee}</MetaField>
+                ) : null}
+
+                {bead.labels && bead.labels.length > 0 ? (
+                  <MetaField label="Labels">
+                    <span className="flex flex-wrap gap-1.5">
+                      {bead.labels.map((label) => (
+                        <span
+                          key={label}
+                          className="max-w-[92px] truncate rounded-[4px] px-[5px] text-[10.5px] leading-[1.6] text-muted-foreground ring-1 ring-inset ring-border-strong"
+                        >
+                          {label}
+                        </span>
+                      ))}
+                    </span>
+                  </MetaField>
+                ) : null}
+
+                <hr className="my-[18px] border-border" />
+
+                {canWrite ? (
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setEditOpen(true)}
+                    >
+                      <Pencil className="size-3.5" aria-hidden="true" />
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => setDeleteOpen(true)}
+                    >
+                      <Trash2 className="size-3.5" aria-hidden="true" />
+                      Delete
+                    </Button>
+                  </div>
+                ) : writeConfigQuery.isSuccess ? (
+                  <span className="inline-flex w-fit items-center rounded-full bg-white/6 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                    Read-only
+                  </span>
+                ) : null}
               </div>
             </>
           ) : (
