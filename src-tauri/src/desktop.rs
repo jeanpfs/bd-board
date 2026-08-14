@@ -109,12 +109,6 @@ pub struct BeadDetail {
     pub comments: Vec<Comment>,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WriteConfig {
-    pub writes_enabled: bool,
-}
-
 #[derive(Deserialize, Default)]
 pub struct BeadUpdateInput {
     pub title: Option<String>,
@@ -755,16 +749,6 @@ fn add_comment_inner(database: &str, id: &str, text: &str) -> Result<(), String>
     Ok(())
 }
 
-fn is_write_enabled() -> bool {
-    matches!(
-        env::var("BD_BOARD_ALLOW_WRITE")
-            .unwrap_or_default()
-            .to_lowercase()
-            .as_str(),
-        "1" | "true" | "yes"
-    )
-}
-
 #[tauri::command]
 pub fn discover_projects() -> Result<Vec<Project>, String> {
     discover_projects_inner()
@@ -786,44 +770,22 @@ pub fn get_project_knowledge(database: String) -> Result<ProjectKnowledge, Strin
 }
 
 #[tauri::command]
-pub fn get_write_config() -> Result<WriteConfig, String> {
-    Ok(WriteConfig {
-        writes_enabled: is_write_enabled(),
-    })
-}
-
-fn assert_writes_enabled() -> Result<(), String> {
-    if is_write_enabled() {
-        Ok(())
-    } else {
-        Err(
-            "Writes are disabled. Set BD_BOARD_ALLOW_WRITE=true to create, edit, comment, or delete beads."
-                .to_string(),
-        )
-    }
-}
-
-#[tauri::command]
 pub fn update_bead_status(database: String, id: String, status: String) -> Result<(), String> {
-    assert_writes_enabled()?;
     update_bead_status_inner(&database, &id, &status)
 }
 
 #[tauri::command]
 pub fn update_bead(database: String, id: String, update: BeadUpdateInput) -> Result<(), String> {
-    assert_writes_enabled()?;
     update_bead_inner(&database, &id, update)
 }
 
 #[tauri::command]
 pub fn preview_delete_bead(database: String, id: String) -> Result<String, String> {
-    assert_writes_enabled()?;
     preview_delete_bead_inner(&database, &id)
 }
 
 #[tauri::command]
 pub fn delete_bead(database: String, id: String) -> Result<(), String> {
-    assert_writes_enabled()?;
     delete_bead_inner(&database, &id)
 }
 
@@ -835,7 +797,6 @@ pub fn create_bead(
     r#type: Option<String>,
     parent: Option<String>,
 ) -> Result<String, String> {
-    assert_writes_enabled()?;
     create_bead_inner(
         &database,
         &title,
@@ -847,7 +808,6 @@ pub fn create_bead(
 
 #[tauri::command]
 pub fn add_comment(database: String, id: String, text: String) -> Result<(), String> {
-    assert_writes_enabled()?;
     add_comment_inner(&database, &id, &text)
 }
 

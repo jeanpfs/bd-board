@@ -3,14 +3,12 @@ import { createServerFn } from '@tanstack/react-start'
 
 import { bdAdapter } from './bd.ts'
 import {
-  assertWritesEnabled,
   parseBeadInput,
   parseCommentInput,
   parseCreateBeadInput,
   parseProjectInput,
   parseStatusUpdateInput,
   parseUpdateBeadInput,
-  isWritesEnabled,
 } from './server-validation.ts'
 
 import type {
@@ -41,14 +39,9 @@ const webGetProjectKnowledge = createServerFn({ method: 'GET' })
   .validator(parseProjectInput)
   .handler(({ data }) => bdAdapter.getProjectKnowledge(data.project))
 
-const webGetWriteConfig = createServerFn({ method: 'GET' }).handler(() => ({
-  writesEnabled: isWritesEnabled(),
-}))
-
 const webUpdateBeadStatus = createServerFn({ method: 'POST' })
   .validator(parseStatusUpdateInput)
   .handler(async ({ data }) => {
-    assertWritesEnabled()
     await bdAdapter.updateBeadStatus(data.project, data.id, data.status)
     return { ok: true as const }
   })
@@ -56,7 +49,6 @@ const webUpdateBeadStatus = createServerFn({ method: 'POST' })
 const webUpdateBead = createServerFn({ method: 'POST' })
   .validator(parseUpdateBeadInput)
   .handler(async ({ data }) => {
-    assertWritesEnabled()
     await bdAdapter.updateBead(data.project, data.id, data.update)
     return { ok: true as const }
   })
@@ -64,7 +56,6 @@ const webUpdateBead = createServerFn({ method: 'POST' })
 const webPreviewDeleteBead = createServerFn({ method: 'POST' })
   .validator(parseBeadInput)
   .handler(async ({ data }) => {
-    assertWritesEnabled()
     const preview = await bdAdapter.previewDeleteBead(data.project, data.id)
     return { preview }
   })
@@ -72,7 +63,6 @@ const webPreviewDeleteBead = createServerFn({ method: 'POST' })
 const webDeleteBead = createServerFn({ method: 'POST' })
   .validator(parseBeadInput)
   .handler(async ({ data }) => {
-    assertWritesEnabled()
     await bdAdapter.deleteBead(data.project, data.id)
     return { ok: true as const }
   })
@@ -80,7 +70,6 @@ const webDeleteBead = createServerFn({ method: 'POST' })
 const webCreateBead = createServerFn({ method: 'POST' })
   .validator(parseCreateBeadInput)
   .handler(async ({ data }) => {
-    assertWritesEnabled()
     const id = await bdAdapter.createBead(data.project, {
       title: data.title,
       description: data.description,
@@ -93,7 +82,6 @@ const webCreateBead = createServerFn({ method: 'POST' })
 const webAddComment = createServerFn({ method: 'POST' })
   .validator(parseCommentInput)
   .handler(async ({ data }) => {
-    assertWritesEnabled()
     await bdAdapter.addComment(data.project, data.id, data.text)
     return { ok: true as const }
   })
@@ -136,19 +124,6 @@ export async function getProjectKnowledgeFn({
       database: data.project,
     })
   return webGetProjectKnowledge({ data })
-}
-
-export async function getWriteConfigFn(): Promise<{ writesEnabled: boolean }> {
-  if (isDesktopApp()) {
-    const config = await invoke<{
-      writesEnabled?: boolean
-      writes_enabled?: boolean
-    }>('get_write_config')
-    return {
-      writesEnabled: config.writesEnabled ?? config.writes_enabled ?? false,
-    }
-  }
-  return webGetWriteConfig()
 }
 
 export async function updateBeadStatusFn({

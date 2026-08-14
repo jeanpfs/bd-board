@@ -1,13 +1,12 @@
 # Security Policy
 
-`bd-board` shells out to the local `bd` CLI and can mutate issue data when writes are enabled. Treat it as a trusted local development tool, not as a multi-user hosted service.
+`bd-board` shells out to the local `bd` CLI and can mutate issue data; writes are always enabled. Treat it as a trusted local development tool, not as a multi-user hosted service.
 
 ## Supported Usage
 
 - Run it on localhost or a trusted private network only.
-- Keep writes disabled unless you intentionally need them.
-- Enable mutations with `BD_BOARD_ALLOW_WRITE=true`.
 - Do not expose the dev or preview server directly to the public internet.
+- Anyone who can reach the app (browser or desktop shell) can create, edit, and delete beads in the configured project roots.
 
 ## Reporting a Vulnerability
 

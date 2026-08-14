@@ -22,7 +22,7 @@ import { KnowledgeDetailModal } from '@/components/knowledge-detail-modal'
 import { CreateBeadDialog } from '@/components/create-bead-dialog'
 import { ProjectKnowledgePanel } from '@/components/project-knowledge-panel'
 import { Button } from '@/components/ui/button'
-import { getBeads, getWriteConfigFn, updateBeadStatusFn } from '@/lib/server'
+import { getBeads, updateBeadStatusFn } from '@/lib/server'
 import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
 import { beadMatches, compareBeads } from '@/lib/sort'
 
@@ -147,14 +147,7 @@ function BoardPage() {
     staleTime: 3000,
   })
 
-  const writeConfigQuery = useQuery({
-    queryKey: ['write-config'],
-    queryFn: () => getWriteConfigFn(),
-    staleTime: Infinity,
-  })
-
   const beads = beadsQuery.data ?? []
-  const canWrite = writeConfigQuery.data?.writesEnabled === true
 
   const beadsById = useMemo(() => {
     const map = new Map<string, Bead>()
@@ -289,7 +282,6 @@ function BoardPage() {
           sort={sort}
           setSort={(value) => patchBoardSearch({ sort: value })}
           onCreate={() => setCreateOpen(true)}
-          canWrite={canWrite}
         />
       ) : null}
 

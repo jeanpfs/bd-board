@@ -1,9 +1,9 @@
 import { Link, useParams, useSearch } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { BookOpen, Columns3, Zap } from 'lucide-react'
+import { BookOpen, Columns3 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { getProjects, getWriteConfigFn } from '@/lib/server'
+import { getProjects } from '@/lib/server'
 
 import type { LucideIcon } from 'lucide-react'
 import type { ProjectTab } from '@/components/board-header'
@@ -26,13 +26,6 @@ export function ProjectTopbar() {
   })
   const projectName =
     projectsQuery.data?.find((p) => p.database === project)?.name ?? project
-
-  const writeConfigQuery = useQuery({
-    queryKey: ['write-config'],
-    queryFn: () => getWriteConfigFn(),
-    staleTime: Infinity,
-  })
-  const canWrite = writeConfigQuery.data?.writesEnabled === true
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-4 border-b border-border bg-background px-4">
@@ -96,29 +89,6 @@ export function ProjectTopbar() {
           })}
         </div>
       ) : null}
-
-      <div className="ml-auto flex items-center gap-2">
-        <span
-          className={cn(
-            'inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-medium',
-            canWrite
-              ? 'bg-status-closed/15 text-status-closed'
-              : 'bg-foreground/6 text-muted-foreground',
-          )}
-          title={
-            canWrite
-              ? 'BD_BOARD_ALLOW_WRITE=true'
-              : 'BD_BOARD_ALLOW_WRITE=false'
-          }
-        >
-          {canWrite ? (
-            <Zap className="size-3" aria-hidden="true" />
-          ) : (
-            <span className="size-1.5 rounded-full bg-current" />
-          )}
-          {canWrite ? 'Write mode' : 'Read-only'}
-        </span>
-      </div>
     </header>
   )
 }

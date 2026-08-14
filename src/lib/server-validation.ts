@@ -212,20 +212,3 @@ export function parseUpdateBeadInput(input: unknown): {
     update,
   }
 }
-
-export function assertWritesEnabled(
-  env: Pick<NodeJS.ProcessEnv, string> = process.env,
-): void {
-  if (!isWritesEnabled(env)) {
-    throw new Error(
-      'Writes are disabled. Set BD_BOARD_ALLOW_WRITE=true to create, edit, comment, or delete beads.',
-    )
-  }
-}
-
-export function isWritesEnabled(
-  env: Pick<NodeJS.ProcessEnv, string> = process.env,
-): boolean {
-  const value = String(env['BD_BOARD_ALLOW_WRITE'] ?? '').toLowerCase()
-  return ['1', 'true', 'yes'].includes(value)
-}

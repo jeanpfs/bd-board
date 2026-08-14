@@ -57,7 +57,6 @@ import {
   deleteBeadFn,
   getBeadDetailFn,
   getProjectKnowledgeFn,
-  getWriteConfigFn,
   previewDeleteBeadFn,
   updateBeadFn,
   updateBeadStatusFn,
@@ -726,12 +725,6 @@ export function BeadDetailModal({
     staleTime: 3000,
   })
 
-  const writeConfigQuery = useQuery({
-    queryKey: ['write-config'],
-    queryFn: () => getWriteConfigFn(),
-    staleTime: Infinity,
-  })
-
   const knowledgeQuery = useQuery({
     queryKey: ['project-knowledge', project],
     queryFn: () => getProjectKnowledgeFn({ data: { project } }),
@@ -783,7 +776,6 @@ export function BeadDetailModal({
   const description = detail?.description ?? bead?.description ?? ''
   const acceptance = detail?.acceptance_criteria ?? bead?.acceptance_criteria
   const comments = detail?.comments ?? []
-  const canWrite = writeConfigQuery.data?.writesEnabled === true
 
   return (
     <>
@@ -837,26 +829,24 @@ export function BeadDetailModal({
                       </span>
                     ) : null}
 
-                    {canWrite ? (
-                      <div className="ml-auto flex shrink-0 items-center gap-1.5">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setEditOpen(true)}
-                        >
-                          <Pencil className="size-3.5" aria-hidden="true" />
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setDeleteOpen(true)}
-                        >
-                          <Trash2 className="size-3.5" aria-hidden="true" />
-                          Delete
-                        </Button>
-                      </div>
-                    ) : null}
+                    <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditOpen(true)}
+                      >
+                        <Pencil className="size-3.5" aria-hidden="true" />
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setDeleteOpen(true)}
+                      >
+                        <Trash2 className="size-3.5" aria-hidden="true" />
+                        Delete
+                      </Button>
+                    </div>
                   </div>
 
                   <DialogTitle className="mt-2.5 text-[20px] leading-[1.28] font-semibold tracking-[-0.015em] text-balance">
@@ -1073,15 +1063,12 @@ export function BeadDetailModal({
                           onChange={(e) => setComment(e.target.value)}
                           placeholder="Add a comment..."
                           className="min-h-20 resize-none"
-                          disabled={!canWrite}
                         />
                         <Button
                           size="sm"
                           className="w-fit self-end"
                           disabled={
-                            !canWrite ||
-                            !comment.trim() ||
-                            commentMutation.isPending
+                            !comment.trim() || commentMutation.isPending
                           }
                           onClick={() => commentMutation.mutate(comment.trim())}
                         >
@@ -1103,7 +1090,6 @@ export function BeadDetailModal({
                 <MetaField label="Status">
                   <Select
                     value={column}
-                    disabled={!canWrite}
                     onValueChange={(v) =>
                       statusMutation.mutate(v as BeadColumn)
                     }

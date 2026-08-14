@@ -10,7 +10,7 @@ cp .env.example .env.local
 pnpm dev
 ```
 
-`bd-board` is a local-first app. Reads are enabled by default. Mutations are disabled unless `BD_BOARD_ALLOW_WRITE=true` is set.
+`bd-board` is a local-first app. Reads and mutations are both enabled by default; it shells out directly to your local `bd` CLI.
 
 ## Quality Gates
 

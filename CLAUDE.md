@@ -18,9 +18,7 @@ pnpm validate
 ## Development Rules
 
 - Prefer `pnpm`.
-- Keep the app local-first and explicit about write safety.
-- Reads should work without extra configuration once `bd` and project discovery are available.
-- Mutations must stay behind `BD_BOARD_ALLOW_WRITE=true`.
+- Keep the app local-first. Reads and writes work without extra configuration once `bd` and project discovery are available; there is no write-mode env var or gate.
 - Keep public documentation free of personal machine paths and private workflow notes.
 - Use focused tests for parsing, status mapping, sorting, filtering, and server-function validation.
 
