@@ -81,7 +81,13 @@ function useProjectActions() {
         }
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to open project')
+      toast.error(
+        typeof err === 'string'
+          ? err
+          : err instanceof Error
+            ? err.message
+            : 'Failed to open project',
+      )
     }
   }, [queryClient])
 
@@ -95,7 +101,11 @@ function useProjectActions() {
       toast.success('Project initialized')
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : 'Failed to initialize project',
+        typeof err === 'string'
+          ? err
+          : err instanceof Error
+            ? err.message
+            : 'Failed to initialize project',
       )
     }
   }, [queryClient])
