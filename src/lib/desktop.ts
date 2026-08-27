@@ -3,8 +3,8 @@ import { invoke, isTauri } from '@tauri-apps/api/core'
 export interface DesktopProbe {
   bdBinary: string
   bdVersion: string
-  projectRoots: string[]
-  rootStatuses: { path: string; exists: boolean }[]
+  registryPath: string
+  projectCount: number
 }
 
 interface RawDesktopProbe {
@@ -12,18 +12,18 @@ interface RawDesktopProbe {
   bd_binary?: string
   bdVersion?: string
   bd_version?: string
-  projectRoots?: string[]
-  project_roots?: string[]
-  rootStatuses?: { path: string; exists: boolean }[]
-  root_statuses?: { path: string; exists: boolean }[]
+  registryPath?: string
+  registry_path?: string
+  projectCount?: number
+  project_count?: number
 }
 
 export function normalizeDesktopProbe(probe: RawDesktopProbe): DesktopProbe {
   return {
     bdBinary: probe.bdBinary ?? probe.bd_binary ?? 'bd',
     bdVersion: probe.bdVersion ?? probe.bd_version ?? '',
-    projectRoots: probe.projectRoots ?? probe.project_roots ?? [],
-    rootStatuses: probe.rootStatuses ?? probe.root_statuses ?? [],
+    registryPath: probe.registryPath ?? probe.registry_path ?? '',
+    projectCount: probe.projectCount ?? probe.project_count ?? 0,
   }
 }
 
