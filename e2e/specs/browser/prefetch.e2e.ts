@@ -16,6 +16,7 @@ describe('beads query prefetch on hover', () => {
         },
       ],
       desktop_probe: null,
+      check_project_path: { kind: 'valid', external: true },
     })
     await $('nav[aria-label="Projects"] li a').waitForExist({ timeout: 20000 })
   })
