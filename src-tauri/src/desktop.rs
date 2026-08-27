@@ -1,4 +1,4 @@
-use crate::registry;
+use crate::registry::{self, RegistryEntry};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::env;
@@ -573,7 +573,11 @@ fn project_counts(dir: &Path) -> ProjectCounts {
 
 fn resolve_dir(project_id: &str) -> Result<PathBuf, String> {
     let entry = registry::find(project_id)?;
-    Ok(PathBuf::from(entry.path))
+    let path = PathBuf::from(&entry.path);
+    if !path.exists() {
+        return Err(format!("project directory no longer exists: {}", entry.path));
+    }
+    Ok(path)
 }
 
 fn derive_children(beads: Vec<Bead>) -> Vec<Bead> {
@@ -931,6 +935,48 @@ fn is_missing_workspace_error(message: &str) -> bool {
 }
 
 #[derive(Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum PathStatus {
+    Valid {
+        prefix: Option<String>,
+        external: bool,
+    },
+    NeedsInit {
+        suggested_prefix: String,
+    },
+    Invalid {
+        reason: String,
+    },
+}
+
+#[tauri::command]
+pub fn check_project_path(path: String) -> PathStatus {
+    let dir_path = PathBuf::from(&path);
+
+    if !dir_path.exists() {
+        return PathStatus::Invalid {
+            reason: "Path does not exist".to_string(),
+        };
+    }
+
+    match probe_beads_location(&dir_path) {
+        Ok(location) => PathStatus::Valid {
+            prefix: location.prefix,
+            external: location.external,
+        },
+        Err(err) if is_missing_workspace_error(&err) => {
+            let suggested_prefix = dir_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("project")
+                .to_string();
+            PathStatus::NeedsInit { suggested_prefix }
+        }
+        Err(reason) => PathStatus::Invalid { reason },
+    }
+}
+
+#[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum AddProjectOutcome {
     Registered {
@@ -943,13 +989,13 @@ pub enum AddProjectOutcome {
 }
 
 #[tauri::command]
-pub fn add_project(path: String) -> Result<AddProjectOutcome, String> {
+pub fn add_project(path: String, name: Option<String>) -> Result<AddProjectOutcome, String> {
     let dir_path = PathBuf::from(&path);
 
     match probe_beads_location(&dir_path) {
         Ok(location) => {
             // Register in the registry
-            let entry = registry::add(&dir_path, None)?;
+            let entry = registry::add(&dir_path, name)?;
 
             // Get the counts
             let counts = project_counts(&dir_path);
@@ -1003,7 +1049,7 @@ fn build_init_args(prefix: &str) -> Vec<String> {
 }
 
 #[tauri::command]
-pub fn init_project(path: String, prefix: Option<String>) -> Result<Project, String> {
+pub fn init_project(path: String, prefix: Option<String>, name: Option<String>) -> Result<Project, String> {
     let dir_path = PathBuf::from(&path);
 
     // Try to probe first to see if it already has beads
@@ -1013,7 +1059,7 @@ pub fn init_project(path: String, prefix: Option<String>) -> Result<Project, Str
         // Already a beads project
         if !location.external {
             // Beads is in the expected location, just register it
-            let entry = registry::add(&dir_path, None)?;
+            let entry = registry::add(&dir_path, name.clone())?;
             let counts = project_counts(&dir_path);
             return Ok(Project {
                 id: entry.id.clone(),
@@ -1046,7 +1092,7 @@ pub fn init_project(path: String, prefix: Option<String>) -> Result<Project, Str
     let location = probe_beads_location(&dir_path)?;
 
     // Register in the registry
-    let entry = registry::add(&dir_path, None)?;
+    let entry = registry::add(&dir_path, name)?;
 
     // Get the counts
     let counts = project_counts(&dir_path);
@@ -1062,6 +1108,16 @@ pub fn init_project(path: String, prefix: Option<String>) -> Result<Project, Str
         error: None,
         counts,
     })
+}
+
+#[tauri::command]
+pub fn rename_project(id: String, name: String) -> Result<RegistryEntry, String> {
+    registry::rename(&id, name)
+}
+
+#[tauri::command]
+pub fn relocate_project(id: String, path: String) -> Result<RegistryEntry, String> {
+    registry::relocate(&id, path)
 }
 
 #[cfg(test)]
@@ -1428,4 +1484,5 @@ mod tests {
         assert!(is_missing_workspace_error(&result));
         assert!(result.contains("No active beads workspace found."));
     }
+
 }
