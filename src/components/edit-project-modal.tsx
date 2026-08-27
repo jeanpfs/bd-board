@@ -28,12 +28,13 @@ interface EditProjectModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   project: Project
+  isRepair?: boolean
 }
-
 export function EditProjectModal({
   open,
   onOpenChange,
   project,
+  isRepair = false,
 }: EditProjectModalProps) {
   const [name, setName] = useState(project.name)
   const [newPath, setNewPath] = useState(project.dir)
@@ -181,10 +182,22 @@ export function EditProjectModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Editar Projeto</DialogTitle>
-          <DialogDescription>
-            Customize project name and location. Prefix cannot be changed.
-          </DialogDescription>
+          {isRepair ? (
+            <>
+              <DialogTitle>⚠️ Repair Project: {project.name}</DialogTitle>
+              <DialogDescription>
+                The project path is no longer valid. Please select a new
+                location.
+              </DialogDescription>
+            </>
+          ) : (
+            <>
+              <DialogTitle>Edit Project</DialogTitle>
+              <DialogDescription>
+                Customize project name and location. Prefix cannot be changed.
+              </DialogDescription>
+            </>
+          )}
         </DialogHeader>
 
         <div className="space-y-4">
@@ -283,7 +296,7 @@ export function EditProjectModal({
             {(renameMutation.isPending || initMutation.isPending) && (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             )}
-            Save
+            {isRepair ? 'Repair' : 'Save'}
           </Button>
         </div>
       </DialogContent>

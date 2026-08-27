@@ -3,8 +3,10 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, FolderOpen, Plus } from 'lucide-react'
 
+import { EditProjectModal } from '@/components/edit-project-modal'
 import { ProjectCard } from '@/components/project-card'
 import { DesktopProbeCard } from '@/components/desktop-probe-card'
+import { useValidateProjectsOnMount } from '@/lib/useValidateProjectsOnMount'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -14,6 +16,7 @@ import {
   addProject,
   initProject,
 } from '@/lib/server'
+import { toErrorMessage } from '@/lib/utils'
 import { confirm } from '@tauri-apps/plugin-dialog'
 import { toast } from 'sonner'
 
@@ -81,13 +84,7 @@ function useProjectActions() {
         }
       }
     } catch (err) {
-      toast.error(
-        typeof err === 'string'
-          ? err
-          : err instanceof Error
-            ? err.message
-            : 'Failed to open project',
-      )
+      toast.error(toErrorMessage(err, 'Failed to open project'))
     }
   }, [queryClient])
 
@@ -100,13 +97,7 @@ function useProjectActions() {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
       toast.success('Project initialized')
     } catch (err) {
-      toast.error(
-        typeof err === 'string'
-          ? err
-          : err instanceof Error
-            ? err.message
-            : 'Failed to initialize project',
-      )
+      toast.error(toErrorMessage(err, 'Failed to initialize project'))
     }
   }, [queryClient])
 
@@ -121,28 +112,42 @@ function Home() {
     staleTime: 5000,
   })
 
-  return (
-    <div className="mx-auto flex max-w-[1240px] flex-col gap-6">
-      <PageHeader projects={data} />
-      <DesktopProbeCard />
+  const { currentBrokenProject, closeBrokenModal } =
+    useValidateProjectsOnMount(data)
 
-      {isPending ? (
-        <LoadingState />
-      ) : isError ? (
-        <ErrorState
-          message={error instanceof Error ? error.message : String(error)}
-          onRetry={() => refetch()}
-          retrying={isFetching}
-        />
-      ) : data.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <>
-          <SummaryStats projects={data} />
-          <ProjectGrid projects={data} />
-        </>
-      )}
-    </div>
+  const repairModalContent = currentBrokenProject ? (
+    <EditProjectModal
+      open={true}
+      onOpenChange={closeBrokenModal}
+      project={currentBrokenProject.project}
+      isRepair={true}
+    />
+  ) : null
+  return (
+    <>
+      {repairModalContent}
+      <div className="mx-auto flex max-w-[1240px] flex-col gap-6">
+        <PageHeader projects={data} />
+        <DesktopProbeCard />
+
+        {isPending ? (
+          <LoadingState />
+        ) : isError ? (
+          <ErrorState
+            message={error instanceof Error ? error.message : String(error)}
+            onRetry={() => refetch()}
+            retrying={isFetching}
+          />
+        ) : data.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <>
+            <SummaryStats projects={data} />
+            <ProjectGrid projects={data} />
+          </>
+        )}
+      </div>
+    </>
   )
 }
 function PageHeader({ projects }: { projects: Project[] | undefined }) {
