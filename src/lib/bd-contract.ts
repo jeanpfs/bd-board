@@ -8,19 +8,19 @@ import type {
 
 export interface BdAdapter {
   discoverProjects: () => Promise<Project[]>
-  listBeads: (database: string) => Promise<Bead[]>
-  getBeadDetail: (database: string, id: string) => Promise<BeadDetail>
-  getProjectKnowledge: (database: string) => Promise<ProjectKnowledge>
+  listBeads: (projectId: string) => Promise<Bead[]>
+  getBeadDetail: (projectId: string, id: string) => Promise<BeadDetail>
+  getProjectKnowledge: (projectId: string) => Promise<ProjectKnowledge>
   updateBeadStatus: (
-    database: string,
+    projectId: string,
     id: string,
     status: string,
   ) => Promise<void>
-  updateBead: (database: string, id: string, opts: BeadUpdate) => Promise<void>
-  previewDeleteBead: (database: string, id: string) => Promise<string>
-  deleteBead: (database: string, id: string) => Promise<void>
+  updateBead: (projectId: string, id: string, opts: BeadUpdate) => Promise<void>
+  previewDeleteBead: (projectId: string, id: string) => Promise<string>
+  deleteBead: (projectId: string, id: string) => Promise<void>
   createBead: (
-    database: string,
+    projectId: string,
     opts: {
       title: string
       description?: string
@@ -28,5 +28,5 @@ export interface BdAdapter {
       parent?: string
     },
   ) => Promise<string>
-  addComment: (database: string, id: string, text: string) => Promise<void>
+  addComment: (projectId: string, id: string, text: string) => Promise<void>
 }

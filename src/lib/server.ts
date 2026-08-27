@@ -12,6 +12,7 @@ import {
 } from './server-validation.ts'
 
 import type {
+  AddProjectOutcome,
   Bead,
   BeadDetail,
   BeadUpdate,
@@ -87,7 +88,7 @@ const webAddComment = createServerFn({ method: 'POST' })
   })
 
 export async function getProjects(): Promise<Project[]> {
-  if (isDesktopApp()) return invoke<Project[]>('discover_projects')
+  if (isDesktopApp()) return invoke<Project[]>('list_projects')
   return webGetProjects()
 }
 
@@ -97,7 +98,7 @@ export async function getBeads({
   data: { project: string }
 }): Promise<Bead[]> {
   if (isDesktopApp())
-    return invoke<Bead[]>('list_beads', { database: data.project })
+    return invoke<Bead[]>('list_beads', { projectId: data.project })
   return webGetBeads({ data })
 }
 
@@ -108,7 +109,7 @@ export async function getBeadDetailFn({
 }): Promise<BeadDetail> {
   if (isDesktopApp())
     return invoke<BeadDetail>('get_bead_detail', {
-      database: data.project,
+      projectId: data.project,
       id: data.id,
     })
   return webGetBeadDetail({ data })
@@ -121,7 +122,7 @@ export async function getProjectKnowledgeFn({
 }): Promise<ProjectKnowledge> {
   if (isDesktopApp())
     return invoke<ProjectKnowledge>('get_project_knowledge', {
-      database: data.project,
+      projectId: data.project,
     })
   return webGetProjectKnowledge({ data })
 }
@@ -133,7 +134,7 @@ export async function updateBeadStatusFn({
 }): Promise<{ ok: true }> {
   if (isDesktopApp()) {
     await invoke('update_bead_status', {
-      database: data.project,
+      projectId: data.project,
       id: data.id,
       status: data.status,
     })
@@ -149,7 +150,7 @@ export async function updateBeadFn({
 }): Promise<{ ok: true }> {
   if (isDesktopApp()) {
     await invoke('update_bead', {
-      database: data.project,
+      projectId: data.project,
       id: data.id,
       update: data.update,
     })
@@ -165,7 +166,7 @@ export async function previewDeleteBeadFn({
 }): Promise<{ preview: string }> {
   if (isDesktopApp()) {
     const preview = await invoke<string>('preview_delete_bead', {
-      database: data.project,
+      projectId: data.project,
       id: data.id,
     })
     return { preview }
@@ -179,7 +180,7 @@ export async function deleteBeadFn({
   data: { project: string; id: string }
 }): Promise<{ ok: true }> {
   if (isDesktopApp()) {
-    await invoke('delete_bead', { database: data.project, id: data.id })
+    await invoke('delete_bead', { projectId: data.project, id: data.id })
     return { ok: true }
   }
   return webDeleteBead({ data })
@@ -198,7 +199,7 @@ export async function createBeadFn({
 }): Promise<{ id: string }> {
   if (isDesktopApp()) {
     const id = await invoke<string>('create_bead', {
-      database: data.project,
+      projectId: data.project,
       title: data.title,
       description: data.description,
       type: data.type,
@@ -216,11 +217,43 @@ export async function addCommentFn({
 }): Promise<{ ok: true }> {
   if (isDesktopApp()) {
     await invoke('add_comment', {
-      database: data.project,
+      projectId: data.project,
       id: data.id,
       text: data.text,
     })
     return { ok: true }
   }
   return webAddComment({ data })
+}
+export async function pickProjectDirectory(): Promise<string | null> {
+  if (!isDesktopApp()) {
+    throw new Error('Picking projects requires the desktop app')
+  }
+  const { open } = await import('@tauri-apps/plugin-dialog')
+  const path = await open({ directory: true, multiple: false })
+  return path || null
+}
+
+export async function addProject(path: string): Promise<AddProjectOutcome> {
+  if (!isDesktopApp()) {
+    throw new Error('Adding projects requires the desktop app')
+  }
+  return invoke<AddProjectOutcome>('add_project', { path })
+}
+
+export async function initProject(
+  path: string,
+  prefix?: string,
+): Promise<Project> {
+  if (!isDesktopApp()) {
+    throw new Error('Initializing projects requires the desktop app')
+  }
+  return invoke<Project>('init_project', { path, prefix })
+}
+
+export async function removeProject(id: string): Promise<void> {
+  if (!isDesktopApp()) {
+    throw new Error('Removing projects requires the desktop app')
+  }
+  return invoke<void>('remove_project', { id })
 }
