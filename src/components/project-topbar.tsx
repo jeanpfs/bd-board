@@ -24,72 +24,54 @@ export function ProjectTopbar() {
     queryFn: () => getProjects(),
     refetchInterval: 15000,
     staleTime: 5000,
+    enabled: Boolean(project),
   })
   const projectName =
-    projectsQuery.data?.find((p) => p.database === project)?.name ?? project
+    projectsQuery.data?.find((p) => p.id === project)?.name ?? project
+
+  if (!project) {
+    return null
+  }
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-4 border-b border-border bg-background px-4">
-      <div className="flex min-w-0 items-center gap-1.5 text-sm">
-        <Link
-          to="/"
-          className="text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
-        >
-          Projects
-        </Link>
-        {project ? (
-          <>
-            <span className="text-muted-foreground/40" aria-hidden="true">
-              /
-            </span>
-            <span className="truncate font-medium text-foreground">
-              {projectName}
-            </span>
-            <span className="font-mono text-[11.5px] text-faint">
-              {project}
-            </span>
-          </>
-        ) : null}
-      </div>
+    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-background px-4">
+      <span className="min-w-0 truncate text-sm font-semibold text-foreground capitalize">
+        {projectName}
+      </span>
 
-      {project ? (
-        <div
-          className="flex items-center gap-1"
-          role="tablist"
-          aria-label="Project view"
-        >
-          {TABS.map((item) => {
-            const Icon = item.icon
-            const active = tab === item.key
-            return (
-              <Link
-                key={item.key}
-                to="/p/$project"
-                params={{ project }}
-                search={{ tab: item.key }}
-                role="tab"
-                aria-selected={active}
-                className={cn(
-                  'inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60',
-                  active
-                    ? 'text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-                style={
-                  active
-                    ? {
-                        boxShadow: 'inset 0 -2px 0 0 var(--primary-text)',
-                      }
-                    : undefined
-                }
-              >
-                <Icon className="size-3.5" aria-hidden="true" />
-                {item.label}
-              </Link>
-            )
-          })}
-        </div>
-      ) : null}
+      <div className="h-5 w-px shrink-0 bg-border" aria-hidden="true" />
+
+      <div
+        className="flex items-center gap-1"
+        role="tablist"
+        aria-label="Project view"
+      >
+        {TABS.map((item) => {
+          const Icon = item.icon
+          const active = tab === item.key
+          return (
+            <Link
+              key={item.key}
+              to="/p/$project"
+              params={{ project }}
+              search={{ tab: item.key }}
+              role="tab"
+              aria-selected={active}
+              className={cn(
+                'relative inline-flex h-12 items-center gap-1.5 px-2.5 text-[13px] font-medium outline-none transition-colors',
+                'after:pointer-events-none after:absolute after:inset-x-1 after:bottom-0 after:h-0.5 after:rounded-full after:bg-transparent',
+                'focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset',
+                active
+                  ? 'text-foreground after:bg-[var(--primary-text)]'
+                  : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
+              )}
+            >
+              <Icon className="size-3.5" aria-hidden="true" />
+              {item.label}
+            </Link>
+          )
+        })}
+      </div>
     </header>
   )
 }

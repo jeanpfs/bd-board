@@ -37,15 +37,15 @@ export function ProjectCard({ project }: { project: Project }) {
 
   const legend: LegendItem[] = [
     {
-      key: 'open',
-      label: 'Open',
-      value: open,
-      dotClassName: 'bg-status-open',
-      textClassName: 'text-status-open',
+      key: 'closed',
+      label: 'Closed',
+      value: counts.closed,
+      dotClassName: 'bg-status-closed',
+      textClassName: 'text-status-closed',
     },
     {
       key: 'in_progress',
-      label: 'In progress',
+      label: 'In Progress',
       value: counts.in_progress,
       dotClassName: 'bg-status-progress',
       textClassName: 'text-status-progress',
@@ -58,18 +58,36 @@ export function ProjectCard({ project }: { project: Project }) {
       textClassName: 'text-status-blocked',
     },
     {
-      key: 'closed',
-      label: 'Closed',
-      value: counts.closed,
-      dotClassName: 'bg-status-closed',
-      textClassName: 'text-status-closed',
+      key: 'open',
+      label: 'Open',
+      value: open,
+      dotClassName: 'bg-status-open',
+      textClassName: 'text-status-open',
     },
   ]
+
+  // Handle error or missing state
+  if (project.error || project.missing) {
+    return (
+      <div className="rounded-[12px] outline-none focus-visible:ring-2 focus-visible:ring-ring/60">
+        <div className="flex h-full items-start gap-3 rounded-[12px] bg-card/50 p-4 shadow-card ring-1 ring-inset ring-border/50">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <h3 className="truncate text-[15px] font-medium tracking-[-0.01em] text-muted-foreground">
+              {project.name}
+            </h3>
+            <p className="mt-[3px] font-mono text-[11px] text-faint">
+              {project.error || 'Folder not found'}
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <Link
       to="/p/$project"
-      params={{ project: project.database }}
+      params={{ project: project.id }}
       className="group block rounded-[12px] outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
     >
       <div className="flex h-full items-start gap-3 rounded-[12px] bg-card p-4 shadow-card ring-1 ring-inset ring-border transition-[background-color,box-shadow,transform] duration-[140ms] ease-out group-hover:-translate-y-0.5 group-hover:bg-card-hover group-hover:shadow-[0_8px_22px_-8px_oklch(0_0_0/60%)] group-hover:ring-ring/45">
@@ -85,8 +103,11 @@ export function ProjectCard({ project }: { project: Project }) {
                   aria-hidden="true"
                 />
               </div>
-              <p className="mt-[3px] font-mono text-[11px] text-faint">
-                {project.database}
+              <p
+                className="mt-[3px] font-mono text-[11px] text-faint truncate"
+                title={project.beadsPath}
+              >
+                {project.beadsPath}
               </p>
             </div>
 
