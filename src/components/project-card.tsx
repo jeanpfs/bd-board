@@ -1,10 +1,18 @@
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { ArrowUpRight } from 'lucide-react'
+import { ArrowUpRight, MoreVertical } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { getBeads } from '@/lib/server'
 
 import { ProgressRing } from '@/components/progress-ring'
-
+import { Button } from '@/components/ui/button'
+import { EditProjectModal } from '@/components/edit-project-modal'
+import { ConfirmDeleteModal } from '@/components/confirm-delete-modal'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import type { Project } from '@/lib/types'
 
 interface LegendItem {
@@ -27,6 +35,9 @@ const SEGMENT_ORDER: {
 
 export function ProjectCard({ project }: { project: Project }) {
   const queryClient = useQueryClient()
+  const [isEditing, setIsEditing] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const { counts } = project
   const open = counts.open + counts.deferred
   const pctDone = counts.total > 0 ? (counts.closed / counts.total) * 100 : null
@@ -88,20 +99,20 @@ export function ProjectCard({ project }: { project: Project }) {
   }
 
   return (
-    <Link
-      to="/p/$project"
-      params={{ project: project.id }}
-      onMouseEnter={() =>
-        queryClient.prefetchQuery({
-          queryKey: ['beads', project.id],
-          queryFn: () => getBeads({ data: { project: project.id } }),
-          staleTime: 3000,
-        })
-      }
-      className="group block rounded-[12px] outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-    >
-      <div className="flex h-full items-start gap-3 rounded-[12px] bg-card p-4 shadow-card ring-1 ring-inset ring-border transition-[background-color,box-shadow,transform] duration-[140ms] ease-out group-hover:-translate-y-0.5 group-hover:bg-card-hover group-hover:shadow-[0_8px_22px_-8px_oklch(0_0_0/60%)] group-hover:ring-ring/45">
-        <div className="flex min-w-0 flex-1 flex-col">
+    <>
+      <Link
+        to="/p/$project"
+        params={{ project: project.id }}
+        onMouseEnter={() =>
+          queryClient.prefetchQuery({
+            queryKey: ['beads', project.id],
+            queryFn: () => getBeads({ data: { project: project.id } }),
+            staleTime: 3000,
+          })
+        }
+        className="group block rounded-[12px] outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+      >
+        <div className="relative flex h-full items-start gap-3 rounded-[12px] bg-card p-4 shadow-card ring-1 ring-inset ring-border transition-[background-color,box-shadow,transform] duration-[140ms] ease-out group-hover:-translate-y-0.5 group-hover:bg-card-hover group-hover:shadow-[0_8px_22px_-8px_oklch(0_0_0/60%)] group-hover:ring-ring/45">
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
@@ -157,8 +168,69 @@ export function ProjectCard({ project }: { project: Project }) {
               </span>
             ))}
           </div>
+          <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                size="icon-xs"
+                variant="ghost"
+                title="Project actions"
+                className="absolute top-2 right-2 opacity-0 transition-opacity duration-[140ms] group-hover:opacity-100"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                }}
+              >
+                <MoreVertical className="size-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-32 p-1" side="left" align="start">
+              <div className="flex flex-col gap-0.5">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="justify-start text-sm"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setIsEditing(true)
+                    setMenuOpen(false)
+                  }}
+                >
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="justify-start text-sm text-destructive hover:text-destructive"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setIsDeleting(true)
+                    setMenuOpen(false)
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
-      </div>
-    </Link>
+      </Link>
+      {isEditing && (
+        <EditProjectModal
+          open={isEditing}
+          onOpenChange={setIsEditing}
+          project={project}
+        />
+      )}
+      {isDeleting && (
+        <ConfirmDeleteModal
+          open={isDeleting}
+          onOpenChange={setIsDeleting}
+          projectId={project.id}
+          projectName={project.name}
+        />
+      )}
+    </>
   )
 }
