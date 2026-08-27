@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronsLeft, ChevronsRight, Folder, Home, X } from 'lucide-react'
 
 import { AppIcon } from '@/components/app-icon'
@@ -47,6 +47,7 @@ function RailLink({
   collapsed,
   dotClassName,
   count,
+  onMouseEnter,
   children,
 }: {
   to: string
@@ -57,6 +58,7 @@ function RailLink({
   collapsed?: boolean
   dotClassName?: string
   count?: number
+  onMouseEnter?: () => void
   children: React.ReactNode
 }) {
   return (
@@ -67,6 +69,7 @@ function RailLink({
         search={search}
         aria-current={active ? 'page' : undefined}
         title={collapsed && typeof children === 'string' ? children : undefined}
+        onMouseEnter={onMouseEnter}
         className={cn(
           'flex h-7 items-center gap-2 rounded-md text-[13px] text-muted-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60',
           collapsed ? 'justify-center px-0' : 'px-2',
@@ -100,6 +103,7 @@ function RailLink({
 
 export function ProjectRail() {
   const { project } = useParams({ strict: false })
+  const queryClient = useQueryClient()
 
   const projectsQuery = useQuery({
     queryKey: ['projects'],
@@ -223,6 +227,13 @@ export function ProjectRail() {
               active={p.id === project}
               collapsed={collapsed}
               count={p.counts.total}
+              onMouseEnter={() =>
+                queryClient.prefetchQuery({
+                  queryKey: ['beads', p.id],
+                  queryFn: () => getBeads({ data: { project: p.id } }),
+                  staleTime: 3000,
+                })
+              }
             >
               {p.name}
             </RailLink>

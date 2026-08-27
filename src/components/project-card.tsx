@@ -1,5 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { ArrowUpRight } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { getBeads } from '@/lib/server'
 
 import { ProgressRing } from '@/components/progress-ring'
 
@@ -24,6 +26,7 @@ const SEGMENT_ORDER: {
 ]
 
 export function ProjectCard({ project }: { project: Project }) {
+  const queryClient = useQueryClient()
   const { counts } = project
   const open = counts.open + counts.deferred
   const pctDone = counts.total > 0 ? (counts.closed / counts.total) * 100 : null
@@ -88,6 +91,13 @@ export function ProjectCard({ project }: { project: Project }) {
     <Link
       to="/p/$project"
       params={{ project: project.id }}
+      onMouseEnter={() =>
+        queryClient.prefetchQuery({
+          queryKey: ['beads', project.id],
+          queryFn: () => getBeads({ data: { project: project.id } }),
+          staleTime: 3000,
+        })
+      }
       className="group block rounded-[12px] outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
     >
       <div className="flex h-full items-start gap-3 rounded-[12px] bg-card p-4 shadow-card ring-1 ring-inset ring-border transition-[background-color,box-shadow,transform] duration-[140ms] ease-out group-hover:-translate-y-0.5 group-hover:bg-card-hover group-hover:shadow-[0_8px_22px_-8px_oklch(0_0_0/60%)] group-hover:ring-ring/45">
