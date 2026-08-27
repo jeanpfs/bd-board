@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import * as fs from 'node:fs/promises'
+import * as fsSync from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import type { BdAdapter } from './bd-contract.ts'
@@ -18,33 +18,123 @@ import type {
   RelatedBead,
 } from './types.ts'
 import { parseKnowledgeCommentText } from './knowledge.ts'
+import { loadRegistry } from './registry.ts'
 
 const execFileAsync = promisify(execFile)
 
-const BD_PRIMARY = process.env['BD_BIN'] ?? 'bd'
 const BD_FALLBACK = '/opt/homebrew/bin/bd'
 const MAX_BUFFER = 64 * 1024 * 1024
 export const COMMENTS_LIMIT = 250
 export const KNOWLEDGE_LIMIT = 500
 
-let dirCache: Map<string, string> | null = null
+function bdCandidates(): string[] {
+  const candidates: string[] = []
+
+  // (a) BD_BIN when set and non-empty
+  const bdBin = process.env['BD_BIN']
+  if (bdBin) {
+    candidates.push(bdBin)
+  }
+
+  // (b) $HOME/.local/bin/bd — the wrapper
+  const home = os.homedir()
+  if (home) {
+    candidates.push(path.join(home, '.local', 'bin', 'bd'))
+  }
+
+  // (c) "bd" from PATH
+  candidates.push('bd')
+
+  // (d) Fallback
+  candidates.push(BD_FALLBACK)
+
+  return candidates
+}
+
+function bdErrorMessage(
+  stdout: string,
+  stderr: string,
+  exitCode: number | null,
+): string {
+  const stdoutTrim = stdout.trim()
+  const stderrTrim = stderr.trim()
+
+  // Try to parse stdout as JSON and extract message or error
+  if (stdoutTrim) {
+    try {
+      const json = JSON.parse(stdoutTrim) as Record<string, unknown>
+
+      // Check for message field
+      if (typeof json.message === 'string' && json.message) {
+        let result = json.message
+        if (typeof json.hint === 'string' && json.hint) {
+          result += ` (${json.hint})`
+        }
+        return result
+      }
+
+      // Check for error field
+      if (typeof json.error === 'string' && json.error) {
+        let result = json.error
+        if (typeof json.hint === 'string' && json.hint) {
+          result += ` (${json.hint})`
+        }
+        return result
+      }
+    } catch {
+      // Not JSON, continue to stderr
+    }
+  }
+
+  // Fall back to stderr
+  if (stderrTrim) {
+    return `bd exited with status ${exitCode}: ${stderrTrim}`
+  }
+
+  // Last resort
+  return `bd exited with status ${exitCode}`
+}
 
 async function bdRaw(dir: string, args: string[]): Promise<string> {
-  const run = async (bin: string) =>
-    execFileAsync(bin, ['-C', dir, ...args], { maxBuffer: MAX_BUFFER })
+  const candidates = bdCandidates()
 
-  try {
-    const { stdout } = await run(BD_PRIMARY)
-    return stdout
-  } catch (err: unknown) {
-    const code = (err as NodeJS.ErrnoException).code
-    if (code === 'ENOENT') {
-      const { stdout } = await run(BD_FALLBACK)
+  for (const candidate of candidates) {
+    try {
+      const { stdout } = await execFileAsync(candidate, args, {
+        cwd: dir,
+        maxBuffer: MAX_BUFFER,
+      })
       return stdout
+    } catch (err: unknown) {
+      const error = err as {
+        code?: string
+        message?: string
+        stdout?: string
+        stderr?: string
+      }
+
+      // If NotFound, try next candidate
+      if (error.code === 'ENOENT') {
+        continue
+      }
+
+      // For any other error, extract the message and throw
+      const stdout = error.stdout ?? ''
+      const stderr = error.stderr ?? String(err)
+      // Try to extract exit code from error message or use null
+      let exitCode: number | null = null
+      const statusMatch = String(err).match(/exit code (\d+)/)
+      if (statusMatch) {
+        exitCode = parseInt(statusMatch[1], 10)
+      }
+      const message = bdErrorMessage(stdout, stderr, exitCode)
+      throw new Error(message)
     }
-    const stderr = (err as { stderr?: string }).stderr ?? String(err)
-    throw new Error(`bd failed in ${dir}: ${stderr}`)
   }
+
+  // Exhausted all candidates
+  const candidateList = candidates.join(', ')
+  throw new Error(`bd not found (tried: ${candidateList})`)
 }
 
 async function bdJson<T>(dir: string, args: string[]): Promise<T> {
@@ -123,53 +213,100 @@ async function counts(dir: string): Promise<ProjectCounts> {
   }
 }
 
-export function expandHome(p: string): string {
-  if (p === '~') return os.homedir()
-  if (p.startsWith('~/')) return path.join(os.homedir(), p.slice(2))
-  return p
-}
-
-async function resolveRoots(): Promise<string[]> {
-  const env = process.env['BD_ROOTS']
-  const roots = env
-    ? splitConfiguredRoots(env, path.delimiter)
-    : [path.join(os.homedir(), 'Code')]
-  return roots.map(expandHome)
-}
-
-export function splitConfiguredRoots(raw: string, delimiter: string): string[] {
-  return raw.split(delimiter).filter(Boolean)
-}
-
 async function discoverProjects(): Promise<Project[]> {
-  const roots = await resolveRoots()
+  const entries = await loadRegistry()
   const results: Project[] = []
 
-  for (const root of roots) {
-    let entries: string[]
-    try {
-      const dirents = await fs.readdir(root, { withFileTypes: true })
-      entries = dirents.filter((d) => d.isDirectory()).map((d) => d.name)
-    } catch {
+  for (const entry of entries) {
+    // Check if folder exists
+    if (!fsSync.existsSync(entry.path)) {
+      results.push({
+        id: entry.id,
+        name: entry.label,
+        dir: entry.path,
+        beadsPath: '',
+        prefix: null,
+        external: false,
+        missing: true,
+        error: 'folder no longer exists',
+        counts: {
+          open: 0,
+          in_progress: 0,
+          blocked: 0,
+          closed: 0,
+          deferred: 0,
+          total: 0,
+        },
+      })
       continue
     }
 
-    await Promise.all(
-      entries.map(async (name) => {
-        const dir = path.join(root, name)
-        const metaPath = path.join(dir, '.beads', 'metadata.json')
-        try {
-          const raw = await fs.readFile(metaPath, 'utf-8')
-          const meta = JSON.parse(raw) as { dolt_database?: string }
-          const database = meta.dolt_database
-          if (!database) return
-          const projectCounts = await counts(dir)
-          results.push({ name: database, dir, database, counts: projectCounts })
-        } catch {
-          // skip dirs without valid metadata
-        }
-      }),
-    )
+    // Probe beads location
+    try {
+      const probeResult = await bdJson<{
+        path?: string
+        database_path?: string
+        prefix?: string
+      }>(entry.path, ['where', '--json'])
+
+      if (!probeResult.path) {
+        results.push({
+          id: entry.id,
+          name: entry.label,
+          dir: entry.path,
+          beadsPath: '',
+          prefix: null,
+          external: false,
+          missing: false,
+          error: 'bd where returned no beads path',
+          counts: {
+            open: 0,
+            in_progress: 0,
+            blocked: 0,
+            closed: 0,
+            deferred: 0,
+            total: 0,
+          },
+        })
+        continue
+      }
+
+      const expectedBeads = path.join(entry.path, '.beads')
+      const external = probeResult.path !== expectedBeads
+
+      const projectCounts = await counts(entry.path)
+      results.push({
+        id: entry.id,
+        name: entry.label,
+        dir: entry.path,
+        beadsPath: probeResult.path,
+        prefix: probeResult.prefix || null,
+        external,
+        missing: false,
+        error: null,
+        counts: projectCounts,
+      })
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err)
+      results.push({
+        id: entry.id,
+        name: entry.label,
+        dir: entry.path,
+        beadsPath: '',
+        prefix: null,
+        external: false,
+        missing: false,
+        error,
+        counts: {
+          open: 0,
+          in_progress: 0,
+          blocked: 0,
+          closed: 0,
+          deferred: 0,
+          total: 0,
+        },
+      })
+    }
   }
 
   return results.sort((a, b) => {
@@ -178,21 +315,13 @@ async function discoverProjects(): Promise<Project[]> {
   })
 }
 
-async function getDirMap(): Promise<Map<string, string>> {
-  if (dirCache) return dirCache
-  const projects = await discoverProjects()
-  dirCache = new Map(projects.map((p) => [p.database, p.dir]))
-  return dirCache
-}
-
-async function resolveDir(database: string): Promise<string> {
-  const map = await getDirMap()
-  const dir = map.get(database)
-  if (!dir)
-    throw new Error(
-      `Unknown database: ${database}. Run discoverProjects first.`,
-    )
-  return dir
+async function resolveDir(projectId: string): Promise<string> {
+  const entries = await loadRegistry()
+  const entry = entries.find((e) => e.id === projectId)
+  if (!entry) {
+    throw new Error(`unknown project id: ${projectId}`)
+  }
+  return entry.path
 }
 
 interface DependencyEdge {
@@ -382,8 +511,8 @@ function mapKnowledgeEntry(
   }
 }
 
-async function listBeads(database: string): Promise<Bead[]> {
-  const dir = await resolveDir(database)
+async function listBeads(projectId: string): Promise<Bead[]> {
+  const dir = await resolveDir(projectId)
   const raw = await bdJson<Record<string, unknown>[]>(dir, [
     'list',
     '--all',
@@ -393,10 +522,10 @@ async function listBeads(database: string): Promise<Bead[]> {
 }
 
 async function getBeadDetail(
-  database: string,
+  projectId: string,
   id: string,
 ): Promise<BeadDetail> {
-  const dir = await resolveDir(database)
+  const dir = await resolveDir(projectId)
 
   const [rawArr, rawComments] = await Promise.all([
     bdJson<Record<string, unknown>[]>(dir, ['show', id, '--json']),
@@ -453,9 +582,9 @@ export function buildProjectKnowledge(
 }
 
 async function getProjectKnowledge(
-  database: string,
+  projectId: string,
 ): Promise<ProjectKnowledge> {
-  const dir = await resolveDir(database)
+  const dir = await resolveDir(projectId)
   try {
     const issues = await bdJsonLines<Record<string, unknown>>(dir, ['export'])
     return buildProjectKnowledge(issues)
@@ -465,11 +594,11 @@ async function getProjectKnowledge(
 }
 
 async function updateBeadStatus(
-  database: string,
+  projectId: string,
   id: string,
   status: string,
 ): Promise<void> {
-  const dir = await resolveDir(database)
+  const dir = await resolveDir(projectId)
   await bdRaw(dir, ['update', id, '--status', status])
 }
 
@@ -506,29 +635,29 @@ function buildUpdateBeadArgs(
 }
 
 async function updateBead(
-  database: string,
+  projectId: string,
   id: string,
   opts: BeadUpdate,
 ): Promise<void> {
-  const dir = await resolveDir(database)
+  const dir = await resolveDir(projectId)
   const existing =
-    opts.labels !== undefined ? await getBeadDetail(database, id) : undefined
+    opts.labels !== undefined ? await getBeadDetail(projectId, id) : undefined
   const args = buildUpdateBeadArgs(id, opts, existing?.labels ?? [])
   if (args.length <= 2) return
   await bdRaw(dir, args)
 }
 
 async function previewDeleteBead(
-  database: string,
+  projectId: string,
   id: string,
 ): Promise<string> {
-  const dir = await resolveDir(database)
+  const dir = await resolveDir(projectId)
   const out = await bdRaw(dir, buildPreviewDeleteBeadArgs(id))
   return out.trim()
 }
 
-async function deleteBead(database: string, id: string): Promise<void> {
-  const dir = await resolveDir(database)
+async function deleteBead(projectId: string, id: string): Promise<void> {
+  const dir = await resolveDir(projectId)
   try {
     await bdRaw(dir, buildDeleteBeadArgs(id))
   } catch (err) {
@@ -546,10 +675,10 @@ function buildDeleteBeadArgs(id: string): string[] {
 }
 
 async function createBead(
-  database: string,
+  projectId: string,
   opts: { title: string; description?: string; type?: string; parent?: string },
 ): Promise<string> {
-  const dir = await resolveDir(database)
+  const dir = await resolveDir(projectId)
   const args = ['create', '--title', opts.title, '--silent']
   if (opts.description) args.push('-d', opts.description)
   if (opts.type) args.push('--type', opts.type)
@@ -559,11 +688,11 @@ async function createBead(
 }
 
 async function addComment(
-  database: string,
+  projectId: string,
   id: string,
   text: string,
 ): Promise<void> {
-  const dir = await resolveDir(database)
+  const dir = await resolveDir(projectId)
   await bdRaw(dir, ['comment', id, text])
 }
 

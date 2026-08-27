@@ -114,11 +114,20 @@ export interface ProjectCounts {
 }
 
 export interface Project {
+  id: string
   name: string
   dir: string
-  database: string
+  beadsPath: string
+  prefix: string | null
+  external: boolean
+  missing: boolean
+  error: string | null
   counts: ProjectCounts
 }
+
+export type AddProjectOutcome =
+  | { kind: 'registered'; project: Project }
+  | { kind: 'needsInit'; path: string; suggestedPrefix: string }
 
 export const COLUMNS: { key: BeadColumn; label: string }[] = [
   { key: 'open', label: 'Open' },

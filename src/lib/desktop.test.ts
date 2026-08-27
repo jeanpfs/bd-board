@@ -8,14 +8,14 @@ describe('normalizeDesktopProbe', () => {
       normalizeDesktopProbe({
         bd_binary: 'bd',
         bd_version: 'bd 1.2.3',
-        project_roots: ['/tmp/code'],
-        root_statuses: [{ path: '/tmp/code', exists: true }],
+        registry_path: '/Users/me/.config/bd-board/projects.json',
+        project_count: 3,
       }),
     ).toEqual({
       bdBinary: 'bd',
       bdVersion: 'bd 1.2.3',
-      projectRoots: ['/tmp/code'],
-      rootStatuses: [{ path: '/tmp/code', exists: true }],
+      registryPath: '/Users/me/.config/bd-board/projects.json',
+      projectCount: 3,
     })
   })
 })

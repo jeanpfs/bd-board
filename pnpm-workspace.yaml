@@ -1,2 +1,6 @@
 allowBuilds:
+  edgedriver: false
+  esbuild: true
+  lightningcss: true
+  geckodriver: false
   unrs-resolver: true

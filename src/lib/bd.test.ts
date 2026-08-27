@@ -1,5 +1,3 @@
-import * as os from 'node:os'
-import * as path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -10,9 +8,7 @@ import {
   buildProjectKnowledge,
   buildUpdateBeadArgs,
   COMMENTS_LIMIT,
-  expandHome,
   KNOWLEDGE_LIMIT,
-  splitConfiguredRoots,
 } from './bd'
 
 describe('buildUpdateBeadArgs', () => {
@@ -80,37 +76,6 @@ describe('delete bead arguments', () => {
       '--cascade',
       '--force',
     ])
-  })
-})
-
-describe('splitConfiguredRoots', () => {
-  it('splits roots with the platform delimiter', () => {
-    expect(splitConfiguredRoots('/Users/me/Code:/tmp/work', ':')).toEqual([
-      '/Users/me/Code',
-      '/tmp/work',
-    ])
-    expect(splitConfiguredRoots('C:\\Code;D:\\work', ';')).toEqual([
-      'C:\\Code',
-      'D:\\work',
-    ])
-  })
-})
-
-describe('expandHome', () => {
-  it('expands a bare tilde to the home directory', () => {
-    expect(expandHome('~')).toBe(os.homedir())
-  })
-
-  it('expands a tilde-prefixed path', () => {
-    expect(expandHome('~/Code')).toBe(path.join(os.homedir(), 'Code'))
-  })
-
-  it('leaves absolute paths unchanged', () => {
-    expect(expandHome('/Users/me/Code')).toBe('/Users/me/Code')
-  })
-
-  it('leaves relative non-tilde paths unchanged', () => {
-    expect(expandHome('../Code')).toBe('../Code')
   })
 })
 

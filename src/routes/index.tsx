@@ -1,13 +1,21 @@
+import { useCallback } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
-import { AlertCircle, FolderOpen } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { AlertCircle, FolderOpen, Plus } from 'lucide-react'
 
 import { ProjectCard } from '@/components/project-card'
 import { DesktopProbeCard } from '@/components/desktop-probe-card'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { getProjects } from '@/lib/server'
+import {
+  getProjects,
+  pickProjectDirectory,
+  addProject,
+  initProject,
+} from '@/lib/server'
+import { confirm } from '@tauri-apps/plugin-dialog'
+import { toast } from 'sonner'
 
 import type { Project } from '@/lib/types'
 
@@ -45,6 +53,56 @@ const SUMMARY_META: {
   },
 ]
 
+function useProjectActions() {
+  const queryClient = useQueryClient()
+
+  const handleOpenProject = useCallback(async () => {
+    try {
+      const path = await pickProjectDirectory()
+      if (!path) return
+
+      const outcome = await addProject(path)
+      if (outcome.kind === 'registered') {
+        queryClient.invalidateQueries({ queryKey: ['projects'] })
+        toast.success('Project opened')
+      } else {
+        const confirmed = await confirm(
+          `Initialize a new beads workspace at:\n${outcome.path}\n\nPrefix: ${outcome.suggestedPrefix}`,
+          {
+            title: 'No beads workspace',
+            okLabel: 'Initialize',
+            cancelLabel: 'Cancel',
+          },
+        )
+        if (confirmed) {
+          await initProject(outcome.path, outcome.suggestedPrefix)
+          queryClient.invalidateQueries({ queryKey: ['projects'] })
+          toast.success('Project initialized')
+        }
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to open project')
+    }
+  }, [queryClient])
+
+  const handleInitProject = useCallback(async () => {
+    try {
+      const path = await pickProjectDirectory()
+      if (!path) return
+
+      await initProject(path)
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      toast.success('Project initialized')
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to initialize project',
+      )
+    }
+  }, [queryClient])
+
+  return { handleOpenProject, handleInitProject }
+}
+
 function Home() {
   const { data, isPending, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['projects'],
@@ -77,23 +135,37 @@ function Home() {
     </div>
   )
 }
-
 function PageHeader({ projects }: { projects: Project[] | undefined }) {
   const count = projects?.length ?? 0
   const beads = projects?.reduce((sum, p) => sum + p.counts.total, 0) ?? 0
+  const { handleOpenProject, handleInitProject } = useProjectActions()
 
   return (
-    <header className="flex flex-col gap-1">
-      <h1 className="text-[22px] font-semibold tracking-[-0.02em]">Projects</h1>
-      {projects ? (
-        <p className="text-[13px] text-muted-foreground">
-          {count} {count === 1 ? 'project' : 'projects'}
-          <span className="px-1.5 text-muted-foreground/50">·</span>
-          {beads.toLocaleString('en-US')} {beads === 1 ? 'bead' : 'beads'}
-        </p>
-      ) : (
-        <Skeleton className="h-4 w-40" />
-      )}
+    <header className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-[22px] font-semibold tracking-[-0.02em]">
+          Projects
+        </h1>
+        {projects ? (
+          <p className="text-[13px] text-muted-foreground">
+            {count} {count === 1 ? 'project' : 'projects'}
+            <span className="px-1.5 text-muted-foreground/50">·</span>
+            {beads.toLocaleString('en-US')} {beads === 1 ? 'bead' : 'beads'}
+          </p>
+        ) : (
+          <Skeleton className="h-4 w-40" />
+        )}
+      </div>
+      <div className="flex gap-2">
+        <Button size="sm" variant="outline" onClick={handleInitProject}>
+          <Plus className="size-4" />
+          Init project
+        </Button>
+        <Button size="sm" onClick={handleOpenProject}>
+          <FolderOpen className="size-4" />
+          Open project
+        </Button>
+      </div>
     </header>
   )
 }
@@ -146,7 +218,7 @@ function ProjectGrid({ projects }: { projects: Project[] }) {
   return (
     <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
       {sorted.map((project) => (
-        <ProjectCard key={project.database} project={project} />
+        <ProjectCard key={project.id} project={project} />
       ))}
     </div>
   )
@@ -221,19 +293,30 @@ function ErrorState({
 }
 
 function EmptyState() {
+  const { handleOpenProject, handleInitProject } = useProjectActions()
+
   return (
-    <Card className="items-center gap-2 px-4 py-12 text-center">
+    <Card className="items-center gap-4 px-4 py-12 text-center">
       <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
         <FolderOpen className="size-4.5" aria-hidden="true" />
       </span>
-      <p className="text-sm font-medium">No projects found</p>
-      <p className="max-w-sm text-xs text-muted-foreground">
-        Projects are auto-discovered from{' '}
-        <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">
-          ~/Code/*/.beads
-        </code>
-        . Check for repositories with beads metadata.
-      </p>
+      <div>
+        <p className="text-sm font-medium">No projects yet</p>
+        <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+          Open a folder that already uses beads, or initialize beads in a new
+          one.
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <Button size="sm" variant="outline" onClick={handleInitProject}>
+          <Plus className="size-4" />
+          Init project
+        </Button>
+        <Button size="sm" onClick={handleOpenProject}>
+          <FolderOpen className="size-4" />
+          Open project
+        </Button>
+      </div>
     </Card>
   )
 }

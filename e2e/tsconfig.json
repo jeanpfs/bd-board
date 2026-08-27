@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": [
+      "node",
+      "@wdio/globals/types",
+      "@wdio/mocha-framework",
+      "@wdio/native-types",
+      "expect-webdriverio"
+    ]
+  },
+  "exclude": [],
+  "include": ["**/*"]
+}

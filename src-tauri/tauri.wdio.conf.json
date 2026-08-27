@@ -1,0 +1,24 @@
+{
+  "app": {
+    "withGlobalTauri": true,
+    "security": {
+      "capabilities": [
+        "main-capability",
+        {
+          "identifier": "wdio",
+          "description": "WebdriverIO e2e capability, only merged into builds made with --features wdio",
+          "windows": ["main"],
+          "permissions": [
+            "wdio:default",
+            "wdio:allow-execute",
+            "wdio:allow-log-frontend",
+            "wdio:allow-debug-plugin",
+            "wdio:allow-get-active-window-label",
+            "wdio:allow-get-window-states",
+            "wdio:allow-list-windows"
+          ]
+        }
+      ]
+    }
+  }
+}

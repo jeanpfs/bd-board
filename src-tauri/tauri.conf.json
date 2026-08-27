@@ -18,7 +18,10 @@
         "height": 960,
         "resizable": true
       }
-    ]
+    ],
+    "security": {
+      "capabilities": ["main-capability"]
+    }
   },
   "bundle": {
     "active": true,

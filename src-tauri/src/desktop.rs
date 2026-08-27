@@ -1,7 +1,7 @@
+use crate::registry;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::env;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -21,10 +21,16 @@ pub struct ProjectCounts {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Project {
+    pub id: String,
     pub name: String,
     pub dir: String,
-    pub database: String,
+    pub beads_path: String,
+    pub prefix: Option<String>,
+    pub external: bool,
+    pub missing: bool,
+    pub error: Option<String>,
     pub counts: ProjectCounts,
 }
 
@@ -109,6 +115,55 @@ pub struct BeadDetail {
     pub comments: Vec<Comment>,
 }
 
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BeadsLocation {
+    pub beads_path: String,
+    pub database_path: String,
+    pub prefix: Option<String>,
+    pub external: bool,
+}
+
+fn probe_beads_location(dir: &Path) -> Result<BeadsLocation, String> {
+    let raw = run_bd(dir, &["where", "--json"])?;
+    let value: Value = serde_json::from_str(&raw)
+        .map_err(|err| format!("failed to parse bd where output: {err}"))?;
+
+    let beads_path = value
+        .get("path")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "bd where returned no beads path".to_string())?
+        .to_string();
+
+    let database_path = value
+        .get("database_path")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+
+    let prefix = value
+        .get("prefix")
+        .and_then(Value::as_str)
+        .map(|s| s.to_string());
+
+    // Determine if beads is external (outside the project folder)
+    let expected_beads_path = dir.join(".beads");
+    let external = match (
+        std::fs::canonicalize(&beads_path),
+        std::fs::canonicalize(&expected_beads_path),
+    ) {
+        (Ok(canonical_beads), Ok(canonical_expected)) => canonical_beads != canonical_expected,
+        _ => beads_path != expected_beads_path.to_string_lossy().to_string(),
+    };
+
+    Ok(BeadsLocation {
+        beads_path,
+        database_path,
+        prefix,
+        external,
+    })
+}
+
 #[derive(Deserialize, Default)]
 pub struct BeadUpdateInput {
     pub title: Option<String>,
@@ -122,44 +177,107 @@ pub struct BeadUpdateInput {
     pub labels: Option<Vec<String>>,
 }
 
-fn bd_binary() -> String {
-    env::var("BD_BIN").unwrap_or_else(|_| "bd".to_string())
+pub fn bd_candidates() -> Vec<String> {
+    let mut candidates = Vec::new();
+
+    // (a) BD_BIN when set and non-empty
+    if let Ok(bin) = env::var("BD_BIN") {
+        if !bin.is_empty() {
+            candidates.push(bin);
+        }
+    }
+
+    // (b) $HOME/.local/bin/bd — the wrapper
+    if let Ok(home) = env::var("HOME") {
+        candidates.push(format!("{}/.local/bin/bd", home));
+    }
+
+    // (c) "bd" from PATH
+    candidates.push("bd".to_string());
+
+    // (d) Fallback
+    candidates.push(BD_FALLBACK.to_string());
+
+    candidates
+}
+
+fn bd_error_message(stdout: &str, stderr: &str, status: &std::process::ExitStatus) -> String {
+    let stdout_trim = stdout.trim();
+    let stderr_trim = stderr.trim();
+
+    // Try to parse stdout as JSON and extract message or error
+    if !stdout_trim.is_empty() {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(stdout_trim) {
+            // Check for message field
+            if let Some(msg) = json.get("message").and_then(|v| v.as_str()) {
+                if !msg.is_empty() {
+                    let mut result = msg.to_string();
+                    if let Some(hint) = json.get("hint").and_then(|v| v.as_str()) {
+                        if !hint.is_empty() {
+                            result.push_str(&format!(" ({})", hint));
+                        }
+                    }
+                    return result;
+                }
+            }
+
+            // Check for error field
+            if let Some(err) = json.get("error").and_then(|v| v.as_str()) {
+                if !err.is_empty() {
+                    let mut result = err.to_string();
+                    if let Some(hint) = json.get("hint").and_then(|v| v.as_str()) {
+                        if !hint.is_empty() {
+                            result.push_str(&format!(" ({})", hint));
+                        }
+                    }
+                    return result;
+                }
+            }
+        }
+    }
+
+    // Fall back to stderr
+    if !stderr_trim.is_empty() {
+        return format!("bd exited with status {}: {}", status, stderr_trim);
+    }
+
+    // Last resort
+    format!("bd exited with status {}", status)
 }
 
 fn run_bd(dir: &Path, args: &[&str]) -> Result<String, String> {
-    let primary = bd_binary();
-    let run = |bin: &str| {
-        Command::new(bin)
-            .arg("-C")
-            .arg(dir)
-            .args(args)
-            .output()
-            .map_err(|err| err.to_string())
-    };
+    let candidates = bd_candidates();
 
-    let output = match run(&primary) {
-        Ok(output) => output,
-        Err(err) if err.contains("No such file or directory") => run(BD_FALLBACK)?,
-        Err(err) => return Err(format!("failed to run {primary}: {err}")),
-    };
+    for candidate in &candidates {
+        let mut cmd = Command::new(candidate);
+        cmd.current_dir(dir).args(args);
 
-    if output.stdout.len() > MAX_BUFFER {
-        return Err("bd output exceeded buffer".to_string());
-    }
+        match cmd.output() {
+            Ok(output) => {
+                if output.stdout.len() > MAX_BUFFER {
+                    return Err("bd output exceeded buffer".to_string());
+                }
 
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        if stderr.is_empty() {
-            Err(format!("bd exited with status {}", output.status))
-        } else {
-            Err(format!(
-                "bd exited with status {}: {}",
-                output.status, stderr
-            ))
+                if output.status.success() {
+                    return Ok(String::from_utf8_lossy(&output.stdout).to_string());
+                } else {
+                    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                    return Err(bd_error_message(&stdout, &stderr, &output.status));
+                }
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                continue;
+            }
+            Err(err) => {
+                return Err(format!("failed to run {}: {}", candidate, err));
+            }
         }
     }
+
+    // Exhausted all candidates
+    let candidate_list = candidates.join(", ");
+    Err(format!("bd not found (tried: {})", candidate_list))
 }
 
 fn bd_json(dir: &Path, args: &[&str]) -> Result<Value, String> {
@@ -178,46 +296,6 @@ fn bd_json_lines(dir: &Path, args: &[&str]) -> Result<Vec<Value>, String> {
         .filter(|line| !line.is_empty())
         .map(|line| serde_json::from_str(line).map_err(|err| err.to_string()))
         .collect()
-}
-
-fn expand_home_with(path: PathBuf, home: Option<PathBuf>) -> PathBuf {
-    let path_str = path.to_string_lossy();
-    if path_str != "~" && !path_str.starts_with("~/") {
-        return path;
-    }
-    let Some(home) = home else {
-        return path;
-    };
-    if path_str == "~" {
-        return home;
-    }
-    home.join(&path_str[2..])
-}
-
-fn expand_home(path: PathBuf) -> PathBuf {
-    let home = env::var_os("HOME")
-        .or_else(|| env::var_os("USERPROFILE"))
-        .map(PathBuf::from);
-    expand_home_with(path, home)
-}
-
-fn env_roots() -> Vec<PathBuf> {
-    if let Some(raw_roots) = env::var_os("BD_ROOTS") {
-        return env::split_paths(&raw_roots).map(expand_home).collect();
-    }
-
-    env::var_os("HOME")
-        .or_else(|| env::var_os("USERPROFILE"))
-        .map(PathBuf::from)
-        .map(|mut root| {
-            root.push("Code");
-            vec![root]
-        })
-        .unwrap_or_default()
-}
-
-pub fn resolve_roots() -> Vec<PathBuf> {
-    env_roots()
 }
 
 fn parse_comment_text(text: &str) -> Option<(String, String)> {
@@ -375,47 +453,70 @@ fn map_knowledge_entry(value: &Value) -> Option<ProjectKnowledgeEntry> {
 
 fn discover_projects_inner() -> Result<Vec<Project>, String> {
     let mut projects = Vec::new();
+    let registry = registry::load()?;
 
-    for root in resolve_roots() {
-        let entries = match fs::read_dir(&root) {
-            Ok(entries) => entries,
-            Err(_) => continue,
-        };
+    for entry in registry.projects {
+        let dir_path = PathBuf::from(&entry.path);
 
-        for entry in entries.flatten() {
-            let dir = entry.path();
-            if !dir.is_dir() {
-                continue;
-            }
-
-            let meta_path = dir.join(".beads").join("metadata.json");
-            let raw = match fs::read_to_string(&meta_path) {
-                Ok(raw) => raw,
-                Err(_) => continue,
-            };
-
-            let meta: Value = match serde_json::from_str(&raw) {
-                Ok(meta) => meta,
-                Err(_) => continue,
-            };
-
-            let database = meta
-                .get("dolt_database")
-                .and_then(Value::as_str)
-                .filter(|s| !s.is_empty())
-                .map(|s| s.to_string());
-
-            let Some(database) = database else {
-                continue;
-            };
-
-            let counts = project_counts(&dir);
+        // Check if folder exists
+        if !dir_path.exists() {
             projects.push(Project {
-                name: database.clone(),
-                dir: dir.to_string_lossy().to_string(),
-                database,
-                counts,
+                id: entry.id.clone(),
+                name: entry.label.clone(),
+                dir: entry.path.clone(),
+                beads_path: String::new(),
+                prefix: None,
+                external: false,
+                missing: true,
+                error: Some("folder no longer exists".into()),
+                counts: ProjectCounts {
+                    open: 0,
+                    in_progress: 0,
+                    blocked: 0,
+                    closed: 0,
+                    deferred: 0,
+                    total: 0,
+                },
             });
+            continue;
+        }
+
+        // Probe beads location
+        match probe_beads_location(&dir_path) {
+            Ok(location) => {
+                let counts = project_counts(&dir_path);
+                projects.push(Project {
+                    id: entry.id.clone(),
+                    name: entry.label.clone(),
+                    dir: entry.path.clone(),
+                    beads_path: location.beads_path,
+                    prefix: location.prefix,
+                    external: location.external,
+                    missing: false,
+                    error: None,
+                    counts,
+                });
+            }
+            Err(err) => {
+                projects.push(Project {
+                    id: entry.id.clone(),
+                    name: entry.label.clone(),
+                    dir: entry.path.clone(),
+                    beads_path: String::new(),
+                    prefix: None,
+                    external: false,
+                    missing: false,
+                    error: Some(err),
+                    counts: ProjectCounts {
+                        open: 0,
+                        in_progress: 0,
+                        blocked: 0,
+                        closed: 0,
+                        deferred: 0,
+                        total: 0,
+                    },
+                });
+            }
         }
     }
 
@@ -470,12 +571,9 @@ fn project_counts(dir: &Path) -> ProjectCounts {
     build_counts_from_groups(&groups)
 }
 
-fn resolve_dir(database: &str) -> Result<PathBuf, String> {
-    discover_projects_inner()?
-        .into_iter()
-        .find(|project| project.database == database)
-        .map(|project| PathBuf::from(project.dir))
-        .ok_or_else(|| format!("Unknown database: {database}. Run discoverProjects first."))
+fn resolve_dir(project_id: &str) -> Result<PathBuf, String> {
+    let entry = registry::find(project_id)?;
+    Ok(PathBuf::from(entry.path))
 }
 
 fn derive_children(beads: Vec<Bead>) -> Vec<Bead> {
@@ -510,8 +608,8 @@ fn derive_children(beads: Vec<Bead>) -> Vec<Bead> {
         .collect()
 }
 
-fn list_beads_inner(database: &str) -> Result<Vec<Bead>, String> {
-    let dir = resolve_dir(database)?;
+fn list_beads_inner(project_id: &str) -> Result<Vec<Bead>, String> {
+    let dir = resolve_dir(project_id)?;
     let raw = bd_json(&dir, &["list", "--all", "--json"])?;
     let beads = raw
         .as_array()
@@ -523,8 +621,8 @@ fn list_beads_inner(database: &str) -> Result<Vec<Bead>, String> {
     Ok(derive_children(beads))
 }
 
-fn get_bead_detail_inner(database: &str, id: &str) -> Result<BeadDetail, String> {
-    let dir = resolve_dir(database)?;
+fn get_bead_detail_inner(project_id: &str, id: &str) -> Result<BeadDetail, String> {
+    let dir = resolve_dir(project_id)?;
     let raw_arr = bd_json(&dir, &["show", id, "--json"])?;
     let raw_comments = bd_json(&dir, &["comments", id, "--json"]).ok();
 
@@ -599,8 +697,8 @@ fn build_project_knowledge(issues: &[Value]) -> ProjectKnowledge {
     }
 }
 
-fn get_project_knowledge_inner(database: &str) -> Result<ProjectKnowledge, String> {
-    let dir = resolve_dir(database)?;
+fn get_project_knowledge_inner(project_id: &str) -> Result<ProjectKnowledge, String> {
+    let dir = resolve_dir(project_id)?;
     match bd_json_lines(&dir, &["export"]) {
         Ok(issues) => Ok(build_project_knowledge(&issues)),
         Err(_) => Ok(ProjectKnowledge {
@@ -615,8 +713,8 @@ fn run_bd_mut(dir: &Path, args: &[String]) -> Result<String, String> {
     run_bd(dir, &arg_refs)
 }
 
-fn update_bead_status_inner(database: &str, id: &str, status: &str) -> Result<(), String> {
-    let dir = resolve_dir(database)?;
+fn update_bead_status_inner(project_id: &str, id: &str, status: &str) -> Result<(), String> {
+    let dir = resolve_dir(project_id)?;
     run_bd(&dir, &["update", id, "--status", status])?;
     Ok(())
 }
@@ -675,10 +773,10 @@ fn build_update_bead_args(
     args
 }
 
-fn update_bead_inner(database: &str, id: &str, update: BeadUpdateInput) -> Result<(), String> {
-    let dir = resolve_dir(database)?;
+fn update_bead_inner(project_id: &str, id: &str, update: BeadUpdateInput) -> Result<(), String> {
+    let dir = resolve_dir(project_id)?;
     let existing_labels = if update.labels.is_some() {
-        get_bead_detail_inner(database, id)?.bead.labels
+        get_bead_detail_inner(project_id, id)?.bead.labels
     } else {
         Vec::new()
     };
@@ -707,15 +805,15 @@ fn build_delete_bead_args(id: &str) -> Vec<String> {
     ]
 }
 
-fn preview_delete_bead_inner(database: &str, id: &str) -> Result<String, String> {
-    let dir = resolve_dir(database)?;
+fn preview_delete_bead_inner(project_id: &str, id: &str) -> Result<String, String> {
+    let dir = resolve_dir(project_id)?;
     let args = build_preview_delete_bead_args(id);
     let out = run_bd_mut(&dir, &args)?;
     Ok(out.trim().to_string())
 }
 
-fn delete_bead_inner(database: &str, id: &str) -> Result<(), String> {
-    let dir = resolve_dir(database)?;
+fn delete_bead_inner(project_id: &str, id: &str) -> Result<(), String> {
+    let dir = resolve_dir(project_id)?;
     let args = build_delete_bead_args(id);
     run_bd_mut(&dir, &args)
         .map(|_| ())
@@ -723,13 +821,13 @@ fn delete_bead_inner(database: &str, id: &str) -> Result<(), String> {
 }
 
 fn create_bead_inner(
-    database: &str,
+    project_id: &str,
     title: &str,
     description: Option<&str>,
     kind: Option<&str>,
     parent: Option<&str>,
 ) -> Result<String, String> {
-    let dir = resolve_dir(database)?;
+    let dir = resolve_dir(project_id)?;
     let mut args = vec![
         "create".to_string(),
         "--title".to_string(),
@@ -752,62 +850,62 @@ fn create_bead_inner(
     Ok(out.trim().to_string())
 }
 
-fn add_comment_inner(database: &str, id: &str, text: &str) -> Result<(), String> {
-    let dir = resolve_dir(database)?;
+fn add_comment_inner(project_id: &str, id: &str, text: &str) -> Result<(), String> {
+    let dir = resolve_dir(project_id)?;
     run_bd(&dir, &["comment", id, text])?;
     Ok(())
 }
 
 #[tauri::command]
-pub fn discover_projects() -> Result<Vec<Project>, String> {
+pub fn list_projects() -> Result<Vec<Project>, String> {
     discover_projects_inner()
 }
 
 #[tauri::command]
-pub fn list_beads(database: String) -> Result<Vec<Bead>, String> {
-    list_beads_inner(&database)
+pub fn list_beads(project_id: String) -> Result<Vec<Bead>, String> {
+    list_beads_inner(&project_id)
 }
 
 #[tauri::command]
-pub fn get_bead_detail(database: String, id: String) -> Result<BeadDetail, String> {
-    get_bead_detail_inner(&database, &id)
+pub fn get_bead_detail(project_id: String, id: String) -> Result<BeadDetail, String> {
+    get_bead_detail_inner(&project_id, &id)
 }
 
 #[tauri::command]
-pub fn get_project_knowledge(database: String) -> Result<ProjectKnowledge, String> {
-    get_project_knowledge_inner(&database)
+pub fn get_project_knowledge(project_id: String) -> Result<ProjectKnowledge, String> {
+    get_project_knowledge_inner(&project_id)
 }
 
 #[tauri::command]
-pub fn update_bead_status(database: String, id: String, status: String) -> Result<(), String> {
-    update_bead_status_inner(&database, &id, &status)
+pub fn update_bead_status(project_id: String, id: String, status: String) -> Result<(), String> {
+    update_bead_status_inner(&project_id, &id, &status)
 }
 
 #[tauri::command]
-pub fn update_bead(database: String, id: String, update: BeadUpdateInput) -> Result<(), String> {
-    update_bead_inner(&database, &id, update)
+pub fn update_bead(project_id: String, id: String, update: BeadUpdateInput) -> Result<(), String> {
+    update_bead_inner(&project_id, &id, update)
 }
 
 #[tauri::command]
-pub fn preview_delete_bead(database: String, id: String) -> Result<String, String> {
-    preview_delete_bead_inner(&database, &id)
+pub fn preview_delete_bead(project_id: String, id: String) -> Result<String, String> {
+    preview_delete_bead_inner(&project_id, &id)
 }
 
 #[tauri::command]
-pub fn delete_bead(database: String, id: String) -> Result<(), String> {
-    delete_bead_inner(&database, &id)
+pub fn delete_bead(project_id: String, id: String) -> Result<(), String> {
+    delete_bead_inner(&project_id, &id)
 }
 
 #[tauri::command]
 pub fn create_bead(
-    database: String,
+    project_id: String,
     title: String,
     description: Option<String>,
     r#type: Option<String>,
     parent: Option<String>,
 ) -> Result<String, String> {
     create_bead_inner(
-        &database,
+        &project_id,
         &title,
         description.as_deref(),
         r#type.as_deref(),
@@ -816,49 +914,160 @@ pub fn create_bead(
 }
 
 #[tauri::command]
-pub fn add_comment(database: String, id: String, text: String) -> Result<(), String> {
-    add_comment_inner(&database, &id, &text)
+pub fn add_comment(project_id: String, id: String, text: String) -> Result<(), String> {
+    add_comment_inner(&project_id, &id, &text)
+}
+
+#[tauri::command]
+pub fn probe_project(path: String) -> Result<BeadsLocation, String> {
+    let dir_path = PathBuf::from(path);
+    probe_beads_location(&dir_path)
+}
+fn is_missing_workspace_error(message: &str) -> bool {
+    let lower = message.to_lowercase();
+    lower.contains("no_beads_directory")
+        || lower.contains("no active beads workspace")
+        || lower.contains("bd where returned no beads path")
+}
+
+#[derive(Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
+pub enum AddProjectOutcome {
+    Registered {
+        project: Project,
+    },
+    NeedsInit {
+        path: String,
+        suggested_prefix: String,
+    },
+}
+
+#[tauri::command]
+pub fn add_project(path: String) -> Result<AddProjectOutcome, String> {
+    let dir_path = PathBuf::from(&path);
+
+    match probe_beads_location(&dir_path) {
+        Ok(location) => {
+            // Register in the registry
+            let entry = registry::add(&dir_path, None)?;
+
+            // Get the counts
+            let counts = project_counts(&dir_path);
+
+            Ok(AddProjectOutcome::Registered {
+                project: Project {
+                    id: entry.id.clone(),
+                    name: entry.label.clone(),
+                    dir: entry.path,
+                    beads_path: location.beads_path,
+                    prefix: location.prefix,
+                    external: location.external,
+                    missing: false,
+                    error: None,
+                    counts,
+                },
+            })
+        }
+        Err(err) if is_missing_workspace_error(&err) => {
+            let canonical_path = std::fs::canonicalize(&dir_path)
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|_| path.clone());
+            let suggested_prefix = dir_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("project")
+                .to_string();
+
+            Ok(AddProjectOutcome::NeedsInit {
+                path: canonical_path,
+                suggested_prefix,
+            })
+        }
+        Err(err) => Err(err),
+    }
+}
+
+#[tauri::command]
+pub fn remove_project(id: String) -> Result<(), String> {
+    registry::remove(&id)
+}
+
+fn build_init_args(prefix: &str) -> Vec<String> {
+    vec![
+        "init".to_string(),
+        "--non-interactive".to_string(),
+        "--quiet".to_string(),
+        "-p".to_string(),
+        prefix.to_string(),
+    ]
+}
+
+#[tauri::command]
+pub fn init_project(path: String, prefix: Option<String>) -> Result<Project, String> {
+    let dir_path = PathBuf::from(&path);
+
+    // Try to probe first to see if it already has beads
+    let probe_result = probe_beads_location(&dir_path);
+
+    if let Ok(location) = probe_result {
+        // Already a beads project
+        if !location.external {
+            // Beads is in the expected location, just register it
+            let entry = registry::add(&dir_path, None)?;
+            let counts = project_counts(&dir_path);
+            return Ok(Project {
+                id: entry.id.clone(),
+                name: entry.label.clone(),
+                dir: entry.path,
+                beads_path: location.beads_path,
+                prefix: location.prefix,
+                external: location.external,
+                missing: false,
+                error: None,
+                counts,
+            });
+        }
+    }
+
+    // Initialize beads with the specified prefix
+    let folder_name = dir_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("project")
+        .to_string();
+
+    let final_prefix = prefix.unwrap_or(folder_name);
+
+    // Build and run bd init with proper args (no -C flag)
+    let init_args = build_init_args(&final_prefix);
+    run_bd_mut(&dir_path, &init_args)?;
+
+    // Probe again to get the location
+    let location = probe_beads_location(&dir_path)?;
+
+    // Register in the registry
+    let entry = registry::add(&dir_path, None)?;
+
+    // Get the counts
+    let counts = project_counts(&dir_path);
+
+    Ok(Project {
+        id: entry.id.clone(),
+        name: entry.label.clone(),
+        dir: entry.path,
+        beads_path: location.beads_path,
+        prefix: location.prefix,
+        external: location.external,
+        missing: false,
+        error: None,
+        counts,
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
-
-    #[test]
-    fn expand_home_expands_bare_tilde() {
-        let home = PathBuf::from("/Users/me");
-        assert_eq!(
-            expand_home_with(PathBuf::from("~"), Some(home.clone())),
-            home
-        );
-    }
-
-    #[test]
-    fn expand_home_expands_tilde_prefixed_path() {
-        let home = PathBuf::from("/Users/me");
-        assert_eq!(
-            expand_home_with(PathBuf::from("~/Code"), Some(home)),
-            PathBuf::from("/Users/me/Code")
-        );
-    }
-
-    #[test]
-    fn expand_home_leaves_absolute_path_unchanged() {
-        let home = PathBuf::from("/Users/me");
-        assert_eq!(
-            expand_home_with(PathBuf::from("/Users/me/Code"), Some(home)),
-            PathBuf::from("/Users/me/Code")
-        );
-    }
-
-    #[test]
-    fn expand_home_leaves_relative_non_tilde_path_unchanged() {
-        assert_eq!(
-            expand_home_with(PathBuf::from("../Code"), Some(PathBuf::from("/Users/me"))),
-            PathBuf::from("../Code")
-        );
-    }
 
     #[test]
     fn build_counts_from_groups_maps_bd_count_by_status_groups() {
@@ -1068,5 +1277,155 @@ mod tests {
             build_delete_bead_args("bd-board-a2k"),
             vec!["delete", "bd-board-a2k", "--cascade", "--force"]
         );
+    }
+
+    #[test]
+    fn build_init_args_returns_correct_args_without_c_flag() {
+        let args = build_init_args("ravo");
+        assert_eq!(
+            args,
+            vec!["init", "--non-interactive", "--quiet", "-p", "ravo"]
+        );
+    }
+
+    #[test]
+    fn bd_error_message_extracts_message_field_from_json() {
+        let stdout = r#"{"error":"no_beads_directory","hint":"run bd init","message":"no beads project found","schema_version":1}"#;
+        let stderr = "";
+        let status = std::process::Command::new("false").output().unwrap().status;
+
+        let result = bd_error_message(stdout, stderr, &status);
+        assert_eq!(result, "no beads project found (run bd init)");
+    }
+
+    #[test]
+    fn bd_error_message_extracts_error_field_when_message_missing() {
+        let stdout = r#"{"error":"some_error","hint":"try this","schema_version":1}"#;
+        let stderr = "";
+        let status = std::process::Command::new("false").output().unwrap().status;
+
+        let result = bd_error_message(stdout, stderr, &status);
+        assert_eq!(result, "some_error (try this)");
+    }
+
+    #[test]
+    fn bd_error_message_falls_back_to_stderr() {
+        let stdout = "";
+        let stderr = "boom";
+        let status = std::process::Command::new("false").output().unwrap().status;
+
+        let result = bd_error_message(stdout, stderr, &status);
+        assert!(result.contains("boom"));
+    }
+
+    #[test]
+    fn bd_candidates_includes_wrapper_before_fallback() {
+        // When BD_BIN is not set, we should get the wrapper and fallback
+        let candidates = bd_candidates();
+
+        // The wrapper should be in the list
+        let home = std::env::var("HOME").unwrap_or_default();
+        let wrapper_path = format!("{}/.local/bin/bd", home);
+
+        assert!(
+            candidates.contains(&wrapper_path),
+            "Wrapper path not found in candidates"
+        );
+        assert!(
+            candidates.contains(&BD_FALLBACK.to_string()),
+            "Fallback not found in candidates"
+        );
+
+        // Wrapper should come before the fallback
+        let wrapper_idx = candidates.iter().position(|c| c == &wrapper_path).unwrap();
+        let fallback_idx = candidates.iter().position(|c| c == BD_FALLBACK).unwrap();
+        assert!(
+            wrapper_idx < fallback_idx,
+            "Wrapper should come before fallback"
+        );
+        assert!(
+            wrapper_idx < fallback_idx,
+            "Wrapper should come before fallback"
+        );
+    }
+
+    #[test]
+    fn is_missing_workspace_error_matches_no_beads_directory_code() {
+        assert!(is_missing_workspace_error(
+            "no_beads_directory (run bd init)"
+        ));
+    }
+
+    #[test]
+    fn is_missing_workspace_error_matches_no_active_beads_workspace_text() {
+        assert!(is_missing_workspace_error(
+            "No active beads workspace found. (check BEADS_DIR/worktree setup, or run 'bd init' to create a new database)"
+        ));
+    }
+
+    #[test]
+    fn is_missing_workspace_error_matches_bd_where_internal_message() {
+        assert!(is_missing_workspace_error(
+            "bd where returned no beads path"
+        ));
+    }
+
+    #[test]
+    fn is_missing_workspace_error_ignores_unrelated_errors() {
+        assert!(!is_missing_workspace_error("bd not found (tried: bd)"));
+        assert!(!is_missing_workspace_error(
+            "failed to parse bd where output: expected value"
+        ));
+    }
+
+    #[test]
+    fn add_project_outcome_needs_init_serializes_with_camel_case_kind() {
+        let outcome = AddProjectOutcome::NeedsInit {
+            path: "/Users/jeanpfs/Code/bd-board".to_string(),
+            suggested_prefix: "bd-board".to_string(),
+        };
+        let value = serde_json::to_value(&outcome).unwrap();
+        assert_eq!(
+            value,
+            json!({
+                "kind": "needsInit",
+                "path": "/Users/jeanpfs/Code/bd-board",
+                "suggestedPrefix": "bd-board",
+            })
+        );
+    }
+
+    #[test]
+    fn add_project_outcome_registered_serializes_with_project_payload() {
+        let outcome = AddProjectOutcome::Registered {
+            project: Project {
+                id: "bd-board".to_string(),
+                name: "bd-board".to_string(),
+                dir: "/Users/jeanpfs/Code/bd-board".to_string(),
+                beads_path: "/Users/jeanpfs/Code/jeanpfs-ai/beads/bd-board/.beads".to_string(),
+                prefix: Some("bd-board".to_string()),
+                external: true,
+                missing: false,
+                error: None,
+                counts: build_counts_from_groups(&[]),
+            },
+        };
+        let value = serde_json::to_value(&outcome).unwrap();
+        assert_eq!(
+            value.get("kind").and_then(|v| v.as_str()),
+            Some("registered")
+        );
+        assert!(value.get("project").and_then(|v| v.as_object()).is_some());
+    }
+
+    #[test]
+    fn bd_error_message_real_no_beads_directory_payload_is_classifiable() {
+        let stdout = r#"{"error":"no_beads_directory","message":"No active beads workspace found.","hint":"check BEADS_DIR/worktree setup, or run 'bd init' to create a new database","schema_version":1}"#;
+        let stderr = "";
+        let status = std::process::Command::new("false").output().unwrap().status;
+
+        let result = bd_error_message(stdout, stderr, &status);
+        assert!(is_missing_workspace_error(&result));
+        assert!(result.contains("No active beads workspace found."));
     }
 }
