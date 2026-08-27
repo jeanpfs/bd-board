@@ -90,7 +90,8 @@ Desktop troubleshooting:
 
 - If the app opens but shows no projects, check that `bd` is available on
   `PATH` or set `BD_BIN`.
-- If projects live outside `~/Code`, set `BD_ROOTS` to the directories to scan.
+- The app uses an explicit project registry at `~/.config/bd-board/projects.json`.
+  Click "Open project" to register a beads workspace, or "Init project" to create one.
 - If the desktop bridge fails, the home page shows a diagnostic card. When the
   bridge is healthy, that card stays hidden.
 - If the installed app opens to a blank screen, rerun `pnpm desktop:build` and
@@ -98,12 +99,30 @@ Desktop troubleshooting:
 
 ## Configuration
 
-Environment variables:
+### Project Registry
+
+The app stores a list of registered beads projects at `~/.config/bd-board/projects.json`:
+
+```json
+{
+  "version": 1,
+  "projects": [
+    {
+      "id": "ravo",
+      "path": "/Users/you/Code/jeanpfs-ai/beads/ravo",
+      "label": "ravo"
+    }
+  ]
+}
+```
+
+Use the **Open project** and **Init project** buttons in the app UI to manage projects. The app resolves each project's beads location by calling `bd where --json`, so it automatically honors all beads configuration mechanisms (embedded, shared server, proxied, global, redirects).
+
+### Environment Variables
 
 - `BD_BIN`: path to the `bd` binary. Defaults to `bd`, with `/opt/homebrew/bin/bd` as a fallback.
-- `BD_ROOTS`: platform-delimited directories to scan for bead projects. Defaults to `~/Code`. A leading `~` is expanded to your home directory. Give multiple directories if your `bd` workspaces don't live inside the project directory (e.g. `~/Code:~/beads-workspaces`). Each root is scanned one level deep for `<root>/<name>/.beads/metadata.json`.
 
-The desktop shell uses the same `BD_BIN` and `BD_ROOTS` configuration.
+The desktop shell uses the same `BD_BIN` configuration. **`BD_ROOTS` is no longer used.**
 
 Reads and writes are both enabled by default: the app executes local `bd` mutations (create, edit, comment, status update, delete) with no separate opt-in.
 
@@ -156,6 +175,21 @@ The app does not store its own database. It shells out to `bd` with `node:child_
 `docs/bd-schema.json` documents that contract as a JSON Schema: the `Bd*` definitions describe what each `bd` command emits, and the remaining definitions describe the normalized shapes the UI consumes.
 
 ## Safety Model
+
+## E2E (WebdriverIO)
+
+End-to-end tests run through WebdriverIO with the Tauri service (`@wdio/tauri-service`). They are split in two suites because the two things they verify need different runtimes:
+
+| Suite   | Command                         | Runtime                                        | Covers                                                                    |
+| ------- | ------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------- |
+| Native  | `pnpm e2e:build && pnpm e2e`    | Real app binary, embedded WebDriver provider   | UI behaviour against the shipped shell (`e2e/specs/native`)               |
+| Browser | `pnpm dev` + `pnpm e2e:browser` | Frontend in Chrome against the Vite dev server | Flows that stub backend commands and native dialogs (`e2e/specs/browser`) |
+
+On macOS the native suite uses the embedded provider (`tauri-plugin-wdio-webdriver`); `tauri-driver` has no macOS support. The build activates the `wdio` Rust feature and the `VITE_WDIO` frontend flag, so production binaries never carry the test surface.
+
+IPC mocking only works in the browser suite: Tauri defines `window.__TAURI_INTERNALS__.invoke` as non-writable and non-configurable, and `@wdio/tauri-plugin` only wraps the `withGlobalTauri` global, which the bundled `@tauri-apps/api` never calls.
+
+The native suite pins the embedded WebDriver port (`e2e/wdio.conf.ts`); the default 4445 is shared with any other Tauri app running its own suite, and a session will silently attach to the wrong app.
 
 `bd-board` is not designed as a hosted multi-tenant app. Run it locally and bind it only to trusted interfaces: writes are always enabled, so anyone who can reach the app can mutate local bead data.
 
