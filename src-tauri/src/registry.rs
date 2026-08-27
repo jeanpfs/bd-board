@@ -157,6 +157,43 @@ pub fn remove(id: &str) -> Result<(), String> {
     Ok(())
 }
 
+pub fn rename(id: &str, new_label: String) -> Result<RegistryEntry, String> {
+    let mut registry = load()?;
+
+    // Find and update the project
+    for entry in &mut registry.projects {
+        if entry.id == id {
+            entry.label = new_label;
+            let result = entry.clone();
+            save(&registry)?;
+            return Ok(result);
+        }
+    }
+
+    Err(format!("unknown project id: {id}"))
+}
+
+pub fn relocate(id: &str, new_path: String) -> Result<RegistryEntry, String> {
+    let canonical_path = std::fs::canonicalize(&new_path)
+        .map_err(|err| format!("failed to resolve path: {err}"))?
+        .to_string_lossy()
+        .to_string();
+
+    let mut registry = load()?;
+
+    // Find and update the project path
+    for entry in &mut registry.projects {
+        if entry.id == id {
+            entry.path = canonical_path;
+            let result = entry.clone();
+            save(&registry)?;
+            return Ok(result);
+        }
+    }
+
+    Err(format!("unknown project id: {id}"))
+}
+
 pub fn find(id: &str) -> Result<RegistryEntry, String> {
     let registry = load()?;
     registry
