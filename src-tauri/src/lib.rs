@@ -1,28 +1,29 @@
 use serde::Serialize;
 use std::env;
-use std::path::PathBuf;
 use std::process::Command;
 
 mod desktop;
-
-#[derive(Serialize)]
-pub struct RootStatus {
-    pub path: String,
-    pub exists: bool,
-}
+mod registry;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DesktopProbe {
     pub bd_binary: String,
     pub bd_version: String,
-    pub project_roots: Vec<String>,
-    pub root_statuses: Vec<RootStatus>,
+    pub registry_path: String,
+    pub project_count: usize,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
+
+    #[cfg(feature = "wdio")]
+    let builder = builder
+        .plugin(tauri_plugin_wdio::init())
+        .plugin(tauri_plugin_wdio_webdriver::init());
+
+    builder
         .setup(|_| {
             #[cfg(debug_assertions)]
             match desktop_probe() {
@@ -38,7 +39,11 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             desktop_probe,
-            desktop::discover_projects,
+            desktop::list_projects,
+            desktop::add_project,
+            desktop::remove_project,
+            desktop::probe_project,
+            desktop::init_project,
             desktop::list_beads,
             desktop::get_bead_detail,
             desktop::get_project_knowledge,
@@ -55,81 +60,41 @@ pub fn run() {
 
 #[tauri::command]
 fn desktop_probe() -> Result<DesktopProbe, String> {
-    let bd_binary = env::var("BD_BIN").unwrap_or_else(|_| "bd".to_string());
-    let bd_version = resolve_bd_version(&bd_binary)?;
-    let roots = resolve_roots();
-    let root_statuses = roots
-        .iter()
-        .map(|root| RootStatus {
-            path: root.to_string_lossy().to_string(),
-            exists: root.exists(),
-        })
-        .collect();
+    let bd_version = resolve_bd_version()?;
+    let bd_binary = find_bd_binary()?.to_string_lossy().to_string();
+
+    let registry_path = registry::registry_path()?.to_string_lossy().to_string();
+    let registry = registry::load()?;
+    let project_count = registry.projects.len();
 
     Ok(DesktopProbe {
         bd_binary,
         bd_version,
-        project_roots: roots
-            .into_iter()
-            .map(|root| root.to_string_lossy().to_string())
-            .collect(),
-        root_statuses,
+        registry_path,
+        project_count,
     })
 }
 
-fn resolve_bd_version(bd_binary: &str) -> Result<String, String> {
-    let output = run_bd_version(bd_binary)?;
-    if output.status.success() {
-        return Ok(String::from_utf8_lossy(&output.stdout).trim().to_string());
-    }
-
-    Err(stderr_message(&output, bd_binary))
-}
-
-fn run_bd_version(bd_binary: &str) -> Result<std::process::Output, String> {
-    match Command::new(bd_binary).arg("--version").output() {
-        Ok(output) => Ok(output),
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-            if cfg!(target_os = "macos") {
-                let fallback = "/opt/homebrew/bin/bd";
-                Command::new(fallback)
-                    .arg("--version")
-                    .output()
-                    .map_err(|fallback_err| {
-                        format!("failed to run {bd_binary} and fallback {fallback}: {fallback_err}")
-                    })
-            } else {
-                Err(format!("bd binary not found: {bd_binary}"))
+fn find_bd_binary() -> Result<std::path::PathBuf, String> {
+    let candidates = desktop::bd_candidates();
+    for candidate in candidates {
+        if let Ok(output) = Command::new(&candidate).arg("--version").output() {
+            if output.status.success() {
+                return Ok(std::path::PathBuf::from(candidate));
             }
         }
-        Err(err) => Err(format!("failed to run {bd_binary}: {err}")),
     }
+    Err("bd binary not found in any candidate".to_string())
 }
 
-fn stderr_message(output: &std::process::Output, bd_binary: &str) -> String {
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    if stderr.is_empty() {
-        format!("{} exited with status {}", bd_binary, output.status)
-    } else {
-        format!(
-            "{} exited with status {}: {}",
-            bd_binary, output.status, stderr
-        )
+fn resolve_bd_version() -> Result<String, String> {
+    let candidates = desktop::bd_candidates();
+    for candidate in candidates {
+        if let Ok(output) = Command::new(&candidate).arg("--version").output() {
+            if output.status.success() {
+                return Ok(String::from_utf8_lossy(&output.stdout).trim().to_string());
+            }
+        }
     }
-}
-
-fn resolve_roots() -> Vec<PathBuf> {
-    if let Some(raw_roots) = env::var_os("BD_ROOTS") {
-        return env::split_paths(&raw_roots).collect();
-    }
-
-    let home = env::var_os("HOME")
-        .or_else(|| env::var_os("USERPROFILE"))
-        .map(PathBuf::from);
-
-    home.map(|mut root| {
-        root.push("Code");
-        vec![root]
-    })
-    .unwrap_or_default()
+    Err("bd binary not found in any candidate".to_string())
 }
