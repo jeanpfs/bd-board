@@ -12,7 +12,6 @@ const lockPath = 'src-tauri/Cargo.lock'
 
 const pkg = JSON.parse(await readFile(pkgPath, 'utf8'))
 pkg.version = version
-await writeFile(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
 
 const cargo = await readFile(cargoPath, 'utf8')
 const nextCargo = cargo.replace(
@@ -21,13 +20,16 @@ const nextCargo = cargo.replace(
 )
 if (nextCargo === cargo)
   throw new Error(`no [package] version line in ${cargoPath}`)
-await writeFile(cargoPath, nextCargo)
 
 const lock = await readFile(lockPath, 'utf8')
 const lockPattern = /(name = "bd-board-desktop"\nversion = ")[^"]+(")/
 if (!lockPattern.test(lock))
   throw new Error(`no bd-board-desktop entry in ${lockPath}`)
-await writeFile(lockPath, lock.replace(lockPattern, `$1${version}$2`))
+const nextLock = lock.replace(lockPattern, `$1${version}$2`)
+
+await writeFile(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
+await writeFile(cargoPath, nextCargo)
+await writeFile(lockPath, nextLock)
 
 console.log(
   `version set to ${version}; commit, then: git tag v${version} && git push --follow-tags`,
