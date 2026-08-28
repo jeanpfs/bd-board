@@ -153,7 +153,7 @@ fn probe_beads_location(dir: &Path) -> Result<BeadsLocation, String> {
         std::fs::canonicalize(&expected_beads_path),
     ) {
         (Ok(canonical_beads), Ok(canonical_expected)) => canonical_beads != canonical_expected,
-        _ => beads_path != expected_beads_path.to_string_lossy().to_string(),
+        _ => beads_path != expected_beads_path.to_string_lossy(),
     };
 
     Ok(BeadsLocation {
@@ -575,7 +575,10 @@ fn resolve_dir(project_id: &str) -> Result<PathBuf, String> {
     let entry = registry::find(project_id)?;
     let path = PathBuf::from(&entry.path);
     if !path.exists() {
-        return Err(format!("project directory no longer exists: {}", entry.path));
+        return Err(format!(
+            "project directory no longer exists: {}",
+            entry.path
+        ));
     }
     Ok(path)
 }
@@ -977,7 +980,11 @@ pub fn check_project_path(path: String) -> PathStatus {
 }
 
 #[derive(Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum AddProjectOutcome {
     Registered {
         project: Project,
@@ -1049,7 +1056,11 @@ fn build_init_args(prefix: &str) -> Vec<String> {
 }
 
 #[tauri::command]
-pub fn init_project(path: String, prefix: Option<String>, name: Option<String>) -> Result<Project, String> {
+pub fn init_project(
+    path: String,
+    prefix: Option<String>,
+    name: Option<String>,
+) -> Result<Project, String> {
     let dir_path = PathBuf::from(&path);
 
     // Try to probe first to see if it already has beads
@@ -1484,5 +1495,4 @@ mod tests {
         assert!(is_missing_workspace_error(&result));
         assert!(result.contains("No active beads workspace found."));
     }
-
 }

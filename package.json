@@ -26,6 +26,7 @@
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",
     "desktop:prepare": "pnpm build && node scripts/prepare-desktop-build.mjs",
+    "version:set": "node scripts/set-version.mjs",
     "generate-routes": "tsr generate",
     "build": "vite build",
     "preview": "vite preview --port 3009",

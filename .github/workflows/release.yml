@@ -1,0 +1,142 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: verify tag and create draft release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 10
+    outputs:
+      release_id: ${{ steps.draft.outputs.release_id }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: verify tag matches manifests
+        id: version
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          PKG=$(node -p "require('./package.json').version")
+          CARGO=$(grep -m1 '^version = ' src-tauri/Cargo.toml | cut -d'"' -f2)
+          if [ "$VERSION" != "$PKG" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json version $PKG"
+            exit 1
+          fi
+          if [ "$VERSION" != "$CARGO" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match src-tauri/Cargo.toml version $CARGO"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: create draft release
+        id: draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          RELEASE_NOTES="Built by CI from this tag.
+
+          **macOS** — the app is ad-hoc signed and not notarized. If Gatekeeper blocks the first launch:
+
+              xattr -dr com.apple.quarantine \"/Applications/bd board.app\"
+
+          **Windows** — the installer is unsigned; SmartScreen reports an unknown publisher. Choose *More info* → *Run anyway*."
+          if ! gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" \
+              --draft \
+              --title "bd board ${{ steps.version.outputs.version }}" \
+              --generate-notes \
+              --notes "$RELEASE_NOTES"
+          fi
+          RELEASE_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate --jq '.[] | select(.tag_name == env.GITHUB_REF_NAME) | .id' | head -n1)
+          if [ -z "$RELEASE_ID" ]; then
+            echo "::error::could not resolve release id for $GITHUB_REF_NAME"
+            exit 1
+          fi
+          echo "release_id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: build ${{ matrix.label }}
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macos-arm64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            args: --bundles dmg
+          - label: macos-x64
+            os: macos-latest
+            target: x86_64-apple-darwin
+            args: --bundles dmg
+          - label: windows-x64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            args: --bundles nsis
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: src-tauri
+          key: ${{ matrix.target }}
+      - run: pnpm install --frozen-lockfile
+      - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_INCREMENTAL: 0
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || '-' }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        with:
+          releaseId: ${{ needs.prepare.outputs.release_id }}
+          tauriScript: pnpm tauri
+          args: --target ${{ matrix.target }} ${{ matrix.args }}
+          uploadUpdaterJson: false
+          uploadUpdaterSignatures: false
+          releaseAssetNamePattern: '[mainBinaryName]_[version]_[platform]-[arch][_setup][ext]'
+          retryAttempts: 1
+
+  publish:
+    name: publish release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 10
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease --latest=false --repo "$GITHUB_REPOSITORY"
+          else
+            gh release edit "$GITHUB_REF_NAME" --draft=false --latest --repo "$GITHUB_REPOSITORY"
+          fi
