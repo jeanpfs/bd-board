@@ -241,6 +241,18 @@ export async function addProject(path: string): Promise<AddProjectOutcome> {
   return invoke<AddProjectOutcome>('add_project', { path })
 }
 
+export type PathStatus =
+  | { kind: 'valid'; prefix?: string; external: boolean }
+  | { kind: 'needsInit'; suggestedPrefix: string }
+  | { kind: 'invalid'; reason: string }
+
+export async function checkProjectPath(path: string): Promise<PathStatus> {
+  if (!isDesktopApp()) {
+    throw new Error('Checking project path requires the desktop app')
+  }
+  return invoke<PathStatus>('check_project_path', { path })
+}
+
 export async function initProject(
   path: string,
   prefix?: string,
@@ -256,4 +268,18 @@ export async function removeProject(id: string): Promise<void> {
     throw new Error('Removing projects requires the desktop app')
   }
   return invoke<void>('remove_project', { id })
+}
+
+export async function renameProject(id: string, name: string): Promise<void> {
+  if (!isDesktopApp()) {
+    throw new Error('Renaming projects requires the desktop app')
+  }
+  return invoke<void>('rename_project', { id, name })
+}
+
+export async function relocateProject(id: string, path: string): Promise<void> {
+  if (!isDesktopApp()) {
+    throw new Error('Relocating projects requires the desktop app')
+  }
+  return invoke<void>('relocate_project', { id, path })
 }

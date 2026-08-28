@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button'
 import { getBeads, updateBeadStatusFn } from '@/lib/server'
 import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
 import { beadMatches, compareBeads } from '@/lib/sort'
+import { toErrorMessage } from '@/lib/utils'
 
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import type { BoardView, ProjectTab } from '@/components/board-header'
@@ -149,6 +150,7 @@ function BoardPage() {
     queryFn: () => getBeads({ data: { project } }),
     refetchInterval: 8000,
     staleTime: 3000,
+    retry: false,
   })
 
   const beads = beadsQuery.data ?? []
@@ -299,11 +301,7 @@ function BoardPage() {
         <BoardSkeleton />
       ) : beadsQuery.isError ? (
         <BoardError
-          message={
-            beadsQuery.error instanceof Error
-              ? beadsQuery.error.message
-              : 'Failed to load beads'
-          }
+          message={toErrorMessage(beadsQuery.error, 'Failed to load beads')}
           onRetry={() => beadsQuery.refetch()}
         />
       ) : tab === 'knowledge' ? (

@@ -15,3 +15,9 @@ export function initials(name: string): string {
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
   return (parts[0][0] + parts[1][0]).toUpperCase()
 }
+
+export function toErrorMessage(err: unknown, fallback: string): string {
+  if (typeof err === 'string') return err
+  if (err instanceof Error) return err.message
+  return fallback
+}

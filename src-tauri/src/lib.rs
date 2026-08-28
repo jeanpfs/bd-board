@@ -52,7 +52,10 @@ pub fn run() {
             desktop::preview_delete_bead,
             desktop::delete_bead,
             desktop::create_bead,
-            desktop::add_comment
+            desktop::add_comment,
+            desktop::rename_project,
+            desktop::check_project_path,
+            desktop::relocate_project,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
