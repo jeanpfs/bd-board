@@ -60,7 +60,12 @@ jobs:
               --generate-notes \
               --notes "$RELEASE_NOTES"
           fi
-          echo "release_id=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" --jq .id)" >> "$GITHUB_OUTPUT"
+          RELEASE_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate --jq '.[] | select(.tag_name == env.GITHUB_REF_NAME) | .id' | head -n1)
+          if [ -z "$RELEASE_ID" ]; then
+            echo "::error::could not resolve release id for $GITHUB_REF_NAME"
+            exit 1
+          fi
+          echo "release_id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
 
   build:
     name: build ${{ matrix.label }}
@@ -128,6 +133,10 @@ jobs:
     steps:
       - env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >-
-          gh release edit "$GITHUB_REF_NAME" --draft=false --latest
-          --repo "$GITHUB_REPOSITORY"
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease --latest=false --repo "$GITHUB_REPOSITORY"
+          else
+            gh release edit "$GITHUB_REF_NAME" --draft=false --latest --repo "$GITHUB_REPOSITORY"
+          fi
