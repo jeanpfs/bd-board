@@ -26,9 +26,10 @@ describe('toErrorMessage', () => {
 
   it('handles tako bug scenario: resolve_dir returns string error', () => {
     // Simulate what resolve_dir returns when path doesn't exist
-    const resolveError = 'project directory no longer exists: /Users/jeanpfs/Code/tako'
+    const resolveError =
+      'project directory no longer exists: /Users/jeanpfs/Code/tako'
     const result = toErrorMessage(resolveError, 'Failed to load beads')
-    
+
     // The fix: string error is preserved, NOT replaced with generic fallback
     expect(result).toBe(resolveError)
     expect(result).not.toBe('Failed to load beads')

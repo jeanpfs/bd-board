@@ -301,10 +301,7 @@ function BoardPage() {
         <BoardSkeleton />
       ) : beadsQuery.isError ? (
         <BoardError
-          message={toErrorMessage(
-            beadsQuery.error,
-            'Failed to load beads',
-          )}
+          message={toErrorMessage(beadsQuery.error, 'Failed to load beads')}
           onRetry={() => beadsQuery.refetch()}
         />
       ) : tab === 'knowledge' ? (

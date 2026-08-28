@@ -15,6 +15,7 @@ Razão: `bd rename-prefix` existe no CLI e é uma operação **destrutiva** que 
 **Decisão proposta**: Mostrar um modal por vez, em ordem sequencial (ordem de lista em `projects.json`).
 
 Cada modal inclui:
+
 - Título: `⚠️ Repair Project: {nome}`
 - Descrição: "The project path is no longer valid. Please select a new location."
 - Campo editável: **nome do projeto** + **seletor de pasta**
@@ -22,12 +23,14 @@ Cada modal inclui:
 - Botão de cancelar: "Cancel"
 
 Após reparar um projeto:
+
 - Validação da nova pasta acontece
 - Se inválida: erro exibido no modal (manter o modal aberto para correção)
 - Se válida: fechar modal e passar para o próximo projeto quebrado (se houver)
 - Se o usuário cancelar: parar a sequência, permitir interagir com o dashboard
 
 **Fluxo de código**:
+
 - Hook `useValidateProjectsOnMount` mantém `currentBrokenIndex` e lista `brokenProjects`
 - Cada vez que modal é fechado com sucesso, incrementa o índice e refetch da lista de projetos
 - Se não há mais projetos quebrados, o estado volta a null e nenhum modal é exibido
@@ -35,25 +38,28 @@ Após reparar um projeto:
 ## 3. Posicionamento Visual do Menu de 3 Pontos
 
 ### Rail de Projetos (project-rail.tsx)
+
 **Desafio**: Rail é compacto (232px → 48px quando colapsado). Cada item de projeto é um link/botão já apertado.
 
 **Solução proposta**:
-- **Em modo expandido (232px)**: 
+
+- **Em modo expandido (232px)**:
   - Adicionar ícone de menu (⋮) ou (···) ALINHADO À DIREITA de cada projeto, revelado no **hover**
   - Layout: `[Ícone projeto] [Nome projeto] [Menu ⋮]` com gap/spacing adequado
   - Menu dropdown sobre o card do projeto, com opções:
     - "Editar" → Abre modal de edição
     - "Excluir" → Abre modal de confirmação
-  
 - **Em modo colapsado (48px)**:
   - Cada item é um ícone centrado
   - No **hover**, aparecer um tooltip + botão de menu (ou long-press em mobile)
   - Menu pode aparecer como **popover** ao lado do ícone
 
 ### Dashboard - Cards de Projeto (project-card.tsx)
+
 **Layout atual**: Card com imagem/badge de projeto, nome, counts de status, etc.
 
 **Solução proposta**:
+
 - Adicionar ícone de menu (⋮) no **canto superior direito** do card, revelado no **hover**
 - Menu dropdown com opções:
   - "Editar" → Abre modal de edição
@@ -61,6 +67,7 @@ Após reparar um projeto:
 - Não quebra o layout existente (card já tem espaço de canto superior)
 
 ### Modal de Confirmação de Exclusão
+
 - Título: "Deletar Projeto: {nome}"
 - Descrição: "Tem certeza que quer deletar este projeto do registro? A pasta não será deletada, mas o acesso ao projeto será removido da aplicação."
 - Botões:
@@ -68,7 +75,8 @@ Após reparar um projeto:
   - "Deletar" (variante destructive/red)
 
 Após confirmação:
-- Chamar `removeProject(id)` 
+
+- Chamar `removeProject(id)`
 - Refetch da lista de projetos
 - Toast de sucesso: "Projeto removido"
 - Se houver erro: Toast de erro com mensagem
@@ -78,11 +86,13 @@ Após confirmação:
 **Estado atual**: Não há implementação de "copiar config de outro projeto" no fluxo de Init.
 
 **Análise de reuso de componentes**:
+
 - **Modal de Edição (Repair/Edit)**: Reutilizável, já que trata mudança de nome + pasta
 - **Modal de Exclusão**: Específico para deletar, sem reuso imediato
 - **Seletor de Pasta**: Componente reutilizável (`pickProjectDirectory()`)
 
 **Relação**:
+
 - Edição de projeto **existente** = mudar nome/pasta de algo que já foi inicializado
 - Init de novo projeto = começar do zero, opcionalmente copiar config de um existente
 - Essas são operações **distintas** em termos de fluxo de dados (renameMutation vs. initMutation), mas compartilham:
@@ -91,6 +101,7 @@ Após confirmação:
   - Tratamento de erro
 
 **Recomendação**: Não compartilhar o modal `EditProjectModal` com o fluxo de Init. Mantê-los separados por clareza. Mas **extrair componentes de UI reutilizáveis**:
+
 - `ProjectPathSelector` — Componente de seletor de pasta + validação
 - `ProjectNameInput` — Componente de input de nome
 - Usar esses componentes em ambos os modais
@@ -98,18 +109,21 @@ Após confirmação:
 ## 5. Cronograma de Implementação
 
 ### Fase B.1 (Backend Encanamento) — ✅ JÁ CONCLUÍDO
+
 - ✅ `removeProject()` wrapper em `src/lib/server.ts`
 - ✅ `checkProjectPath()` para validação
 - ✅ `useValidateProjectsOnMount` hook
 - ✅ EditProjectModal com prop `isRepair`
 
 ### Fase B.2 (UI de Menu 3-Pontos) — AGUARDANDO APROVAÇÃO
+
 1. Adicionar ícone de menu (⋮) e popover no rail + cards
 2. Implementar modal de confirmação de exclusão
 3. Testar fluxos: repair, edit, delete
 4. E2E tests para os novos fluxos
 
 ### Fase B.3 (Componentes Reutilizáveis) — OPCIONAL
+
 1. Extrair `ProjectPathSelector` e `ProjectNameInput`
 2. Usar em fluxo de Init quando for implementado "copiar config"
 
