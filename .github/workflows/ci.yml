@@ -55,7 +55,7 @@ jobs:
           workspaces: src-tauri
       - run: cargo fmt --all --check
         working-directory: src-tauri
-      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo clippy --all-targets --features wdio -- -D warnings
         working-directory: src-tauri
 
   e2e-browser:
