@@ -51,7 +51,7 @@
     "@tanstack/react-query": "5.102.8",
     "@tanstack/react-router": "1.170.36",
     "@tanstack/react-router-ssr-query": "1.167.2",
-    "@tanstack/react-start": "1.168.54",
+    "@tanstack/react-start": "1.168.53",
     "@tauri-apps/api": "2.11.1",
     "@tauri-apps/plugin-dialog": "2.7.2",
     "@tauri-apps/plugin-fs": "2.5.1",
