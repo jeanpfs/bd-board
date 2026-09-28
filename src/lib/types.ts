@@ -185,3 +185,16 @@ export function groupBeadLinks(links: BeadLink[] = []): {
 
   return { blockedBy, blocking, related }
 }
+
+export type BeadFeedMessage =
+  | { type: 'live'; seq: number }
+  | { type: 'change'; seq: number; issueIds: string[] }
+  | { type: 'disabled' }
+  | { type: 'unsupported'; message: string }
+  | { type: 'error'; message: string }
+export type BeadFeedStatus =
+  | 'connecting'
+  | 'live'
+  | 'disabled'
+  | 'unsupported'
+  | 'error'

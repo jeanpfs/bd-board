@@ -1,4 +1,4 @@
-import { invoke, isTauri } from '@tauri-apps/api/core'
+import { Channel, invoke, isTauri } from '@tauri-apps/api/core'
 import { createServerFn } from '@tanstack/react-start'
 
 import { bdAdapter } from './bd.ts'
@@ -10,10 +10,12 @@ import {
   parseStatusUpdateInput,
   parseUpdateBeadInput,
 } from './server-validation.ts'
+import { toErrorMessage } from './utils.ts'
 
 import type {
   AddProjectOutcome,
   Bead,
+  BeadFeedMessage,
   BeadDetail,
   BeadUpdate,
   Project,
@@ -84,6 +86,13 @@ const webAddComment = createServerFn({ method: 'POST' })
   .validator(parseCommentInput)
   .handler(async ({ data }) => {
     await bdAdapter.addComment(data.project, data.id, data.text)
+    return { ok: true as const }
+  })
+
+export const webEnableEventsJournal = createServerFn({ method: 'POST' })
+  .validator(parseProjectInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.enableEventsJournal(data.project)
     return { ok: true as const }
   })
 
@@ -224,6 +233,85 @@ export async function addCommentFn({
     return { ok: true }
   }
   return webAddComment({ data })
+}
+
+export async function enableEventsJournalFn({
+  data,
+}: {
+  data: { project: string }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('enable_events_journal', { projectId: data.project })
+    return { ok: true }
+  }
+  return webEnableEventsJournal({ data })
+}
+
+export function subscribeBeadFeed(
+  project: string,
+  since: number,
+  onMessage: (msg: BeadFeedMessage) => void,
+): () => void {
+  let closed = false
+
+  if (isDesktopApp()) {
+    const channel = new Channel<BeadFeedMessage>()
+    channel.onmessage = (msg) => {
+      if (!closed) onMessage(msg)
+    }
+    let watchId: number | null = null
+    invoke<number>('watch_bead_feed', {
+      projectId: project,
+      since,
+      onMessage: channel,
+    })
+      .then((id) => {
+        if (closed) {
+          invoke('unwatch_bead_feed', { watchId: id }).catch(() => {})
+        } else {
+          watchId = id
+        }
+      })
+      .catch((err) => {
+        if (!closed) {
+          onMessage({
+            type: 'unsupported',
+            message: toErrorMessage(err, 'Live updates unavailable'),
+          })
+        }
+      })
+    return () => {
+      closed = true
+      if (watchId !== null) {
+        invoke('unwatch_bead_feed', { watchId }).catch(() => {})
+      }
+    }
+  }
+
+  const es = new EventSource(
+    `/api/feed/${encodeURIComponent(project)}?since=${since}`,
+  )
+  es.onmessage = (e) => {
+    if (closed) return
+    const msg = JSON.parse(e.data) as BeadFeedMessage
+    if (
+      msg.type === 'disabled' ||
+      msg.type === 'unsupported' ||
+      msg.type === 'error'
+    ) {
+      es.close()
+    }
+    onMessage(msg)
+  }
+  es.onerror = () => {
+    if (closed) return
+    es.close()
+    onMessage({ type: 'error', message: 'Live updates connection lost' })
+  }
+  return () => {
+    closed = true
+    es.close()
+  }
 }
 export async function pickProjectDirectory(): Promise<string | null> {
   if (!isDesktopApp()) {

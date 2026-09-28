@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PProjectRouteImport } from './routes/p.$project'
+import { Route as ApiFeedProjectRouteImport } from './routes/api/feed.$project'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const PProjectRoute = PProjectRouteImport.update({
   path: '/p/$project',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFeedProjectRoute = ApiFeedProjectRouteImport.update({
+  id: '/api/feed/$project',
+  path: '/api/feed/$project',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/p/$project': typeof PProjectRoute
+  '/api/feed/$project': typeof ApiFeedProjectRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/p/$project': typeof PProjectRoute
+  '/api/feed/$project': typeof ApiFeedProjectRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/p/$project': typeof PProjectRoute
+  '/api/feed/$project': typeof ApiFeedProjectRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/p/$project'
+  fullPaths: '/' | '/p/$project' | '/api/feed/$project'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/p/$project'
-  id: '__root__' | '/' | '/p/$project'
+  to: '/' | '/p/$project' | '/api/feed/$project'
+  id: '__root__' | '/' | '/p/$project' | '/api/feed/$project'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   PProjectRoute: typeof PProjectRoute
+  ApiFeedProjectRoute: typeof ApiFeedProjectRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PProjectRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/feed/$project': {
+      id: '/api/feed/$project'
+      path: '/api/feed/$project'
+      fullPath: '/api/feed/$project'
+      preLoaderRoute: typeof ApiFeedProjectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   PProjectRoute: PProjectRoute,
+  ApiFeedProjectRoute: ApiFeedProjectRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

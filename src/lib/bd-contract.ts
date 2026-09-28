@@ -29,4 +29,5 @@ export interface BdAdapter {
     },
   ) => Promise<string>
   addComment: (projectId: string, id: string, text: string) => Promise<void>
+  enableEventsJournal: (projectId: string) => Promise<void>
 }
