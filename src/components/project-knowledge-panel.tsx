@@ -45,6 +45,7 @@ interface ProjectKnowledgePanelProps {
   beadsById: Map<string, Bead>
   onOpenBead: (bead: Bead) => void
   onOpenKnowledge: (id: string) => void
+  refetchInterval: number
 }
 
 const TYPE_BADGE: Record<KnowledgeType, string> = {
@@ -128,6 +129,7 @@ export function ProjectKnowledgePanel({
   beadsById,
   onOpenBead,
   onOpenKnowledge,
+  refetchInterval,
 }: ProjectKnowledgePanelProps) {
   const [search, setSearch] = useState('')
   const [type, setType] = useState<TypeFilter>('all')
@@ -135,7 +137,7 @@ export function ProjectKnowledgePanel({
   const query = useQuery({
     queryKey: ['project-knowledge', project],
     queryFn: () => getProjectKnowledgeFn({ data: { project } }),
-    refetchInterval: 12000,
+    refetchInterval,
     staleTime: 4000,
   })
 

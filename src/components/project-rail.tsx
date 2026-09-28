@@ -205,7 +205,6 @@ export function ProjectRail() {
     queryKey: ['beads', project],
     queryFn: () => getBeads({ data: { project: project! } }),
     enabled: Boolean(project),
-    refetchInterval: 8000,
     staleTime: 3000,
   })
   const beads = project ? (beadsQuery.data ?? []) : []

@@ -3,6 +3,11 @@ import { LaptopMinimal, RefreshCw, Terminal } from 'lucide-react'
 import { isTauri } from '@tauri-apps/api/core'
 
 import { loadDesktopProbe } from '@/lib/desktop'
+import {
+  MIN_BD_VERSION_LIVE_UPDATES,
+  isBdOlderThan,
+  parseBdVersion,
+} from '@/lib/bd-version'
 import type { DesktopProbe } from '@/lib/desktop'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -45,12 +50,19 @@ export function DesktopProbeCard() {
     }
   }, [])
 
-  if (
-    state.kind === 'hidden' ||
-    state.kind === 'loading' ||
-    state.kind === 'ready'
-  )
-    return null
+  if (state.kind === 'hidden' || state.kind === 'loading') return null
+
+  if (state.kind === 'ready') {
+    const { bdVersion } = state.probe
+    if (!isBdOlderThan(bdVersion, MIN_BD_VERSION_LIVE_UPDATES)) return null
+    const parsed = parseBdVersion(bdVersion)?.join('.')
+    return (
+      <p className="text-xs text-muted-foreground">
+        bd {parsed} is not supported: bd board requires{' '}
+        {MIN_BD_VERSION_LIVE_UPDATES} or newer. Please upgrade bd.
+      </p>
+    )
+  }
 
   return (
     <Card className="gap-3 p-4">

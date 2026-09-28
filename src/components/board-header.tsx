@@ -48,6 +48,7 @@ interface BoardHeaderProps {
   nested: boolean
   setNested: (value: boolean) => void
   onCreate: () => void
+  liveIndicator: React.ReactNode
 }
 
 const VIEWS: { key: BoardView; label: string; icon: LucideIcon }[] = [
@@ -77,6 +78,7 @@ export function BoardHeader({
   nested,
   setNested,
   onCreate,
+  liveIndicator,
 }: BoardHeaderProps) {
   function togglePriority(p: number, checked: boolean) {
     setPriorities(
@@ -133,6 +135,7 @@ export function BoardHeader({
         ) : null}
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          {liveIndicator}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-8 gap-1.5">

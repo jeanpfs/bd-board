@@ -106,10 +106,13 @@ describe('home page header with project navigation', () => {
     )
 
     // Verify: in project, ProjectTopbar exists and shows project name
-    hasProjectTopbar = await browser.execute(
-      () => document.querySelector('header [role="tablist"]') !== null,
+    await browser.waitUntil(
+      async () =>
+        browser.execute(
+          () => document.querySelector('header [role="tablist"]') !== null,
+        ),
+      { timeout: 5000, timeoutMsg: 'ProjectTopbar did not render' },
     )
-    expect(hasProjectTopbar).toBe(true)
 
     const projectName = await browser.execute(() => {
       const header = document.querySelector('header')

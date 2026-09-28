@@ -51,7 +51,7 @@ function bdCandidates(): string[] {
   return candidates
 }
 
-function bdErrorMessage(
+export function bdErrorMessage(
   stdout: string,
   stderr: string,
   exitCode: number | null,
@@ -95,46 +95,54 @@ function bdErrorMessage(
   return `bd exited with status ${exitCode}`
 }
 
-async function bdRaw(dir: string, args: string[]): Promise<string> {
+export async function bdExec(
+  dir: string,
+  args: string[],
+): Promise<{ bin: string; code: number; stdout: string; stderr: string }> {
   const candidates = bdCandidates()
 
   for (const candidate of candidates) {
     try {
-      const { stdout } = await execFileAsync(candidate, args, {
+      const { stdout, stderr } = await execFileAsync(candidate, args, {
         cwd: dir,
         maxBuffer: MAX_BUFFER,
       })
-      return stdout
+      return { bin: candidate, code: 0, stdout, stderr }
     } catch (err: unknown) {
       const error = err as {
-        code?: string
-        message?: string
+        code?: string | number
         stdout?: string
         stderr?: string
       }
 
-      // If NotFound, try next candidate
       if (error.code === 'ENOENT') {
         continue
       }
-
-      // For any other error, extract the message and throw
-      const stdout = error.stdout ?? ''
-      const stderr = error.stderr ?? String(err)
-      // Try to extract exit code from error message or use null
-      let exitCode: number | null = null
-      const statusMatch = String(err).match(/exit code (\d+)/)
-      if (statusMatch) {
-        exitCode = parseInt(statusMatch[1], 10)
+      if (typeof error.code === 'number') {
+        return {
+          bin: candidate,
+          code: error.code,
+          stdout: error.stdout ?? '',
+          stderr: error.stderr ?? '',
+        }
       }
-      const message = bdErrorMessage(stdout, stderr, exitCode)
-      throw new Error(message)
+      throw new Error(
+        bdErrorMessage(error.stdout ?? '', error.stderr ?? String(err), null),
+      )
     }
   }
 
   // Exhausted all candidates
   const candidateList = candidates.join(', ')
   throw new Error(`bd not found (tried: ${candidateList})`)
+}
+
+async function bdRaw(dir: string, args: string[]): Promise<string> {
+  const result = await bdExec(dir, args)
+  if (result.code !== 0) {
+    throw new Error(bdErrorMessage(result.stdout, result.stderr, result.code))
+  }
+  return result.stdout
 }
 
 async function bdJson<T>(dir: string, args: string[]): Promise<T> {
@@ -696,6 +704,11 @@ async function addComment(
   await bdRaw(dir, ['comment', id, text])
 }
 
+async function enableEventsJournal(projectId: string): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, ['config', 'set', 'events-journal', 'true'])
+}
+
 export const bdAdapter: BdAdapter = {
   discoverProjects,
   listBeads,
@@ -707,6 +720,7 @@ export const bdAdapter: BdAdapter = {
   deleteBead,
   createBead,
   addComment,
+  enableEventsJournal,
 }
 
 export {
@@ -723,6 +737,7 @@ export {
   buildDeleteBeadArgs,
   createBead,
   addComment,
+  enableEventsJournal,
   resolveDir,
   counts,
 }

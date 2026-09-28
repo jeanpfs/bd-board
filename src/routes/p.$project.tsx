@@ -22,11 +22,13 @@ import { HierarchyView } from '@/components/hierarchy-view'
 import { KnowledgeDetailModal } from '@/components/knowledge-detail-modal'
 import { CreateBeadDialog } from '@/components/create-bead-dialog'
 import { ProjectKnowledgePanel } from '@/components/project-knowledge-panel'
+import { LiveUpdatesIndicator } from '@/components/live-updates-indicator'
 import { Button } from '@/components/ui/button'
 import { getBeads, updateBeadStatusFn } from '@/lib/server'
 import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
 import { beadMatches, compareBeads } from '@/lib/sort'
 import { toErrorMessage } from '@/lib/utils'
+import { useBeadFeed } from '@/hooks/use-bead-feed'
 
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import type { BoardView, ProjectTab } from '@/components/board-header'
@@ -145,10 +147,12 @@ function BoardPage() {
     }),
   )
 
+  const feed = useBeadFeed(project)
+
   const beadsQuery = useQuery({
     queryKey: ['beads', project],
     queryFn: () => getBeads({ data: { project } }),
-    refetchInterval: 8000,
+    refetchInterval: feed.status === 'live' ? 60_000 : 8_000,
     staleTime: 3000,
     retry: false,
   })
@@ -294,6 +298,9 @@ function BoardPage() {
             patchBoardSearch({ nested: value ? '1' : undefined })
           }
           onCreate={() => setCreateOpen(true)}
+          liveIndicator={
+            <LiveUpdatesIndicator status={feed.status} message={feed.message} />
+          }
         />
       ) : null}
 
@@ -310,6 +317,7 @@ function BoardPage() {
           beadsById={beadsById}
           onOpenBead={openBead}
           onOpenKnowledge={openKnowledge}
+          refetchInterval={feed.status === 'live' ? 60_000 : 12_000}
         />
       ) : tab === 'hierarchy' ? (
         <HierarchyView beads={beads} onOpen={openBead} />
