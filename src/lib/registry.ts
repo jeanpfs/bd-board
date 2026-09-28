@@ -1,4 +1,4 @@
-import { readTextFile, exists } from '@tauri-apps/plugin-fs'
+import { readFile } from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
 
@@ -22,12 +22,15 @@ export async function loadRegistry(): Promise<RegistryEntry[]> {
   const regPath = registryPath()
 
   try {
-    const fileExists = await exists(regPath)
-    if (!fileExists) {
-      return []
+    let content: string
+    try {
+      content = await readFile(regPath, 'utf8')
+    } catch (error) {
+      if ((error as { code?: string }).code === 'ENOENT') {
+        return []
+      }
+      throw error
     }
-
-    const content = await readTextFile(regPath)
     const registry = JSON.parse(content) as Registry
 
     if (registry.version !== 1) {
