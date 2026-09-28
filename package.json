@@ -32,6 +32,7 @@
     "preview": "vite preview --port 3009",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:feed-smoke": "node --experimental-strip-types --no-warnings scripts/feed-smoke.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint",
     "format": "prettier --write . && eslint --fix",
@@ -40,6 +41,7 @@
     "validate": "pnpm typecheck && pnpm check && pnpm exec eslint --max-warnings=0 && pnpm test && pnpm audit:prod",
     "e2e:build": "VITE_WDIO=1 pnpm tauri build --debug --features wdio --config src-tauri/tauri.wdio.conf.json",
     "e2e": "wdio run ./e2e/wdio.conf.ts",
+    "e2e:feed": "wdio run ./e2e/wdio.feed.conf.ts",
     "e2e:browser": "wdio run ./e2e/wdio.browser.conf.ts"
   },
   "dependencies": {
