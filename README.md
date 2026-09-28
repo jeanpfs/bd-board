@@ -18,8 +18,10 @@ Visual kanban board and multi-project dashboard for [`bd` (beads)](https://githu
 
 - Node.js 20+.
 - pnpm 10+.
-- `bd` 1.0+ available on `PATH`.
+- `bd` 1.3.0 or newer. Older versions are not supported (the board relies on the events journal for live updates).
 - Repositories with `.beads/metadata.json` under the configured roots.
+
+**Live updates:** the board subscribes to `bd events tail --follow` and refetches only when the journal reports a change (plus a 60 s safety refetch). When a project's journal is off, the board enables it automatically by running `bd config set events-journal true` in that project (a one-time write to its beads config) and shows a toast. It falls back to 8 s polling only while connecting or after a transient feed error.
 
 ## Setup
 
@@ -39,6 +41,8 @@ Desktop development:
 pnpm install
 pnpm desktop:dev
 ```
+
+**Development tools:** The project includes `mise.toml` to pin exact versions of Node.js, pnpm, and bd. Run `mise install` to set them up for consistent development across the team.
 
 ## Desktop App
 
