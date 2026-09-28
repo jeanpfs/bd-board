@@ -16,7 +16,9 @@ pub struct DesktopProbe {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .manage(desktop::FeedWatches::default());
 
     #[cfg(feature = "wdio")]
     let builder = builder
@@ -24,6 +26,12 @@ pub fn run() {
         .plugin(tauri_plugin_wdio_webdriver::init());
 
     builder
+        .on_page_load(|webview, payload| {
+            if payload.event() == tauri::webview::PageLoadEvent::Started {
+                use tauri::Manager;
+                webview.state::<desktop::FeedWatches>().cancel_all();
+            }
+        })
         .setup(|_| {
             #[cfg(debug_assertions)]
             match desktop_probe() {
@@ -56,9 +64,18 @@ pub fn run() {
             desktop::rename_project,
             desktop::check_project_path,
             desktop::relocate_project,
+            desktop::watch_bead_feed,
+            desktop::unwatch_bead_feed,
+            desktop::enable_events_journal,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                use tauri::Manager;
+                app.state::<desktop::FeedWatches>().cancel_all();
+            }
+        });
 }
 
 #[tauri::command]
