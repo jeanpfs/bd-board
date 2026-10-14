@@ -6,6 +6,8 @@ settings:
 
 overrides:
   js-yaml: '>=4.3.2'
+  seroval: '>=1.6.3'
+  source-map-js: '>=1.2.2'
 
 importers:
 
@@ -5311,10 +5313,10 @@ packages:
     resolution: {integrity: sha512-TfxuUjlbBESzUOWdTkTKqvSmav0ABym+itetDXLK6mDz8SmrpdI30aF8RTXE8Bvq+tH/1yIDkvy3W0lfQb1ipQ==}
     engines: {node: '>=10'}
     peerDependencies:
-      seroval: ^1.0
+      seroval: '>=1.6.3'
 
-  seroval@1.6.2:
-    resolution: {integrity: sha512-mPT+SD2TrlB6wvte1KkYOYUkubaTbd6pZ/6Kk3C9nxzrHmCZyhxOO7XGAeL7f+yLKZglzGtM9odUVvg/EhO+vQ==}
+  seroval@1.6.9:
+    resolution: {integrity: sha512-UeEzHwAK+yl0YLbsvROV1t5yMYEwZZ0CfKYxDvUgS2fO9Vxdf8djqVIB+OuVpuawRNPqw68LE1Du/GMsW2ZPqA==}
     engines: {node: '>=10'}
 
   serve-static@2.2.1:
@@ -5394,8 +5396,8 @@ packages:
       react: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
       react-dom: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
 
-  source-map-js@1.2.1:
-    resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
+  source-map-js@1.2.2:
+    resolution: {integrity: sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==}
     engines: {node: '>=0.10.0'}
 
   source-map@0.6.1:
@@ -7821,7 +7823,7 @@ snapshots:
       jiti: 2.7.0
       lightningcss: 1.32.0
       magic-string: 0.30.21
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
       tailwindcss: 4.3.3
 
   '@tailwindcss/oxide-android-arm64@4.3.3':
@@ -8026,15 +8028,15 @@ snapshots:
     dependencies:
       '@tanstack/history': 1.162.0
       cookie-es: 3.1.1
-      seroval: 1.6.2
-      seroval-plugins: 1.6.2(seroval@1.6.2)
+      seroval: 1.6.9
+      seroval-plugins: 1.6.2(seroval@1.6.9)
 
   '@tanstack/router-core@1.171.30':
     dependencies:
       '@tanstack/history': 1.162.4
       cookie-es: 3.1.1
-      seroval: 1.6.2
-      seroval-plugins: 1.6.2(seroval@1.6.2)
+      seroval: 1.6.9
+      seroval-plugins: 1.6.2(seroval@1.6.9)
 
   '@tanstack/router-generator@1.167.17(supports-color@8.1.1)':
     dependencies:
@@ -8122,7 +8124,7 @@ snapshots:
       '@tanstack/router-core': 1.171.30
       '@tanstack/start-fn-stubs': 1.162.0
       '@tanstack/start-storage-context': 1.167.32
-      seroval: 1.6.2
+      seroval: 1.6.9
 
   '@tanstack/start-fn-stubs@1.162.0': {}
 
@@ -8141,7 +8143,7 @@ snapshots:
       lightningcss: 1.33.0
       pathe: 2.0.3
       picomatch: 4.0.7
-      seroval: 1.6.2
+      seroval: 1.6.9
       source-map: 0.7.6
       srvx: 0.11.22
       tinyglobby: 0.2.17
@@ -8173,7 +8175,7 @@ snapshots:
       '@tanstack/start-storage-context': 1.167.32
       fetchdts: 0.1.7
       h3-v2: h3@2.0.1-rc.20(crossws@0.4.10(srvx@0.11.22))
-      seroval: 1.6.2
+      seroval: 1.6.9
     transitivePeerDependencies:
       - crossws
 
@@ -9378,7 +9380,7 @@ snapshots:
   css-tree@3.2.1:
     dependencies:
       mdn-data: 2.27.1
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
 
   css-value@0.0.1: {}
 
@@ -11311,7 +11313,7 @@ snapshots:
     dependencies:
       nanoid: 3.3.18
       picocolors: 1.1.1
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
 
   powershell-utils@0.1.0: {}
 
@@ -11729,11 +11731,11 @@ snapshots:
     dependencies:
       randombytes: 2.1.0
 
-  seroval-plugins@1.6.2(seroval@1.6.2):
+  seroval-plugins@1.6.2(seroval@1.6.9):
     dependencies:
-      seroval: 1.6.2
+      seroval: 1.6.9
 
-  seroval@1.6.2: {}
+  seroval@1.6.9: {}
 
   serve-static@2.2.1(supports-color@8.1.1):
     dependencies:
@@ -11855,7 +11857,7 @@ snapshots:
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
 
-  source-map-js@1.2.1: {}
+  source-map-js@1.2.2: {}
 
   source-map@0.6.1: {}
 
