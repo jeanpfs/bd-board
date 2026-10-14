@@ -12,6 +12,15 @@ pnpm dev
 
 `bd-board` is a local-first app. Reads and mutations are both enabled by default; it shells out directly to your local `bd` CLI.
 
+## Desktop App (Tauri)
+
+```bash
+pnpm desktop:dev      # run the Tauri desktop app in development
+pnpm desktop:build    # build the desktop bundle (needs the Rust toolchain)
+```
+
+Browser and desktop end-to-end suites: `pnpm e2e:browser`, `pnpm e2e` (after `pnpm e2e:build`) and `pnpm e2e:feed`.
+
 ## Quality Gates
 
 Run the full local gate before opening a pull request:
@@ -29,6 +38,8 @@ pnpm exec eslint --max-warnings=0
 pnpm test
 pnpm audit:prod
 ```
+
+If `pnpm audit:prod` fails on a transitive dependency, update it (`pnpm update <pkg> --depth Infinity`) or add an entry under `overrides` in `pnpm-workspace.yaml`.
 
 ## Pull Requests
 
