@@ -4,7 +4,21 @@ allowBuilds:
   lightningcss: true
   geckodriver: false
   unrs-resolver: true
+# Security pins for transitive dependencies with no direct upgrade path.
+# Re-check and remove each entry once its parent package ships a patched range.
 overrides:
   js-yaml: '>=4.3.2'
   seroval: '>=1.6.3'
   source-map-js: '>=1.2.2'
+  # dev-only (wdio -> @puppeteer/browsers -> proxy-agent -> pac-proxy-agent -> get-uri)
+  basic-ftp: '>=6.2.1'
+  # dev-only (eslint -> minimatch)
+  'brace-expansion@>=5 <6': '>=5.0.12 <6'
+  # dev-only (wdio e2e: mocha 10 pins ^6)
+  serialize-javascript: '>=7.0.5'
+  smol-toml: '>=1.8.1'
+  # dev-only (wdio/shadcn)
+  'undici@>=6 <7': '>=6.28.1 <7'
+  'undici@>=7 <8': '>=7.29.1 <8'
+  # dev-only (@tailwindcss/typography pins 6.0.10 exactly)
+  postcss-selector-parser: '>=7.1.6'
