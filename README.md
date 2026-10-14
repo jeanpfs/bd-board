@@ -16,7 +16,7 @@ Visual kanban board and multi-project dashboard for [`bd` (beads)](https://githu
 
 ## Requirements
 
-- Node.js 20+.
+- Node.js 24+.
 - pnpm 10+.
 - `bd` 1.3.0 or newer. Older versions are not supported (the board relies on the events journal for live updates).
 - Repositories with `.beads/metadata.json` under the configured roots.
