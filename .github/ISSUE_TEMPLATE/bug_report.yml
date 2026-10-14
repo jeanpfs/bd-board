@@ -1,0 +1,52 @@
+name: Bug report
+description: Something in bd-board does not work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: How are you running bd-board?
+      options:
+        - Desktop app (Tauri)
+        - Browser (pnpm dev)
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: bd-board version or commit
+    validations:
+      required: true
+  - type: input
+    id: bd
+    attributes:
+      label: bd CLI version
+      description: Output of `bd --version`.
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: macOS 15, Windows 11, Ubuntu 24.04
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Remove private paths, issue titles or other sensitive data first.
+      render: shell
