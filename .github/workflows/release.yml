@@ -66,16 +66,20 @@ jobs:
 
           **Windows** — the installer is unsigned; SmartScreen reports an unknown publisher. Choose *More info* → *Run anyway*.
           EOF
-          if ! gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            gh release create "$GITHUB_REF_NAME" \
-              --draft \
-              --title "bd board $VERSION" \
-              --notes-file notes.md $GENERATE
-          fi
+          # Drafts are listed under their tag name, but the list can lag right after creation,
+          # so reuse an existing draft/release when there is one and otherwise take the id
+          # straight from the create call.
           RELEASE_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate --jq '.[] | select(.tag_name == env.GITHUB_REF_NAME) | .id' | head -n1)
           if [ -z "$RELEASE_ID" ]; then
-            echo "::error::could not resolve release id for $GITHUB_REF_NAME"
-            exit 1
+            if [ -n "$GENERATE" ]; then
+              RELEASE_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases" \
+                -f tag_name="$GITHUB_REF_NAME" -f name="bd board $VERSION" \
+                -F draft=true -F generate_release_notes=true --jq .id)
+            else
+              RELEASE_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases" \
+                -f tag_name="$GITHUB_REF_NAME" -f name="bd board $VERSION" \
+                -f body="$(cat notes.md)" -F draft=true --jq .id)
+            fi
           fi
           echo "release_id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
 
@@ -153,7 +157,7 @@ jobs:
 
   publish:
     name: publish release
-    needs: build
+    needs: [prepare, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -161,10 +165,11 @@ jobs:
     steps:
       - env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ needs.prepare.outputs.release_id }}
         run: |
           set -euo pipefail
           if [[ "$GITHUB_REF_NAME" == *-* ]]; then
-            gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease --latest=false --repo "$GITHUB_REPOSITORY"
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=false -F prerelease=true -f make_latest=false
           else
-            gh release edit "$GITHUB_REF_NAME" --draft=false --latest --repo "$GITHUB_REPOSITORY"
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=false -F prerelease=false -f make_latest=true
           fi
