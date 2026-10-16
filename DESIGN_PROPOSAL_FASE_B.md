@@ -1,144 +1,144 @@
-# Fase B - Proposta de Desenho: Menu de 3 Pontos e Modais de Edição/Exclusão
+# Phase B - Design Proposal: Three-Dot Menu and Edit/Delete Modals
 
-## 1. Campos Editáveis do Projeto (com Segurança)
+## 1. Safely Editable Project Fields
 
-Baseado em `bd config --help` e `bd --help`, os campos **editáveis com segurança após inicialização** de um projeto registrado são:
+Based on `bd config --help` and `bd --help`, the fields that are **safe to edit after initialization** for a registered project are:
 
-- **Nome do Projeto** (Project Label/Name) — Campo simples de texto, sem risco de conflito com IDs de beads
-- **Caminho da Pasta** (Project Directory Path) — Seletor de folder, **essencial para recuperar projetos movidos/renomeados**
-- **Prefixo** — ⚠️ **NÃO RECOMENDADO EDITAR** — O prefixo é embarcado em todos os IDs de beads. Mudar o prefixo após inicialização causaria quebra de referências. Deixar de fora do escopo da Edição.
+- **Project Name** (Project Label/Name) — plain text field, no risk of conflicting with bead IDs
+- **Project Directory Path** — folder picker, **essential to recover moved/renamed projects**
+- **Prefix** — ⚠️ **NOT RECOMMENDED TO EDIT** — the prefix is embedded in every bead ID. Changing it after initialization would break references. Left out of the edit scope.
 
-Razão: `bd rename-prefix` existe no CLI e é uma operação **destrutiva** que recomputa todos os IDs — não é seguro expor via UI sem aviso explícito. Deixaremos este campo como read-only no modal.
+Reason: `bd rename-prefix` exists in the CLI and is a **destructive** operation that recomputes every ID, so it is not safe to expose through the UI without an explicit warning. This field stays read-only in the modal.
 
-## 2. Comportamento com Múltiplos Projetos Quebrados na Inicialização
+## 2. Behavior With Multiple Broken Projects on Startup
 
-**Decisão proposta**: Mostrar um modal por vez, em ordem sequencial (ordem de lista em `projects.json`).
+**Proposed decision**: show one modal at a time, in sequential order (list order in `projects.json`).
 
-Cada modal inclui:
+Each modal includes:
 
-- Título: `⚠️ Repair Project: {nome}`
-- Descrição: "The project path is no longer valid. Please select a new location."
-- Campo editável: **nome do projeto** + **seletor de pasta**
-- Botão de ação: "Repair" (em vez de "Save")
-- Botão de cancelar: "Cancel"
+- Title: `⚠️ Repair Project: {name}`
+- Description: "The project path is no longer valid. Please select a new location."
+- Editable fields: **project name** + **folder picker**
+- Action button: "Repair" (instead of "Save")
+- Cancel button: "Cancel"
 
-Após reparar um projeto:
+After repairing a project:
 
-- Validação da nova pasta acontece
-- Se inválida: erro exibido no modal (manter o modal aberto para correção)
-- Se válida: fechar modal e passar para o próximo projeto quebrado (se houver)
-- Se o usuário cancelar: parar a sequência, permitir interagir com o dashboard
+- The new folder is validated
+- If invalid: show the error in the modal (keep it open so the user can correct it)
+- If valid: close the modal and move to the next broken project (if any)
+- If the user cancels: stop the sequence and let them interact with the dashboard
 
-**Fluxo de código**:
+**Code flow**:
 
-- Hook `useValidateProjectsOnMount` mantém `currentBrokenIndex` e lista `brokenProjects`
-- Cada vez que modal é fechado com sucesso, incrementa o índice e refetch da lista de projetos
-- Se não há mais projetos quebrados, o estado volta a null e nenhum modal é exibido
+- The `useValidateProjectsOnMount` hook keeps `currentBrokenIndex` and a `brokenProjects` list
+- Each time a modal closes successfully, increment the index and refetch the project list
+- When there are no more broken projects, the state goes back to null and no modal is shown
 
-## 3. Posicionamento Visual do Menu de 3 Pontos
+## 3. Visual Placement of the Three-Dot Menu
 
-### Rail de Projetos (project-rail.tsx)
+### Project Rail (project-rail.tsx)
 
-**Desafio**: Rail é compacto (232px → 48px quando colapsado). Cada item de projeto é um link/botão já apertado.
+**Challenge**: the rail is compact (232px, 48px when collapsed). Each project item is already a tight link/button.
 
-**Solução proposta**:
+**Proposed solution**:
 
-- **Em modo expandido (232px)**:
-  - Adicionar ícone de menu (⋮) ou (···) ALINHADO À DIREITA de cada projeto, revelado no **hover**
-  - Layout: `[Ícone projeto] [Nome projeto] [Menu ⋮]` com gap/spacing adequado
-  - Menu dropdown sobre o card do projeto, com opções:
-    - "Editar" → Abre modal de edição
-    - "Excluir" → Abre modal de confirmação
-- **Em modo colapsado (48px)**:
-  - Cada item é um ícone centrado
-  - No **hover**, aparecer um tooltip + botão de menu (ou long-press em mobile)
-  - Menu pode aparecer como **popover** ao lado do ícone
+- **Expanded mode (232px)**:
+  - Add a menu icon (⋮) or (···) ALIGNED TO THE RIGHT of each project, revealed on **hover**
+  - Layout: `[Project icon] [Project name] [Menu ⋮]` with adequate gap/spacing
+  - Dropdown menu over the project card, with options:
+    - "Edit" → opens the edit modal
+    - "Delete" → opens the confirmation modal
+- **Collapsed mode (48px)**:
+  - Each item is a centered icon
+  - On **hover**, show a tooltip + menu button (or long-press on mobile)
+  - The menu can appear as a **popover** next to the icon
 
-### Dashboard - Cards de Projeto (project-card.tsx)
+### Dashboard - Project Cards (project-card.tsx)
 
-**Layout atual**: Card com imagem/badge de projeto, nome, counts de status, etc.
+**Current layout**: card with project image/badge, name, status counts, etc.
 
-**Solução proposta**:
+**Proposed solution**:
 
-- Adicionar ícone de menu (⋮) no **canto superior direito** do card, revelado no **hover**
-- Menu dropdown com opções:
-  - "Editar" → Abre modal de edição
-  - "Excluir" → Abre modal de confirmação
-- Não quebra o layout existente (card já tem espaço de canto superior)
+- Add a menu icon (⋮) in the **top-right corner** of the card, revealed on **hover**
+- Dropdown menu with options:
+  - "Edit" → opens the edit modal
+  - "Delete" → opens the confirmation modal
+- Does not break the existing layout (the card already has room in the top-right corner)
 
-### Modal de Confirmação de Exclusão
+### Delete Confirmation Modal
 
-- Título: "Deletar Projeto: {nome}"
-- Descrição: "Tem certeza que quer deletar este projeto do registro? A pasta não será deletada, mas o acesso ao projeto será removido da aplicação."
-- Botões:
-  - "Cancelar"
-  - "Deletar" (variante destructive/red)
+- Title: "Delete Project: {name}"
+- Description: "Are you sure you want to delete this project from the registry? The folder will not be deleted, but the project will no longer be accessible from the application."
+- Buttons:
+  - "Cancel"
+  - "Delete" (destructive/red variant)
 
-Após confirmação:
+After confirmation:
 
-- Chamar `removeProject(id)`
-- Refetch da lista de projetos
-- Toast de sucesso: "Projeto removido"
-- Se houver erro: Toast de erro com mensagem
+- Call `removeProject(id)`
+- Refetch the project list
+- Success toast: "Project removed"
+- On error: error toast with the message
 
-## 4. Relação com Modal de "Copiar Configuração" (Fluxo Init de Novo Projeto)
+## 4. Relationship With the "Copy Configuration" Modal (New Project Init Flow)
 
-**Estado atual**: Não há implementação de "copiar config de outro projeto" no fluxo de Init.
+**Current state**: there is no "copy config from another project" implementation in the Init flow.
 
-**Análise de reuso de componentes**:
+**Component reuse analysis**:
 
-- **Modal de Edição (Repair/Edit)**: Reutilizável, já que trata mudança de nome + pasta
-- **Modal de Exclusão**: Específico para deletar, sem reuso imediato
-- **Seletor de Pasta**: Componente reutilizável (`pickProjectDirectory()`)
+- **Edit Modal (Repair/Edit)**: reusable, since it handles name + folder changes
+- **Delete Modal**: specific to deletion, no immediate reuse
+- **Folder Picker**: reusable component (`pickProjectDirectory()`)
 
-**Relação**:
+**Relationship**:
 
-- Edição de projeto **existente** = mudar nome/pasta de algo que já foi inicializado
-- Init de novo projeto = começar do zero, opcionalmente copiar config de um existente
-- Essas são operações **distintas** em termos de fluxo de dados (renameMutation vs. initMutation), mas compartilham:
-  - UI de seletor de pasta
-  - Lógica de validação de path (`checkProjectPath`)
-  - Tratamento de erro
+- Editing an **existing** project = changing the name/folder of something already initialized
+- Init of a new project = starting from scratch, optionally copying config from an existing one
+- These are **distinct** operations in terms of data flow (renameMutation vs. initMutation), but they share:
+  - Folder picker UI
+  - Path validation logic (`checkProjectPath`)
+  - Error handling
 
-**Recomendação**: Não compartilhar o modal `EditProjectModal` com o fluxo de Init. Mantê-los separados por clareza. Mas **extrair componentes de UI reutilizáveis**:
+**Recommendation**: do not share the `EditProjectModal` with the Init flow. Keep them separate for clarity, but **extract reusable UI components**:
 
-- `ProjectPathSelector` — Componente de seletor de pasta + validação
-- `ProjectNameInput` — Componente de input de nome
-- Usar esses componentes em ambos os modais
+- `ProjectPathSelector` — folder picker + validation component
+- `ProjectNameInput` — name input component
+- Use these components in both modals
 
-## 5. Cronograma de Implementação
+## 5. Implementation Schedule
 
-### Fase B.1 (Backend Encanamento) — ✅ JÁ CONCLUÍDO
+### Phase B.1 (Backend Plumbing) — ✅ ALREADY DONE
 
-- ✅ `removeProject()` wrapper em `src/lib/server.ts`
-- ✅ `checkProjectPath()` para validação
+- ✅ `removeProject()` wrapper in `src/lib/server.ts`
+- ✅ `checkProjectPath()` for validation
 - ✅ `useValidateProjectsOnMount` hook
-- ✅ EditProjectModal com prop `isRepair`
+- ✅ EditProjectModal with `isRepair` prop
 
-### Fase B.2 (UI de Menu 3-Pontos) — AGUARDANDO APROVAÇÃO
+### Phase B.2 (Three-Dot Menu UI) — AWAITING APPROVAL
 
-1. Adicionar ícone de menu (⋮) e popover no rail + cards
-2. Implementar modal de confirmação de exclusão
-3. Testar fluxos: repair, edit, delete
-4. E2E tests para os novos fluxos
+1. Add the menu icon (⋮) and popover to the rail and cards
+2. Implement the delete confirmation modal
+3. Test flows: repair, edit, delete
+4. E2E tests for the new flows
 
-### Fase B.3 (Componentes Reutilizáveis) — OPCIONAL
+### Phase B.3 (Reusable Components) — OPTIONAL
 
-1. Extrair `ProjectPathSelector` e `ProjectNameInput`
-2. Usar em fluxo de Init quando for implementado "copiar config"
-
----
-
-## Questões para Aprovação
-
-1. **Ordem de projetos quebrados**: Usar ordem de `projects.json` (simples) ou adicionar lógica de "lastUsed"? (Proposta: simples, ordem atual)
-
-2. **Campos editáveis**: Apenas nome + pasta, ou também permitir edição de outro campo? (Proposta: nome + pasta)
-
-3. **Comportamento de cancelamento**: Se usuário cancelar repair de um projeto quebrado, deve voltar ao dashboard ou ficar no modal? (Proposta: voltar ao dashboard)
-
-4. **Feedback visual**: Spinner/loading durante validação de novo path? (Proposta: sim, Loader2 como já feito em init)
+1. Extract `ProjectPathSelector` and `ProjectNameInput`
+2. Use them in the Init flow once "copy config" is implemented
 
 ---
 
-**Pronto para implementação assim que tiver seu OK.**
+## Questions for Approval
+
+1. **Order of broken projects**: use the `projects.json` order (simple) or add "lastUsed" logic? (Proposal: simple, current order)
+
+2. **Editable fields**: only name + folder, or allow editing another field too? (Proposal: name + folder)
+
+3. **Cancel behavior**: if the user cancels the repair of a broken project, return to the dashboard or stay in the modal? (Proposal: return to the dashboard)
+
+4. **Visual feedback**: spinner/loading while validating a new path? (Proposal: yes, Loader2 as already done in init)
+
+---
+
+**Ready to implement as soon as you give the OK.**
