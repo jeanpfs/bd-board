@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import type { Project } from '@/lib/types'
-import { checkProjectPath } from '@/lib/server'
+import { checkProjectPath, isDesktopApp } from '@/lib/server'
 import type { PathStatus } from '@/lib/server'
 
 interface BrokenProject {
@@ -31,7 +31,9 @@ export function useValidateProjectsOnMount(
 
   // Validate all projects on mount or when projects change
   useEffect(() => {
-    if (!projects || projects.length === 0) {
+    // Path validation is a desktop (Tauri) command. In the browser it always throws, which would flag every
+    // registered project as broken and open the repair dialog on each load.
+    if (!projects || projects.length === 0 || !isDesktopApp()) {
       setBrokenProjects([])
       setCurrentBrokenIndex(0)
       return
