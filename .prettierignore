@@ -10,4 +10,3 @@ dist/
 dist-ssr/
 node_modules/
 src/routeTree.gen.ts
-docs/design/

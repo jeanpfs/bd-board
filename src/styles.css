@@ -13,14 +13,12 @@
 }
 
 /*
- * bd board — dark system tokens, sourced verbatim from
- * docs/design/bd-board-dark-system/colors_and_type.css + tokens.css
- * (the Open Design redesign package). The app is dark-only — see
+ * bd board — dark system tokens. The app is dark-only — see
  * `className="dark"` in src/routes/__root.tsx — so this is the only
- * palette. shadcn tokens without a direct equivalent in the package
- * are mapped to the closest surface/role: --secondary/--muted -> a
+ * palette. shadcn tokens without a direct equivalent in the design
+ * system are mapped to the closest surface/role: --secondary/--muted -> a
  * neutral raised surface, --accent -> the hover wash, --destructive
- * -> the package's scoped danger color.
+ * -> the scoped danger color.
  */
 .dark {
   --background: oklch(0.155 0.006 270);

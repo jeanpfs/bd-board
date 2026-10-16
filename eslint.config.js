@@ -42,7 +42,6 @@ export default [
       '.output/**',
       'dist/**',
       'dist-ssr/**',
-      'docs/design/**',
       'eslint.config.js',
       'node_modules/**',
       'prettier.config.js',
