@@ -46,19 +46,31 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          RELEASE_NOTES="Built by CI from this tag.
+          VERSION="${{ steps.version.outputs.version }}"
+          awk -v v="$VERSION" '/^## /{f=(index($0,"[" v "]")>0); next} f' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::warning::no CHANGELOG.md section for $VERSION; falling back to generated notes"
+            GENERATE="--generate-notes"
+          else
+            GENERATE=""
+          fi
+          cat >> notes.md <<'EOF'
+
+          ---
+
+          Built by CI from this tag.
 
           **macOS** — the app is ad-hoc signed and not notarized. If Gatekeeper blocks the first launch:
 
-              xattr -dr com.apple.quarantine \"/Applications/bd board.app\"
+              xattr -dr com.apple.quarantine "/Applications/bd board.app"
 
-          **Windows** — the installer is unsigned; SmartScreen reports an unknown publisher. Choose *More info* → *Run anyway*."
+          **Windows** — the installer is unsigned; SmartScreen reports an unknown publisher. Choose *More info* → *Run anyway*.
+          EOF
           if ! gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
             gh release create "$GITHUB_REF_NAME" \
               --draft \
-              --title "bd board ${{ steps.version.outputs.version }}" \
-              --generate-notes \
-              --notes "$RELEASE_NOTES"
+              --title "bd board $VERSION" \
+              --notes-file notes.md $GENERATE
           fi
           RELEASE_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate --jq '.[] | select(.tag_name == env.GITHUB_REF_NAME) | .id' | head -n1)
           if [ -z "$RELEASE_ID" ]; then
@@ -105,15 +117,31 @@ jobs:
           workspaces: src-tauri
           key: ${{ matrix.target }}
       - run: pnpm install --frozen-lockfile
+      - name: configure Apple signing
+        if: runner.os == 'macOS'
+        env:
+          SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          API_KEY: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          # Empty secrets must stay unset: tauri treats an empty APPLE_CERTIFICATE as a real certificate.
+          if [ -n "$CERTIFICATE" ]; then
+            {
+              echo "APPLE_SIGNING_IDENTITY=$SIGNING_IDENTITY"
+              echo "APPLE_CERTIFICATE=$CERTIFICATE"
+              echo "APPLE_CERTIFICATE_PASSWORD=$CERTIFICATE_PASSWORD"
+              if [ -n "$API_ISSUER" ]; then echo "APPLE_API_ISSUER=$API_ISSUER"; fi
+              if [ -n "$API_KEY" ]; then echo "APPLE_API_KEY=$API_KEY"; fi
+            } >> "$GITHUB_ENV"
+          else
+            echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
+          fi
       - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CARGO_INCREMENTAL: 0
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || '-' }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
         with:
           releaseId: ${{ needs.prepare.outputs.release_id }}
           tauriScript: pnpm tauri
