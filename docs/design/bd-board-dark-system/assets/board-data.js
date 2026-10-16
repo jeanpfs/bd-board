@@ -1,5 +1,5 @@
 /* Sample dataset shaped exactly like src/lib/types.ts (Bead, Project).
-   Content mirrors bd-board's own roadmap (README + PROGRESS.md) so the
+   Content mirrors bd-board's own roadmap (README) so the
    redesign is judged against realistic titles, not lorem. */
 
 const PROJECTS = [
