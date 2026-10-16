@@ -2,6 +2,8 @@
 
 Visual kanban board and multi-project dashboard for [`bd` (beads)](https://github.com/steveyegge/beads).
 
+![bd board: the multi-project dashboard, an epic swimlane board, a bead with comments, drag and drop between columns, a bead created from the terminal appearing live, and search](assets/demo.gif)
+
 `bd-board` is intentionally local-first: it discovers bead-enabled repositories on disk, reads data through the local `bd` CLI, and renders a fast dashboard for day-to-day planning. It now also has an early Tauri desktop shell spike so the same UI can run outside the browser.
 
 ## Features

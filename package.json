@@ -1,6 +1,6 @@
 {
   "name": "bd-board",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local visual board and multi-project dashboard for the bd beads issue tracker.",
   "private": true,
   "license": "MIT",
