@@ -64,7 +64,7 @@
     "@tanstack/react-router": "1.170.44",
     "@tanstack/react-router-ssr-query": "1.167.3",
     "@tanstack/react-start": "1.169.2",
-    "@tauri-apps/api": "2.12.0",
+    "@tauri-apps/api": "2.12.4",
     "@tauri-apps/plugin-dialog": "2.8.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
