@@ -47,6 +47,30 @@ describe('server input validation', () => {
     })
   })
 
+  it('accepts labels on create and rejects malformed ones', () => {
+    expect(
+      parseCreateBeadInput({
+        project: 'bd-board',
+        title: 'Task',
+        labels: ['ui', 'pdf'],
+      }).labels,
+    ).toEqual(['pdf', 'ui'])
+    expect(() =>
+      parseCreateBeadInput({
+        project: 'bd-board',
+        title: 'Task',
+        labels: 'ui',
+      }),
+    ).toThrow('labels must be a list')
+    expect(() =>
+      parseCreateBeadInput({
+        project: 'bd-board',
+        title: 'Task',
+        labels: ['a,b'],
+      }),
+    ).toThrow('Label is invalid')
+  })
+
   it('rejects invalid create fields', () => {
     expect(() =>
       parseCreateBeadInput({ project: 'bd-board', title: '' }),

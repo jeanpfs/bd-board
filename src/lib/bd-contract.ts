@@ -36,6 +36,7 @@ export interface BdAdapter {
       description?: string
       type?: string
       parent?: string
+      labels?: string[]
     },
   ) => Promise<string>
   addComment: (projectId: string, id: string, text: string) => Promise<void>

@@ -1573,14 +1573,13 @@ fn close_bead_inner(
     run_bd_mut(&dir, &build_close_bead_args(id, reason, force)).map(|_| ())
 }
 
-fn create_bead_inner(
-    project_id: &str,
+fn build_create_bead_args(
     title: &str,
     description: Option<&str>,
     kind: Option<&str>,
     parent: Option<&str>,
-) -> Result<String, String> {
-    let dir = resolve_dir(project_id)?;
+    labels: &[String],
+) -> Vec<String> {
     let mut args = vec![
         "create".to_string(),
         "--title".to_string(),
@@ -1599,7 +1598,26 @@ fn create_bead_inner(
         args.push("--parent".to_string());
         args.push(parent.to_string());
     }
-    let out = run_bd_mut(&dir, &args)?;
+    if !labels.is_empty() {
+        args.push("--labels".to_string());
+        args.push(labels.join(","));
+    }
+    args
+}
+
+fn create_bead_inner(
+    project_id: &str,
+    title: &str,
+    description: Option<&str>,
+    kind: Option<&str>,
+    parent: Option<&str>,
+    labels: &[String],
+) -> Result<String, String> {
+    let dir = resolve_dir(project_id)?;
+    let out = run_bd_mut(
+        &dir,
+        &build_create_bead_args(title, description, kind, parent, labels),
+    )?;
     Ok(out.trim().to_string())
 }
 
@@ -1676,6 +1694,7 @@ pub fn create_bead(
     description: Option<String>,
     r#type: Option<String>,
     parent: Option<String>,
+    labels: Option<Vec<String>>,
 ) -> Result<String, String> {
     create_bead_inner(
         &project_id,
@@ -1683,6 +1702,7 @@ pub fn create_bead(
         description.as_deref(),
         r#type.as_deref(),
         parent.as_deref(),
+        &labels.unwrap_or_default(),
     )
 }
 
@@ -2118,6 +2138,19 @@ mod tests {
         assert_eq!(
             build_close_bead_args("bd-board-a2k", Some("done"), true),
             vec!["close", "bd-board-a2k", "--reason", "done", "--force"]
+        );
+    }
+
+    #[test]
+    fn build_create_bead_args_passes_labels_as_one_flag() {
+        let labels = vec!["ui".to_string(), "pdf".to_string()];
+        assert_eq!(
+            build_create_bead_args("Fix", None, None, None, &labels),
+            vec!["create", "--title", "Fix", "--silent", "--labels", "ui,pdf"]
+        );
+        assert_eq!(
+            build_create_bead_args("Fix", None, None, None, &[]),
+            vec!["create", "--title", "Fix", "--silent"]
         );
     }
 

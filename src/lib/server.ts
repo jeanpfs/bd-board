@@ -102,6 +102,7 @@ const webCreateBead = createServerFn({ method: 'POST' })
       description: data.description,
       type: data.type,
       parent: data.parent,
+      labels: data.labels,
     })
     return { id }
   })
@@ -272,6 +273,7 @@ export async function createBeadFn({
     description?: string
     type?: string
     parent?: string
+    labels?: string[]
   }
 }): Promise<{ id: string }> {
   if (isDesktopApp()) {
@@ -281,6 +283,7 @@ export async function createBeadFn({
       description: data.description,
       type: data.type,
       parent: data.parent,
+      labels: data.labels,
     })
     return { id }
   }

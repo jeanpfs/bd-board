@@ -149,6 +149,7 @@ export function parseCreateBeadInput(input: unknown): {
   description?: string
   type?: string
   parent?: string
+  labels?: string[]
 } {
   const data = record(input)
   const title = optionalText(data, 'title', 240)
@@ -167,6 +168,7 @@ export function parseCreateBeadInput(input: unknown): {
     description: optionalText(data, 'description', 12000),
     type,
     parent,
+    labels: updateLabels(data),
   }
 }
 

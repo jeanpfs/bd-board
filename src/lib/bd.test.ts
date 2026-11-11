@@ -9,6 +9,7 @@ import {
   buildCloseBeadArgs,
   buildCountsFromGroups,
   buildDeferBeadArgs,
+  buildCreateBeadArgs,
   buildDeleteBeadArgs,
   buildListBeadsArgs,
   buildPreviewDeleteBeadArgs,
@@ -132,6 +133,26 @@ describe('closeBead arguments', () => {
       'dup',
       '--force',
     ])
+  })
+})
+
+describe('createBead arguments', () => {
+  it('passes labels as one comma-separated --labels flag', () => {
+    expect(
+      buildCreateBeadArgs({ title: 'Fix', labels: ['ui', 'pdf'] }),
+    ).toEqual(['create', '--title', 'Fix', '--silent', '--labels', 'ui,pdf'])
+  })
+
+  it('omits --labels when no labels are given', () => {
+    expect(buildCreateBeadArgs({ title: 'Fix' })).toEqual([
+      'create',
+      '--title',
+      'Fix',
+      '--silent',
+    ])
+    expect(buildCreateBeadArgs({ title: 'Fix', labels: [] })).not.toContain(
+      '--labels',
+    )
   })
 })
 

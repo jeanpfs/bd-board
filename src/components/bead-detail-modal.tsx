@@ -50,6 +50,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { LabelsInput } from '@/components/labels-input'
+import { labelCounts } from '@/lib/labels'
 import { cn, initials, toErrorMessage } from '@/lib/utils'
 import { COLUMNS, groupBeadLinks, isEpic, mapStatus } from '@/lib/types'
 import { PRIORITY_TEXT_CLASS, PRIORITY_WORD } from '@/lib/sort'
@@ -62,6 +64,7 @@ import {
 import {
   addCommentFn,
   deleteBeadFn,
+  getBeads,
   getBeadDetailFn,
   getProjectKnowledgeFn,
   previewDeleteBeadFn,
@@ -120,13 +123,6 @@ const EDIT_TYPES = [
 ]
 
 const PRIORITIES = [0, 1, 2, 3, 4]
-
-function labelsFromText(value: string): string[] {
-  return value
-    .split(',')
-    .map((label) => label.trim())
-    .filter(Boolean)
-}
 
 function LinkedBeadList({
   items,
@@ -299,7 +295,15 @@ function BeadEditDialog({
   const [priority, setPriority] = useState('2')
   const [issueType, setIssueType] = useState('task')
   const [assignee, setAssignee] = useState('')
-  const [labels, setLabels] = useState('')
+  const [labels, setLabels] = useState<string[]>([])
+  const beadsQuery = useQuery({
+    queryKey: ['beads', project],
+    queryFn: () => getBeads({ data: { project } }),
+  })
+  const counts = useMemo(
+    () => labelCounts(beadsQuery.data ?? []),
+    [beadsQuery.data],
+  )
 
   useEffect(() => {
     if (!open) return
@@ -312,7 +316,7 @@ function BeadEditDialog({
     setPriority(String(Math.max(0, Math.min(4, source.priority))))
     setIssueType(source.issue_type || 'task')
     setAssignee(source.assignee ?? '')
-    setLabels((source.labels ?? []).join(', '))
+    setLabels(source.labels ?? [])
   }, [bead, detail, open])
 
   const mutation = useMutation({
@@ -330,7 +334,7 @@ function BeadEditDialog({
             priority: Number(priority),
             issue_type: issueType,
             assignee,
-            labels: labelsFromText(labels),
+            labels,
           },
         },
       }),
@@ -430,16 +434,12 @@ function BeadEditDialog({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="edit-bead-labels">Labels</Label>
-            <Input
+            <LabelsInput
               id="edit-bead-labels"
               value={labels}
-              onChange={(event) => setLabels(event.target.value)}
-              autoComplete="off"
-              placeholder="ui, backend"
+              onChange={setLabels}
+              counts={counts}
             />
-            <p className="text-xs text-muted-foreground">
-              Separate labels with commas.
-            </p>
           </div>
 
           <div className="flex flex-col gap-1.5">

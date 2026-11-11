@@ -914,16 +914,34 @@ async function closeBead(
   await bdRaw(dir, buildCloseBeadArgs(id, opts))
 }
 
-async function createBead(
-  projectId: string,
-  opts: { title: string; description?: string; type?: string; parent?: string },
-): Promise<string> {
-  const dir = await resolveDir(projectId)
+export function buildCreateBeadArgs(opts: {
+  title: string
+  description?: string
+  type?: string
+  parent?: string
+  labels?: string[]
+}): string[] {
   const args = ['create', '--title', opts.title, '--silent']
   if (opts.description) args.push('-d', opts.description)
   if (opts.type) args.push('--type', opts.type)
   if (opts.parent) args.push('--parent', opts.parent)
-  const out = await bdRaw(dir, args)
+  if (opts.labels && opts.labels.length > 0)
+    args.push('--labels', opts.labels.join(','))
+  return args
+}
+
+async function createBead(
+  projectId: string,
+  opts: {
+    title: string
+    description?: string
+    type?: string
+    parent?: string
+    labels?: string[]
+  },
+): Promise<string> {
+  const dir = await resolveDir(projectId)
+  const out = await bdRaw(dir, buildCreateBeadArgs(opts))
   return out.trim()
 }
 
