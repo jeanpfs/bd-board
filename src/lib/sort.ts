@@ -61,6 +61,7 @@ export function compareBeads(sort: SortKey): (a: Bead, b: Bead) => number {
 /** Ready = open and not waiting on an unresolved dependency. */
 export function isReady(bead: Bead): boolean {
   return (
+    bead.status !== 'deferred' &&
     mapStatus(bead).column === 'open' &&
     groupBeadLinks(bead.links).blockedBy.length === 0
   )

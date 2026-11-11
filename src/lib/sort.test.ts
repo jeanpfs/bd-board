@@ -144,6 +144,7 @@ describe('isReady', () => {
     ).toBe(false)
     expect(isReady(bead({ status: 'blocked' }))).toBe(false)
     expect(isReady(bead({ status: 'closed' }))).toBe(false)
+    expect(isReady(bead({ status: 'deferred' }))).toBe(false)
   })
 })
 
