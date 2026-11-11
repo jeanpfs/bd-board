@@ -78,6 +78,11 @@ import type { LucideIcon } from 'lucide-react'
 import type { FormEvent, ReactNode } from 'react'
 import type { Bead, BeadColumn, BeadDetail } from '@/lib/types'
 
+export interface BeadAction {
+  id: string
+  nonce: number
+}
+
 interface BeadDetailModalProps {
   project: string
   bead: Bead | null
@@ -86,6 +91,7 @@ interface BeadDetailModalProps {
   onOpenBead: (bead: Bead) => void
   resolveBead: (id: string) => Bead | undefined
   onOpenKnowledge: (id: string) => void
+  action?: BeadAction | null
 }
 
 const COLUMN_LABEL: Record<BeadColumn, string> = {
@@ -704,6 +710,7 @@ export function BeadDetailModal({
   onOpenBead,
   resolveBead,
   onOpenKnowledge,
+  action,
 }: BeadDetailModalProps) {
   const queryClient = useQueryClient()
   const [comment, setComment] = useState('')
@@ -711,6 +718,35 @@ export function BeadDetailModal({
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [closeOpen, setCloseOpen] = useState(false)
   const [subtaskOpen, setSubtaskOpen] = useState(false)
+  const [statusOpen, setStatusOpen] = useState(false)
+
+  // Keyboard shortcuts open the existing controls for the open bead.
+  useEffect(() => {
+    if (!open || !action) return
+    switch (action.id) {
+      case 'status':
+        setStatusOpen(true)
+        return
+      case 'close-bead':
+        setCloseOpen(true)
+        return
+      case 'relation':
+        requestAnimationFrame(() =>
+          document
+            .querySelector<HTMLInputElement>(
+              '[data-bead-detail] [aria-label="Search beads"]',
+            )
+            ?.focus(),
+        )
+        return
+      case 'priority':
+      case 'assign':
+      case 'labels':
+      case 'edit':
+        setEditOpen(true)
+        return
+    }
+  }, [action, open])
 
   const detailQuery = useQuery({
     queryKey: ['bead', project, bead?.id],
@@ -788,7 +824,10 @@ export function BeadDetailModal({
           onOpenChange(next)
         }}
       >
-        <DialogContent className="grid max-h-[86vh] w-[94vw] max-w-3xl grid-cols-1 grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden rounded-[14px] bg-background p-0 shadow-pop sm:max-w-3xl lg:max-w-[1080px] lg:grid-cols-[minmax(0,1fr)_268px]">
+        <DialogContent
+          data-bead-detail=""
+          className="grid max-h-[86vh] w-[94vw] max-w-3xl grid-cols-1 grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden rounded-[14px] bg-background p-0 shadow-pop sm:max-w-3xl lg:max-w-[1080px] lg:grid-cols-[minmax(0,1fr)_268px]"
+        >
           {bead ? (
             <>
               <div className="flex min-h-0 min-w-0 flex-col">
@@ -1071,6 +1110,8 @@ export function BeadDetailModal({
               <div className="flex min-h-0 flex-col overflow-y-auto border-t border-border bg-sidebar p-[18px] lg:border-t-0 lg:border-l">
                 <MetaField label="Status">
                   <Select
+                    open={statusOpen}
+                    onOpenChange={setStatusOpen}
                     value={column}
                     onValueChange={(v) =>
                       // Closing asks for a reason and handles bd's close policy.
@@ -1149,7 +1190,13 @@ export function BeadDetailModal({
                   <span className="font-mono text-body">{bead.issue_type}</span>
                 </MetaField>
                 <MetaField label="Due date">
-                  <DueDatePicker project={project} bead={bead} />
+                  <DueDatePicker
+                    project={project}
+                    bead={bead}
+                    openRequest={
+                      action?.id === 'due' ? action.nonce : undefined
+                    }
+                  />
                 </MetaField>
 
                 <MetaField label="Estimate">

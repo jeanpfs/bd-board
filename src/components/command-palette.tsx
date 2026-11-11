@@ -479,6 +479,9 @@ export function CommandPalette() {
                 <Kbd>{footerMod} Enter</Kbd> open in new tab
               </span>
             )}
+            <span className="inline-flex items-center gap-1.5">
+              <Kbd>?</Kbd> all shortcuts
+            </span>
           </div>
         </Command>
       </CommandDialog>

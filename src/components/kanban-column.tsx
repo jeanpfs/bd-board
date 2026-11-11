@@ -38,7 +38,7 @@ export function KanbanColumn({
   const ids = useMemo(() => visible.map((b) => b.id), [visible])
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col">
+    <div data-column={column} className="flex h-full min-h-0 min-w-0 flex-col">
       <StatusColumnHeader
         column={column}
         label={label}

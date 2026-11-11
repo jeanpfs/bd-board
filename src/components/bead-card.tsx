@@ -197,6 +197,7 @@ export function BeadCard({
         variant="plain"
         size="flush"
         onClick={() => onOpen(bead)}
+        data-bead-id={bead.id}
         className="flex cursor-pointer flex-col gap-[7px] rounded-[8px] px-[10px] py-[9px]"
       >
         <span className="flex items-center gap-1.5 pr-5">

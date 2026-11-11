@@ -37,6 +37,9 @@ import {
   stripMigrationGate,
 } from '@/lib/migration-gate'
 import { useBeadFeed } from '@/hooks/use-bead-feed'
+import { ShortcutsDialog } from '@/components/shortcuts-dialog'
+import { useShortcuts } from '@/hooks/use-shortcuts'
+import type { BeadAction } from '@/components/bead-detail-modal'
 import { ProjectOverview } from '@/components/project-overview'
 
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
@@ -298,6 +301,78 @@ function BoardPage() {
       navigate({ to: '.', search: (prev) => ({ ...prev, bead: undefined }) })
   }
 
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [pendingAction, setPendingAction] = useState<BeadAction | null>(null)
+
+  // A different bead (or closing the modal) drops any pending bead action.
+  useEffect(() => {
+    setPendingAction(null)
+  }, [beadParam])
+
+  function focusedCard(): HTMLElement | null {
+    return (
+      document.activeElement?.closest<HTMLElement>('[data-bead-id]') ?? null
+    )
+  }
+
+  function moveCard(direction: 'next' | 'prev') {
+    const cards = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-bead-id]'),
+    )
+    if (cards.length === 0) return
+    const current = focusedCard()
+    const index = current ? cards.indexOf(current) : -1
+    const next =
+      direction === 'next'
+        ? Math.min(index + 1, cards.length - 1)
+        : Math.max(index - 1, 0)
+    cards[next]?.focus()
+    cards[next]?.scrollIntoView({ block: 'nearest' })
+  }
+
+  function moveColumn(direction: 'next' | 'prev') {
+    const current = focusedCard()
+    const columnEls = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-column]'),
+    )
+    const index = columnEls.findIndex(
+      (column) => current !== null && column.contains(current),
+    )
+    if (index === -1) return
+    const step = direction === 'next' ? 1 : -1
+    for (let i = index + step; i >= 0 && i < columnEls.length; i += step) {
+      const first = columnEls
+        .at(i)
+        ?.querySelector<HTMLElement>('[data-bead-id]')
+      if (first) {
+        first.focus()
+        first.scrollIntoView({ block: 'nearest' })
+        return
+      }
+    }
+  }
+
+  function beadAction(id: string) {
+    const targetId = beadParam ?? focusedCard()?.dataset.beadId
+    if (!targetId) return
+    const bead = beadsById.get(targetId)
+    if (targetId !== beadParam && bead) openBead(bead)
+    setPendingAction({ id, nonce: Date.now() })
+  }
+
+  useShortcuts({
+    navigateTab: (next) =>
+      navigate({ to: '.', search: (prev) => ({ ...prev, tab: next }) }),
+    newBead: () =>
+      navigate({ to: '.', search: (prev) => ({ ...prev, new: '1' }) }),
+    showShortcuts: () => setShortcutsOpen(true),
+    focusSearch: () =>
+      document.querySelector<HTMLInputElement>('[data-board-search]')?.focus(),
+    moveCard,
+    moveColumn,
+    beadAction,
+  })
+
   async function applyDrop(activeId: string, toColumn: BeadColumn) {
     const previous = queryClient.getQueryData<Bead[]>(['beads', project])
     const bead = (previous ?? beads).find((b) => b.id === activeId)
@@ -500,6 +575,7 @@ function BoardPage() {
         onOpenBead={openBead}
         resolveBead={(id) => beadsById.get(id)}
         onOpenKnowledge={openKnowledge}
+        action={pendingAction}
       />
       <KnowledgeDetailModal
         project={project}
@@ -516,6 +592,7 @@ function BoardPage() {
         open={createOpen}
         onOpenChange={setCreateOpen}
       />
+      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <CloseBeadDialog
         project={project}
         bead={closing?.bead ?? null}

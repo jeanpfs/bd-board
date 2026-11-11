@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { differenceInCalendarDays, format, startOfDay } from 'date-fns'
 import { CalendarDays } from 'lucide-react'
@@ -36,12 +36,19 @@ function dueWarning(
 export function DueDatePicker({
   project,
   bead,
+  openRequest,
 }: {
   project: string
   bead: Bead
+  openRequest?: number
 }) {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
+
+  // Keyboard shortcut `D` opens the popover.
+  useEffect(() => {
+    if (openRequest) setOpen(true)
+  }, [openRequest])
   const [draft, setDraft] = useState<string | null>(null)
   const [pickedDay, setPickedDay] = useState<Date | undefined>(undefined)
 

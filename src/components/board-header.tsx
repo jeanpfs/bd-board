@@ -270,6 +270,7 @@ export function BoardHeader({
               placeholder="Search..."
               className="h-8 w-40 pl-8 sm:w-52"
               aria-label="Search beads"
+              data-board-search=""
             />
           </div>
 
