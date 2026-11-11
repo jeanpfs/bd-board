@@ -1,9 +1,9 @@
-use crate::registry::{self, RegistryEntry};
 use crate::migration_gate::{self, MigrationGate};
-use std::collections::HashSet;
+use crate::registry::{self, RegistryEntry};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::env;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -102,6 +102,8 @@ pub struct RelatedBead {
     pub status: String,
     pub issue_type: String,
     pub dependency_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub due_at: Option<String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -129,6 +131,24 @@ pub struct Bead {
     pub child_beads: Option<Vec<Bead>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status_category: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub due_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub defer_until: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub estimated_minutes: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub started_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lease_expires_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub heartbeat_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub close_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_by: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -199,6 +219,8 @@ pub struct BeadUpdateInput {
     pub issue_type: Option<String>,
     pub assignee: Option<String>,
     pub labels: Option<Vec<String>>,
+    pub due: Option<String>,
+    pub estimate: Option<i64>,
 }
 
 pub fn bd_candidates() -> Vec<String> {
@@ -236,7 +258,11 @@ fn json_error_message(text: &str) -> Option<String> {
         .filter_map(|key| json.get(*key).and_then(Value::as_str))
         .find(|s| !s.is_empty())?;
     let mut result = message.to_string();
-    if let Some(hint) = json.get("hint").and_then(Value::as_str).filter(|h| !h.is_empty()) {
+    if let Some(hint) = json
+        .get("hint")
+        .and_then(Value::as_str)
+        .filter(|h| !h.is_empty())
+    {
         result.push_str(&format!(" ({})", hint));
     }
     Some(result)
@@ -749,6 +775,15 @@ fn value_opt_str(value: &Value, key: &str) -> Option<String> {
         .map(|s| s.to_string())
 }
 
+/// Schedule and lifecycle text: bd can send empty strings for unset fields, which mean absent.
+fn value_present_str(value: &Value, key: &str) -> Option<String> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+}
+
 fn value_i64(value: &Value, key: &str) -> Option<i64> {
     value
         .get(key)
@@ -818,6 +853,15 @@ fn map_bead(value: &Value, categories: &HashMap<String, String>) -> Bead {
         children: None,
         child_beads: None,
         status_category: status_category(&status, categories),
+        due_at: value_present_str(value, "due_at"),
+        defer_until: value_present_str(value, "defer_until"),
+        estimated_minutes: value_i64(value, "estimated_minutes"),
+        started_at: value_present_str(value, "started_at"),
+        lease_expires_at: value_present_str(value, "lease_expires_at"),
+        heartbeat_at: value_present_str(value, "heartbeat_at"),
+        close_reason: value_present_str(value, "close_reason"),
+        external_ref: value_present_str(value, "external_ref"),
+        created_by: value_present_str(value, "created_by"),
     }
 }
 
@@ -977,7 +1021,11 @@ fn status_categories(dir: &Path) -> HashMap<String, String> {
     }
     serde_json::from_str::<Value>(cap.stdout.trim())
         .ok()
-        .and_then(|json| json.get("custom_statuses").and_then(Value::as_array).cloned())
+        .and_then(|json| {
+            json.get("custom_statuses")
+                .and_then(Value::as_array)
+                .cloned()
+        })
         .unwrap_or_default()
         .iter()
         .filter_map(|entry| {
@@ -1015,7 +1063,11 @@ fn build_counts_from_groups(rows: &[Value], categories: &HashMap<String, String>
             "blocked" => counts.blocked += n,
             "closed" => counts.closed += n,
             "deferred" => counts.deferred += n,
-            other => match categories.get(other).map(String::as_str).unwrap_or("unspecified") {
+            other => match categories
+                .get(other)
+                .map(String::as_str)
+                .unwrap_or("unspecified")
+            {
                 "wip" => counts.in_progress += n,
                 "done" => counts.closed += n,
                 "frozen" => counts.deferred += n,
@@ -1091,7 +1143,7 @@ fn derive_children(beads: Vec<Bead>) -> Vec<Bead> {
 
 fn list_beads_inner(project_id: &str) -> Result<Vec<Bead>, String> {
     let dir = resolve_dir(project_id)?;
-    let raw = bd_json(&dir, &["list", "--all", "--json"])?;
+    let raw = bd_json(&dir, build_list_beads_args())?;
     let categories = status_categories(&dir);
     let beads = raw
         .as_array()
@@ -1128,6 +1180,7 @@ fn get_bead_detail_inner(project_id: &str, id: &str) -> Result<BeadDetail, Strin
             status: value_str(&d, "status"),
             issue_type: value_str(&d, "issue_type"),
             dependency_type: value_str(&d, "dependency_type"),
+            due_at: value_present_str(&d, "due_at"),
         })
         .collect();
 
@@ -1240,6 +1293,14 @@ fn build_update_bead_args(
         args.push("--assignee".to_string());
         args.push(assignee.clone());
     }
+    if let Some(due) = &update.due {
+        args.push("--due".to_string());
+        args.push(due.clone());
+    }
+    if let Some(estimate) = update.estimate {
+        args.push("--estimate".to_string());
+        args.push(estimate.to_string());
+    }
     if let Some(labels) = &update.labels {
         if !labels.is_empty() {
             args.push("--set-labels".to_string());
@@ -1253,6 +1314,35 @@ fn build_update_bead_args(
     }
 
     args
+}
+
+fn build_list_beads_args() -> &'static [&'static str] {
+    &["list", "--all", "--limit", "0", "--json"]
+}
+
+fn build_defer_args(id: &str, until: Option<&str>) -> Vec<String> {
+    let mut args = vec!["defer".to_string(), id.to_string()];
+    if let Some(until) = until.filter(|u| !u.is_empty()) {
+        args.push("--until".to_string());
+        args.push(until.to_string());
+    }
+    args
+}
+
+fn build_undefer_args(id: &str) -> Vec<String> {
+    vec!["undefer".to_string(), id.to_string()]
+}
+
+fn defer_bead_inner(project_id: &str, id: &str, until: Option<&str>) -> Result<(), String> {
+    let dir = resolve_dir(project_id)?;
+    run_bd_mut(&dir, &build_defer_args(id, until))?;
+    Ok(())
+}
+
+fn undefer_bead_inner(project_id: &str, id: &str) -> Result<(), String> {
+    let dir = resolve_dir(project_id)?;
+    run_bd_mut(&dir, &build_undefer_args(id))?;
+    Ok(())
 }
 
 fn update_bead_inner(project_id: &str, id: &str, update: BeadUpdateInput) -> Result<(), String> {
@@ -1562,6 +1652,16 @@ pub fn close_bead(
     force: bool,
 ) -> Result<(), String> {
     close_bead_inner(&project_id, &id, reason.as_deref(), force)
+}
+
+#[tauri::command]
+pub fn defer_bead(project_id: String, id: String, until: Option<String>) -> Result<(), String> {
+    defer_bead_inner(&project_id, &id, until.as_deref())
+}
+
+#[tauri::command]
+pub fn undefer_bead(project_id: String, id: String) -> Result<(), String> {
+    undefer_bead_inner(&project_id, &id)
 }
 
 #[tauri::command]
@@ -1949,6 +2049,7 @@ mod tests {
             issue_type: Some("feature".to_string()),
             assignee: Some("Jean".to_string()),
             labels: Some(vec!["backend".to_string(), "ui".to_string()]),
+            ..Default::default()
         };
 
         let args = build_update_bead_args("bd-board-a2k", &update, &[]);
@@ -2018,6 +2119,84 @@ mod tests {
             build_close_bead_args("bd-board-a2k", Some("done"), true),
             vec!["close", "bd-board-a2k", "--reason", "done", "--force"]
         );
+    }
+
+    #[test]
+    fn build_update_bead_args_passes_due_and_estimate() {
+        let update = BeadUpdateInput {
+            due: Some("tomorrow".to_string()),
+            estimate: Some(180),
+            ..Default::default()
+        };
+        assert_eq!(
+            build_update_bead_args("bd-board-a2k", &update, &[]),
+            vec![
+                "update",
+                "bd-board-a2k",
+                "--due",
+                "tomorrow",
+                "--estimate",
+                "180",
+            ]
+        );
+    }
+
+    #[test]
+    fn build_update_bead_args_clears_due_with_empty_value() {
+        let update = BeadUpdateInput {
+            due: Some(String::new()),
+            ..Default::default()
+        };
+        assert_eq!(
+            build_update_bead_args("bd-board-a2k", &update, &[]),
+            vec!["update", "bd-board-a2k", "--due", ""]
+        );
+    }
+
+    #[test]
+    fn defer_args_add_until_only_when_given() {
+        assert_eq!(
+            build_defer_args("bd-board-a2k", None),
+            vec!["defer", "bd-board-a2k"]
+        );
+        assert_eq!(
+            build_defer_args("bd-board-a2k", Some("next monday")),
+            vec!["defer", "bd-board-a2k", "--until", "next monday"]
+        );
+        assert_eq!(
+            build_undefer_args("bd-board-a2k"),
+            vec!["undefer", "bd-board-a2k"]
+        );
+    }
+
+    #[test]
+    fn list_args_request_every_bead() {
+        assert_eq!(
+            build_list_beads_args(),
+            vec!["list", "--all", "--limit", "0", "--json"]
+        );
+    }
+
+    #[test]
+    fn map_bead_carries_schedule_fields_and_omits_absent_ones() {
+        let raw = serde_json::json!({
+            "id": "bd-board-a2k",
+            "title": "Schedule me",
+            "status": "open",
+            "issue_type": "task",
+            "due_at": "2026-11-16T17:00:00Z",
+            "estimated_minutes": 90,
+            "close_reason": "",
+        });
+        let bead = map_bead(&raw, &HashMap::new());
+        assert_eq!(bead.due_at.as_deref(), Some("2026-11-16T17:00:00Z"));
+        assert_eq!(bead.estimated_minutes, Some(90));
+        assert_eq!(bead.close_reason, None);
+
+        let json = serde_json::to_value(&bead).expect("bead serializes");
+        assert!(json.get("defer_until").is_none());
+        assert!(json.get("close_reason").is_none());
+        assert_eq!(json["estimated_minutes"], 90);
     }
 
     #[test]

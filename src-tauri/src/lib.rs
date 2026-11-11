@@ -60,6 +60,8 @@ pub fn run() {
             desktop::update_bead,
             desktop::preview_delete_bead,
             desktop::close_bead,
+            desktop::defer_bead,
+            desktop::undefer_bead,
             desktop::delete_bead,
             desktop::create_bead,
             desktop::add_comment,

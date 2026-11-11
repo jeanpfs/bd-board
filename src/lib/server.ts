@@ -7,6 +7,7 @@ import {
   parseCloseBeadInput,
   parseCommentInput,
   parseCreateBeadInput,
+  parseDeferInput,
   parseProjectInput,
   parseStatusUpdateInput,
   parseUpdateBeadInput,
@@ -65,6 +66,20 @@ const webUpdateBead = createServerFn({ method: 'POST' })
   .validator(parseUpdateBeadInput)
   .handler(async ({ data }) => {
     await bdAdapter.updateBead(data.project, data.id, data.update)
+    return { ok: true as const }
+  })
+
+const webDeferBead = createServerFn({ method: 'POST' })
+  .validator(parseDeferInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.deferBead(data.project, data.id, data.until)
+    return { ok: true as const }
+  })
+
+const webUndeferBead = createServerFn({ method: 'POST' })
+  .validator(parseBeadInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.undeferBead(data.project, data.id)
     return { ok: true as const }
   })
 
@@ -192,6 +207,34 @@ export async function updateBeadFn({
     return { ok: true }
   }
   return webUpdateBead({ data })
+}
+
+export async function deferBeadFn({
+  data,
+}: {
+  data: { project: string; id: string; until?: string }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('defer_bead', {
+      projectId: data.project,
+      id: data.id,
+      until: data.until,
+    })
+    return { ok: true }
+  }
+  return webDeferBead({ data })
+}
+
+export async function undeferBeadFn({
+  data,
+}: {
+  data: { project: string; id: string }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('undefer_bead', { projectId: data.project, id: data.id })
+    return { ok: true }
+  }
+  return webUndeferBead({ data })
 }
 
 export async function previewDeleteBeadFn({

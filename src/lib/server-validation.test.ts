@@ -4,6 +4,7 @@ import {
   parseBeadInput,
   parseCommentInput,
   parseCreateBeadInput,
+  parseDeferInput,
   parseProjectInput,
   parseStatusUpdateInput,
   parseUpdateBeadInput,
@@ -154,5 +155,62 @@ describe('server input validation', () => {
         labels: ['bad label'],
       }),
     ).toThrow('Label is invalid')
+  })
+})
+
+describe('schedule input validation', () => {
+  const base = { project: 'bd-board', id: 'bd-board-a2k' }
+
+  it('accepts a defer date and allows an open-ended defer', () => {
+    expect(parseDeferInput({ ...base, until: 'next monday' })).toEqual({
+      ...base,
+      until: 'next monday',
+    })
+    expect(parseDeferInput(base)).toEqual(base)
+  })
+
+  it('rejects defer dates longer than 40 characters or spanning lines', () => {
+    expect(() => parseDeferInput({ ...base, until: 'x'.repeat(41) })).toThrow(
+      'until is too long',
+    )
+    expect(() =>
+      parseDeferInput({ ...base, until: 'tomorrow\n--json' }),
+    ).toThrow('until is invalid')
+  })
+
+  it('passes a due date through, and an empty one clears it', () => {
+    expect(parseUpdateBeadInput({ ...base, due: 'tomorrow' }).update).toEqual({
+      due: 'tomorrow',
+    })
+    expect(parseUpdateBeadInput({ ...base, due: '' }).update).toEqual({
+      due: '',
+    })
+    expect(parseUpdateBeadInput({ ...base, due: null }).update).toEqual({
+      due: '',
+    })
+  })
+
+  it('rejects due dates longer than 40 characters or spanning lines', () => {
+    expect(() =>
+      parseUpdateBeadInput({ ...base, due: 'x'.repeat(41) }),
+    ).toThrow('due is too long')
+    expect(() => parseUpdateBeadInput({ ...base, due: 'a\nb' })).toThrow(
+      'due is invalid',
+    )
+  })
+
+  it('accepts whole-minute estimates and rejects zero, negatives and fractions', () => {
+    expect(parseUpdateBeadInput({ ...base, estimate: 180 }).update).toEqual({
+      estimate: 180,
+    })
+    expect(() => parseUpdateBeadInput({ ...base, estimate: 0 })).toThrow(
+      'Estimate is invalid',
+    )
+    expect(() => parseUpdateBeadInput({ ...base, estimate: -5 })).toThrow(
+      'Estimate is invalid',
+    )
+    expect(() => parseUpdateBeadInput({ ...base, estimate: 1.5 })).toThrow(
+      'Estimate is invalid',
+    )
   })
 })

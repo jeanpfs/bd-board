@@ -8,9 +8,12 @@ import {
   buildBeadGraph,
   buildCloseBeadArgs,
   buildCountsFromGroups,
+  buildDeferBeadArgs,
   buildDeleteBeadArgs,
+  buildListBeadsArgs,
   buildPreviewDeleteBeadArgs,
   buildProjectKnowledge,
+  buildUndeferBeadArgs,
   buildUpdateBeadArgs,
   COMMENTS_LIMIT,
   deletionSet,
@@ -128,6 +131,44 @@ describe('closeBead arguments', () => {
       '--reason',
       'dup',
       '--force',
+    ])
+  })
+})
+
+describe('schedule arguments', () => {
+  it('passes due and estimate to bd update', () => {
+    expect(
+      buildUpdateBeadArgs('x-1', { due: 'tomorrow', estimate: 180 }),
+    ).toEqual(['update', 'x-1', '--due', 'tomorrow', '--estimate', '180'])
+  })
+
+  it('clears the due date with an empty --due', () => {
+    expect(buildUpdateBeadArgs('x-1', { due: '' })).toEqual([
+      'update',
+      'x-1',
+      '--due',
+      '',
+    ])
+  })
+
+  it('defers with or without a date', () => {
+    expect(buildDeferBeadArgs('x-1')).toEqual(['defer', 'x-1'])
+    expect(buildDeferBeadArgs('x-1', 'next monday')).toEqual([
+      'defer',
+      'x-1',
+      '--until',
+      'next monday',
+    ])
+    expect(buildUndeferBeadArgs('x-1')).toEqual(['undefer', 'x-1'])
+  })
+
+  it('lists every bead instead of bd’s default page', () => {
+    expect(buildListBeadsArgs()).toEqual([
+      'list',
+      '--all',
+      '--limit',
+      '0',
+      '--json',
     ])
   })
 })

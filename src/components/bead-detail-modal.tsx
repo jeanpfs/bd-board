@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { format } from 'date-fns'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { relativeDate } from '@/lib/time'
 import Markdown from 'react-markdown'
@@ -33,6 +34,9 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { CloseBeadDialog } from '@/components/close-bead-dialog'
 import { CreateBeadDialog } from '@/components/create-bead-dialog'
+import { DueDatePicker } from '@/components/due-date-picker'
+import { EstimateInput } from '@/components/estimate-input'
+import { SnoozeMenu } from '@/components/snooze-menu'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { InteractiveRow } from '@/components/ui/interactive-row'
@@ -165,6 +169,11 @@ function LinkedBeadList({
                 {target?.title ?? 'Not on this board'}
               </span>
               <span className="ml-auto flex shrink-0 items-center gap-1.5">
+                {target?.due_at ? (
+                  <span className="font-mono text-badge text-muted-foreground">
+                    due {format(new Date(target.due_at), 'MMM d')}
+                  </span>
+                ) : null}
                 {note ? (
                   <span className="font-mono text-badge tracking-[0.05em] text-muted-foreground uppercase">
                     {note}
@@ -1183,6 +1192,17 @@ export function BeadDetailModal({
 
                 <MetaField label="Type">
                   <span className="font-mono text-body">{bead.issue_type}</span>
+                </MetaField>
+                <MetaField label="Due date">
+                  <DueDatePicker project={project} bead={bead} />
+                </MetaField>
+
+                <MetaField label="Estimate">
+                  <EstimateInput key={bead.id} project={project} bead={bead} />
+                </MetaField>
+
+                <MetaField label="Snooze">
+                  <SnoozeMenu project={project} bead={bead} />
                 </MetaField>
 
                 <MetaField label="Labels">

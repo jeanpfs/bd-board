@@ -126,6 +126,23 @@ export function parseCloseBeadInput(input: unknown): {
   }
 }
 
+export function parseDeferInput(input: unknown): {
+  project: string
+  id: string
+  until?: string
+} {
+  const data = record(input)
+  const until = optionalText(data, 'until', 40)
+  if (until !== undefined && /[\r\n]/.test(until)) {
+    throw new Error('until is invalid')
+  }
+  return {
+    project: requiredString(data, 'project', PROJECT_RE, 'Project'),
+    id: requiredString(data, 'id', BEAD_ID_RE, 'Bead id'),
+    until,
+  }
+}
+
 export function parseCreateBeadInput(input: unknown): {
   project: string
   title: string
@@ -215,6 +232,24 @@ export function parseUpdateBeadInput(input: unknown): {
 
   const assignee = updateText(data, 'assignee', 120)
   if (assignee !== undefined) update.assignee = assignee
+
+  const due = updateText(data, 'due', 40)
+  if (due !== undefined) {
+    if (/[\r\n]/.test(due)) throw new Error('due is invalid')
+    update.due = due
+  }
+
+  if ('estimate' in data) {
+    const estimate = data['estimate']
+    if (
+      typeof estimate !== 'number' ||
+      !Number.isInteger(estimate) ||
+      estimate < 1
+    ) {
+      throw new Error('Estimate is invalid')
+    }
+    update.estimate = estimate
+  }
 
   const labels = updateLabels(data)
   if (labels !== undefined) update.labels = labels

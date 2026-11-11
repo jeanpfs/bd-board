@@ -507,6 +507,36 @@ function deriveChildren(beads: Bead[]): Bead[] {
   })
 }
 
+/** Schedule and lifecycle fields; absent or empty values are left out, never null. */
+function scheduleFields(raw: Record<string, unknown>): Partial<Bead> {
+  const text = (key: string): string | undefined => {
+    const value = raw[key]
+    return typeof value === 'string' && value !== '' ? value : undefined
+  }
+  const minutes =
+    typeof raw['estimated_minutes'] === 'number'
+      ? raw['estimated_minutes']
+      : undefined
+  const fields = {
+    due_at: text('due_at'),
+    defer_until: text('defer_until'),
+    estimated_minutes: minutes,
+    started_at: text('started_at'),
+    lease_expires_at: text('lease_expires_at'),
+    heartbeat_at: text('heartbeat_at'),
+    close_reason: text('close_reason'),
+    external_ref: text('external_ref'),
+    created_by: text('created_by'),
+  }
+  return Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => value !== undefined),
+  )
+}
+
+/** `bd list` returns only its first page unless `--limit 0` asks for everything. */
+function buildListBeadsArgs(): string[] {
+  return ['list', '--all', '--limit', '0', '--json']
+}
 function mapRawBead(
   raw: Record<string, unknown>,
   categories: Map<string, StatusCategory> = new Map(),
@@ -548,6 +578,7 @@ function mapRawBead(
       raw['dependent_count'] !== undefined
         ? Number(raw['dependent_count'])
         : undefined,
+    ...scheduleFields(raw),
   }
 }
 
@@ -591,7 +622,7 @@ function mapKnowledgeEntry(
 async function listBeads(projectId: string): Promise<Bead[]> {
   const dir = await resolveDir(projectId)
   const [raw, categories] = await Promise.all([
-    bdJson<Record<string, unknown>[]>(dir, ['list', '--all', '--json']),
+    bdJson<Record<string, unknown>[]>(dir, buildListBeadsArgs()),
     statusCategories(dir),
   ])
   return buildBeadGraph(raw, categories)
@@ -623,6 +654,7 @@ async function getBeadDetail(
     status: String(d['status'] ?? 'open'),
     issue_type: String(d['issue_type'] ?? 'task'),
     dependency_type: String(d['dependency_type'] ?? ''),
+    ...(typeof d['due_at'] === 'string' ? { due_at: d['due_at'] } : {}),
   }))
 
   const comments: Comment[] = rawComments.map(mapComment)
@@ -696,6 +728,9 @@ function buildUpdateBeadArgs(
     args.push('--priority', String(opts.priority))
   if (opts.issue_type !== undefined) args.push('--type', opts.issue_type)
   if (opts.assignee !== undefined) args.push('--assignee', opts.assignee)
+  if (opts.due !== undefined) args.push('--due', opts.due)
+  if (opts.estimate !== undefined)
+    args.push('--estimate', String(opts.estimate))
 
   if (opts.labels !== undefined) {
     if (opts.labels.length > 0) {
@@ -721,6 +756,29 @@ async function updateBead(
   const args = buildUpdateBeadArgs(id, opts, existing?.labels ?? [])
   if (args.length <= 2) return
   await bdRaw(dir, args)
+}
+
+/** `--until` is omitted when no date is given, so bd defers indefinitely. */
+function buildDeferBeadArgs(id: string, until?: string): string[] {
+  return until ? ['defer', id, '--until', until] : ['defer', id]
+}
+
+function buildUndeferBeadArgs(id: string): string[] {
+  return ['undefer', id]
+}
+
+async function deferBead(
+  projectId: string,
+  id: string,
+  until?: string,
+): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildDeferBeadArgs(id, until))
+}
+
+async function undeferBead(projectId: string, id: string): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildUndeferBeadArgs(id))
 }
 
 /**
@@ -891,6 +949,8 @@ export const bdAdapter: BdAdapter = {
   updateBeadStatus,
   closeBead,
   updateBead,
+  deferBead,
+  undeferBead,
   previewDeleteBead,
   deleteBead,
   createBead,
@@ -908,6 +968,11 @@ export {
   buildCloseBeadArgs,
   updateBead,
   buildUpdateBeadArgs,
+  buildListBeadsArgs,
+  buildDeferBeadArgs,
+  buildUndeferBeadArgs,
+  deferBead,
+  undeferBead,
   previewDeleteBead,
   deleteBead,
   buildPreviewDeleteBeadArgs,

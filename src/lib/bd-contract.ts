@@ -24,6 +24,9 @@ export interface BdAdapter {
     opts: { reason?: string; force?: boolean },
   ) => Promise<void>
   updateBead: (projectId: string, id: string, opts: BeadUpdate) => Promise<void>
+  /** `bd defer`; without `until` the bead is deferred indefinitely. */
+  deferBead: (projectId: string, id: string, until?: string) => Promise<void>
+  undeferBead: (projectId: string, id: string) => Promise<void>
   previewDeleteBead: (projectId: string, id: string) => Promise<DeletePlan>
   deleteBead: (projectId: string, id: string) => Promise<void>
   createBead: (

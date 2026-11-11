@@ -78,6 +78,15 @@ export interface Bead {
   comment_count?: number
   dependency_count?: number
   dependent_count?: number
+  due_at?: string
+  defer_until?: string
+  estimated_minutes?: number
+  started_at?: string
+  lease_expires_at?: string
+  heartbeat_at?: string
+  close_reason?: string
+  external_ref?: string
+  created_by?: string
   children?: string[]
   childBeads?: Bead[]
   links?: BeadLink[]
@@ -89,6 +98,7 @@ export interface RelatedBead {
   status: RawStatus
   issue_type: string
   dependency_type: string
+  due_at?: string
 }
 
 export interface BeadDetail extends Bead {
@@ -106,6 +116,8 @@ export interface BeadUpdate {
   issue_type?: string
   assignee?: string
   labels?: string[]
+  due?: string
+  estimate?: number
 }
 
 export interface ProjectCounts {
