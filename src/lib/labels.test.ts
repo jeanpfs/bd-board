@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { labelCounts, suggestLabels } from '@/lib/labels'
+import { labelCounts, labelToCommit, suggestLabels } from '@/lib/labels'
 
 import type { Bead } from '@/lib/types'
 
@@ -83,6 +83,12 @@ describe('suggestLabels', () => {
     )
   })
 
+  it('does not offer create for labels the server rejects', () => {
+    expect(suggestLabels('two words', counts, []).create).toBeUndefined()
+    expect(suggestLabels('a/b', counts, []).create).toBeUndefined()
+    expect(suggestLabels('-lead', counts, []).create).toBeUndefined()
+  })
+
   it('lists every unselected label for empty input, most used first', () => {
     const result = suggestLabels('', counts, ['pdf'])
     expect(result.create).toBeUndefined()
@@ -92,5 +98,26 @@ describe('suggestLabels', () => {
       'forms',
       'unform',
     ])
+  })
+})
+
+describe('labelToCommit', () => {
+  const counts = [
+    { label: 'frontend', count: 4 },
+    { label: 'forms', count: 1 },
+  ]
+
+  it('commits a valid new label typed but not picked', () => {
+    expect(labelToCommit('newone', counts, [])).toBe('newone')
+  })
+
+  it('commits the existing label matching the typed text, any case', () => {
+    expect(labelToCommit('FORMS', counts, [])).toBe('forms')
+  })
+
+  it('commits nothing for blank, rejected or already selected text', () => {
+    expect(labelToCommit('   ', counts, [])).toBeUndefined()
+    expect(labelToCommit('two words', counts, [])).toBeUndefined()
+    expect(labelToCommit('forms', counts, ['forms'])).toBeUndefined()
   })
 })

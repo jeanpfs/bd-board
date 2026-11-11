@@ -11,6 +11,9 @@ export interface LabelSuggestions {
   matches: LabelCount[]
 }
 
+/** Server rule for every label: bd accepts nothing else. */
+export const LABEL_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/
+
 const MAX_NEW_LABEL_LENGTH = 50
 
 function byCountThenName(a: LabelCount, b: LabelCount): number {
@@ -55,11 +58,27 @@ export function suggestLabels(
   substring.sort(byCountThenName)
 
   const known = counts.some((c) => c.label.toLowerCase() === needle)
-  const validNew =
-    query.length > 0 &&
-    query.length <= MAX_NEW_LABEL_LENGTH &&
-    !query.includes(',')
+  const validNew = LABEL_RE.test(query) && query.length <= MAX_NEW_LABEL_LENGTH
   const create = validNew && !known && !taken.has(needle) ? query : undefined
 
   return { create, matches: [...prefix, ...substring] }
+}
+
+/**
+ * The label the typed text stands for when the user leaves the field:
+ * a valid new label, or the existing label it matches case-insensitively.
+ */
+export function labelToCommit(
+  input: string,
+  counts: LabelCount[],
+  selected: string[],
+): string | undefined {
+  const { create } = suggestLabels(input, counts, selected)
+  if (create) return create
+  const needle = input.trim().toLowerCase()
+  if (!needle) return undefined
+  const existing = counts.find((c) => c.label.toLowerCase() === needle)
+  return existing && !selected.includes(existing.label)
+    ? existing.label
+    : undefined
 }

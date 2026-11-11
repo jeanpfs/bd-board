@@ -1,3 +1,4 @@
+import { LABEL_RE } from './labels'
 import type { BeadColumn, BeadUpdate } from './types'
 
 const PROJECT_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/
@@ -9,7 +10,6 @@ const STATUSES = new Set<BeadColumn>([
   'closed',
 ])
 const TYPES = new Set(['task', 'bug', 'feature', 'epic', 'chore', 'decision'])
-const LABEL_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/
 
 function record(input: unknown): Record<string, unknown> {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {

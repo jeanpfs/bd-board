@@ -65,6 +65,7 @@ export function CreateBeadDialog({
   const beadsQuery = useQuery({
     queryKey: ['beads', project],
     queryFn: () => getBeads({ data: { project } }),
+    enabled: false,
   })
   const counts = useMemo(
     () => labelCounts(beadsQuery.data ?? []),

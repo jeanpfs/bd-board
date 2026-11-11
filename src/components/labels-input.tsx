@@ -5,7 +5,7 @@ import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { InteractiveRow } from '@/components/ui/interactive-row'
 import { Kbd } from '@/components/ui/kbd'
-import { suggestLabels } from '@/lib/labels'
+import { labelToCommit, suggestLabels } from '@/lib/labels'
 import type { LabelCount } from '@/lib/labels'
 import { cn } from '@/lib/utils'
 
@@ -98,7 +98,11 @@ export function LabelsInput({ id, value, onChange, counts }: LabelsInputProps) {
             setHighlight(0)
           }}
           onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
+          onBlur={() => {
+            setFocused(false)
+            const label = labelToCommit(text, counts, value)
+            if (label) add(label)
+          }}
           onKeyDown={onKeyDown}
           role="combobox"
           aria-expanded={listOpen}
@@ -136,8 +140,7 @@ export function LabelsInput({ id, value, onChange, counts }: LabelsInputProps) {
               {option.kind === 'create' ? (
                 <>
                   <span className="truncate">
-                    Create label{' '}
-                    <span className="font-mono">“{option.label}”</span>
+                    Create label <span>“{option.label}”</span>
                   </span>
                   <span className="shrink-0 text-xs text-muted-foreground">
                     new
