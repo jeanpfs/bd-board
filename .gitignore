@@ -23,4 +23,5 @@ src-tauri/gen/
 .claude/
 .codex/
 .impeccable/
+.superpowers/
 logs/
