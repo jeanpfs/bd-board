@@ -37,7 +37,7 @@ import {
   stripMigrationGate,
 } from '@/lib/migration-gate'
 import { useBeadFeed } from '@/hooks/use-bead-feed'
-import { ShortcutsDialog } from '@/components/shortcuts-dialog'
+import { openShortcutsDialog } from '@/components/shortcuts-dialog'
 import { useShortcuts } from '@/hooks/use-shortcuts'
 import type { BeadAction } from '@/components/bead-detail-modal'
 import { ProjectOverview } from '@/components/project-overview'
@@ -301,7 +301,6 @@ function BoardPage() {
       navigate({ to: '.', search: (prev) => ({ ...prev, bead: undefined }) })
   }
 
-  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [pendingAction, setPendingAction] = useState<BeadAction | null>(null)
 
   // A different bead (or closing the modal) drops any pending bead action.
@@ -365,7 +364,7 @@ function BoardPage() {
       navigate({ to: '.', search: (prev) => ({ ...prev, tab: next }) }),
     newBead: () =>
       navigate({ to: '.', search: (prev) => ({ ...prev, new: '1' }) }),
-    showShortcuts: () => setShortcutsOpen(true),
+    showShortcuts: openShortcutsDialog,
     focusSearch: () =>
       document.querySelector<HTMLInputElement>('[data-board-search]')?.focus(),
     moveCard,
@@ -576,6 +575,7 @@ function BoardPage() {
         resolveBead={(id) => beadsById.get(id)}
         onOpenKnowledge={openKnowledge}
         action={pendingAction}
+        onActionHandled={() => setPendingAction(null)}
       />
       <KnowledgeDetailModal
         project={project}
@@ -592,7 +592,6 @@ function BoardPage() {
         open={createOpen}
         onOpenChange={setCreateOpen}
       />
-      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <CloseBeadDialog
         project={project}
         bead={closing?.bead ?? null}

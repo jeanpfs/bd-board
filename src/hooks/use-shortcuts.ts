@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react'
 
 import { SHORTCUTS, matchShortcut, shouldIgnore } from '@/lib/shortcuts'
 
+import type { OpenDialogs } from '@/lib/shortcuts'
+
 export interface ShortcutHandlers {
   navigateTab: (tab: 'board' | 'hierarchy' | 'knowledge') => void
   newBead: () => void
@@ -32,13 +34,14 @@ const BEAD_ACTION_IDS: Partial<Record<string, true>> = {
 
 const PENDING_MS = 1000
 
-// A dialog other than the bead detail modal blocks non-global shortcuts.
-function hasBlockingDialog(): boolean {
-  return (
-    document.querySelector(
-      '[role="dialog"][data-state="open"]:not([data-bead-detail])',
-    ) !== null
-  )
+function openDialogs(): OpenDialogs {
+  return {
+    total: document.querySelectorAll('[role="dialog"][data-state="open"]')
+      .length,
+    bead: document.querySelectorAll(
+      '[role="dialog"][data-state="open"][data-bead-detail]',
+    ).length,
+  }
 }
 
 export function useShortcuts(handlers: ShortcutHandlers) {
@@ -58,12 +61,17 @@ export function useShortcuts(handlers: ShortcutHandlers) {
     }
 
     function onKeyDown(event: KeyboardEvent) {
-      if (shouldIgnore(event.target, false)) {
+      const result = matchShortcut({ pending }, event)
+      const shortcut = result.id
+        ? SHORTCUTS.find((s) => s.id === result.id)
+        : undefined
+      // A G press starts a sequence; its group is only known on the next key.
+      const group = shortcut?.group ?? 'Global'
+      if (shouldIgnore(event.target, group, openDialogs())) {
         clearPending()
         return
       }
 
-      const result = matchShortcut({ pending }, event)
       if (result.pending) {
         clearPending()
         pending = result.pending
@@ -71,14 +79,10 @@ export function useShortcuts(handlers: ShortcutHandlers) {
         return
       }
       clearPending()
-      if (!result.id) return
-
-      const shortcut = SHORTCUTS.find((s) => s.id === result.id)
       if (!shortcut) return
-      if (shortcut.group !== 'Global' && hasBlockingDialog()) return
 
       const h = ref.current
-      const id = result.id
+      const id = shortcut.id
       const tab = TAB_BY_ID[id]
       if (tab) {
         event.preventDefault()
@@ -100,19 +104,11 @@ export function useShortcuts(handlers: ShortcutHandlers) {
           return
         case 'next-card':
           event.preventDefault()
-          h.moveCard('next')
-          return
-        case 'prev-card':
-          event.preventDefault()
-          h.moveCard('prev')
+          h.moveCard(event.key === 'K' || event.key === 'k' ? 'prev' : 'next')
           return
         case 'next-column':
           event.preventDefault()
-          h.moveColumn('next')
-          return
-        case 'prev-column':
-          event.preventDefault()
-          h.moveColumn('prev')
+          h.moveColumn(event.key === '[' ? 'prev' : 'next')
           return
         default:
           if (BEAD_ACTION_IDS[id]) {

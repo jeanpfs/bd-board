@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 
 import { CloseBeadDialog } from '@/components/close-bead-dialog'
 import { PriorityBadge } from '@/components/priority-badge'
+import { openShortcutsDialog } from '@/components/shortcuts-dialog'
 import {
   Command,
   CommandDialog,
@@ -24,6 +25,7 @@ import {
 import { Kbd } from '@/components/ui/kbd'
 import { useAllProjectBeads } from '@/hooks/use-all-project-beads'
 import { branchName, matchRange, searchBeads } from '@/lib/command-search'
+import { isMacPlatform } from '@/lib/platform'
 import type { CommandBeadItem } from '@/lib/command-search'
 import { closeRefusalReason } from '@/lib/close-policy'
 import { getProjects, updateBeadStatusFn } from '@/lib/server'
@@ -60,12 +62,6 @@ function usePaletteOpen(): boolean {
 }
 
 /* ---------- helpers ---------- */
-
-const IS_MAC_RE = /Mac|iPhone|iPad/
-
-function isMacPlatform(): boolean {
-  return typeof navigator !== 'undefined' && IS_MAC_RE.test(navigator.platform)
-}
 
 function isDesktop(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
@@ -287,6 +283,11 @@ export function CommandPalette() {
     newTabRef.current = event.key === 'Enter' && mod && !desktop
     if (event.key === 'Backspace' && statusPage && !query) {
       setStatusPage(false)
+    }
+    if (event.key === '?' && !query) {
+      event.preventDefault()
+      setPaletteOpen(false)
+      openShortcutsDialog()
     }
   }
 

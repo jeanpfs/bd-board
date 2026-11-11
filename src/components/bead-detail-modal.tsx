@@ -83,6 +83,8 @@ export interface BeadAction {
   nonce: number
 }
 
+/** Edit-dialog control a shortcut focuses; its value is the element id suffix. */
+type EditField = 'priority' | 'assignee' | 'labels'
 interface BeadDetailModalProps {
   project: string
   bead: Bead | null
@@ -92,6 +94,7 @@ interface BeadDetailModalProps {
   resolveBead: (id: string) => Bead | undefined
   onOpenKnowledge: (id: string) => void
   action?: BeadAction | null
+  onActionHandled: () => void
 }
 
 const COLUMN_LABEL: Record<BeadColumn, string> = {
@@ -263,12 +266,14 @@ function BeadEditDialog({
   detail,
   open,
   onOpenChange,
+  initialField,
 }: {
   project: string
   bead: Bead
   detail?: BeadDetail
   open: boolean
   onOpenChange: (open: boolean) => void
+  initialField?: EditField
 }) {
   const queryClient = useQueryClient()
   const [title, setTitle] = useState('')
@@ -303,6 +308,14 @@ function BeadEditDialog({
     setAssignee(source.assignee ?? '')
     setLabels(source.labels ?? [])
   }, [bead, detail, open])
+
+  // P/A/L open the edit dialog with the matching control focused.
+  useEffect(() => {
+    if (!open || !initialField) return
+    requestAnimationFrame(() =>
+      document.getElementById(`edit-bead-${initialField}`)?.focus(),
+    )
+  }, [open, initialField])
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -711,6 +724,7 @@ export function BeadDetailModal({
   resolveBead,
   onOpenKnowledge,
   action,
+  onActionHandled,
 }: BeadDetailModalProps) {
   const queryClient = useQueryClient()
   const [comment, setComment] = useState('')
@@ -719,17 +733,19 @@ export function BeadDetailModal({
   const [closeOpen, setCloseOpen] = useState(false)
   const [subtaskOpen, setSubtaskOpen] = useState(false)
   const [statusOpen, setStatusOpen] = useState(false)
+  const [editField, setEditField] = useState<EditField>()
 
-  // Keyboard shortcuts open the existing controls for the open bead.
+  // Keyboard shortcuts open the existing controls for the open bead, then
+  // report the request handled so a remount does not replay it.
   useEffect(() => {
     if (!open || !action) return
     switch (action.id) {
       case 'status':
         setStatusOpen(true)
-        return
+        break
       case 'close-bead':
         setCloseOpen(true)
-        return
+        break
       case 'relation':
         requestAnimationFrame(() =>
           document
@@ -738,15 +754,26 @@ export function BeadDetailModal({
             )
             ?.focus(),
         )
-        return
+        break
       case 'priority':
-      case 'assign':
-      case 'labels':
-      case 'edit':
+        setEditField('priority')
         setEditOpen(true)
-        return
+        break
+      case 'assign':
+        setEditField('assignee')
+        setEditOpen(true)
+        break
+      case 'labels':
+        setEditField('labels')
+        setEditOpen(true)
+        break
+      case 'edit':
+        setEditField(undefined)
+        setEditOpen(true)
+        break
     }
-  }, [action, open])
+    onActionHandled()
+  }, [action, open, onActionHandled])
 
   const detailQuery = useQuery({
     queryKey: ['bead', project, bead?.id],
@@ -871,7 +898,10 @@ export function BeadDetailModal({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setEditOpen(true)}
+                        onClick={() => {
+                          setEditField(undefined)
+                          setEditOpen(true)
+                        }}
                       >
                         <Pencil className="size-3.5" aria-hidden="true" />
                         Edit
@@ -1287,6 +1317,7 @@ export function BeadDetailModal({
           project={project}
           bead={bead}
           detail={detail}
+          initialField={editField}
           open={editOpen}
           onOpenChange={setEditOpen}
         />

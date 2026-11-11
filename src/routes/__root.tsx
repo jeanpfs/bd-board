@@ -7,6 +7,7 @@ import {
 import { ProjectRail } from '@/components/project-rail'
 import { ProjectTopbar } from '@/components/project-topbar'
 import { CommandPalette } from '@/components/command-palette'
+import { ShortcutsDialog } from '@/components/shortcuts-dialog'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from '@/components/ui/sonner'
 
@@ -68,6 +69,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           </div>
           <Toaster richColors position="top-right" />
           <CommandPalette />
+          <ShortcutsDialog />
         </TooltipProvider>
         <Scripts />
       </body>

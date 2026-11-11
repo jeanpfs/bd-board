@@ -5,6 +5,13 @@ export interface Shortcut {
   keys: string[]
   label: string
   group: ShortcutGroup
+  sequence?: boolean
+}
+
+/** Open dialogs in the document; `bead` counts the bead detail modal among them. */
+export interface OpenDialogs {
+  total: number
+  bead: number
 }
 
 /**
@@ -22,26 +29,37 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'new-bead', keys: ['C'], label: 'New bead', group: 'Global' },
   { id: 'shortcuts', keys: ['?'], label: 'Show shortcuts', group: 'Global' },
   { id: 'close', keys: ['Esc'], label: 'Close', group: 'Global' },
-  { id: 'go-board', keys: ['G', 'B'], label: 'Board', group: 'Navigate' },
+  {
+    id: 'go-board',
+    keys: ['G', 'B'],
+    label: 'Board',
+    group: 'Navigate',
+    sequence: true,
+  },
   {
     id: 'go-hierarchy',
     keys: ['G', 'H'],
     label: 'Hierarchy',
     group: 'Navigate',
+    sequence: true,
   },
   {
     id: 'go-knowledge',
     keys: ['G', 'K'],
     label: 'Knowledge',
     group: 'Navigate',
+    sequence: true,
   },
-  { id: 'next-card', keys: ['J'], label: 'Next card', group: 'Navigate' },
-  { id: 'prev-card', keys: ['K'], label: 'Previous card', group: 'Navigate' },
-  { id: 'next-column', keys: [']'], label: 'Next column', group: 'Navigate' },
   {
-    id: 'prev-column',
-    keys: ['['],
-    label: 'Previous column',
+    id: 'next-card',
+    keys: ['J', 'K'],
+    label: 'Next / previous card',
+    group: 'Navigate',
+  },
+  {
+    id: 'next-column',
+    keys: [']', '['],
+    label: 'Next / previous column',
     group: 'Navigate',
   },
   { id: 'open-card', keys: ['Enter'], label: 'Open card', group: 'Navigate' },
@@ -68,9 +86,9 @@ const SINGLE_KEYS: Record<string, string> = {
   c: 'new-bead',
   '?': 'shortcuts',
   j: 'next-card',
-  k: 'prev-card',
+  k: 'next-card',
   ']': 'next-column',
-  '[': 'prev-column',
+  '[': 'next-column',
   s: 'status',
   p: 'priority',
   a: 'assign',
@@ -113,15 +131,21 @@ export function matchShortcut(
 }
 
 /**
- * True when a keydown should be left to the focused control: any typing
- * target, or every shortcut while a dialog is open (the caller passes
- * `dialogOpen` only for non-Global shortcuts).
+ * True when a keydown should be left alone: a typing target, or a shortcut
+ * blocked by open dialogs. While any dialog is open only Bead shortcuts pass,
+ * and only when every open dialog is the bead detail modal.
  */
 export function shouldIgnore(
   target: EventTarget | null,
-  dialogOpen: boolean,
+  group: ShortcutGroup,
+  dialogs: OpenDialogs,
 ): boolean {
-  if (dialogOpen) return true
+  if (
+    dialogs.total > 0 &&
+    !(group === 'Bead' && dialogs.bead === dialogs.total)
+  ) {
+    return true
+  }
   if (!(target instanceof HTMLElement)) return false
   if (target.closest('[contenteditable]:not([contenteditable="false"])')) {
     return true

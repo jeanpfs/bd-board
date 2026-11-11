@@ -14,11 +14,12 @@ describe('matchShortcut', () => {
     expect(matchShortcut({}, key('x')).id).toBe('close-bead')
     expect(matchShortcut({}, key('/')).id).toBe('search')
     expect(matchShortcut({}, key(']')).id).toBe('next-column')
-    expect(matchShortcut({}, key('[')).id).toBe('prev-column')
+    expect(matchShortcut({}, key('[')).id).toBe('next-column')
   })
 
   it('treats Caps Lock letters like lowercase ones', () => {
     expect(matchShortcut({}, key('J')).id).toBe('next-card')
+    expect(matchShortcut({}, key('k')).id).toBe('next-card')
   })
 
   it('matches ? only with the key it produces, shift included', () => {
@@ -67,27 +68,56 @@ describe('matchShortcut', () => {
   })
 })
 
+const NONE = { total: 0, bead: 0 }
+const OTHER = { total: 1, bead: 0 }
+const BEAD = { total: 1, bead: 1 }
+
 describe('shouldIgnore', () => {
   it('ignores typing targets', () => {
-    expect(shouldIgnore(document.createElement('input'), false)).toBe(true)
-    expect(shouldIgnore(document.createElement('textarea'), false)).toBe(true)
-    expect(shouldIgnore(document.createElement('select'), false)).toBe(true)
+    expect(shouldIgnore(document.createElement('input'), 'Bead', NONE)).toBe(
+      true,
+    )
+    expect(shouldIgnore(document.createElement('textarea'), 'Bead', NONE)).toBe(
+      true,
+    )
+    expect(shouldIgnore(document.createElement('select'), 'Bead', NONE)).toBe(
+      true,
+    )
   })
 
   it('ignores contenteditable targets', () => {
     const div = document.createElement('div')
     div.setAttribute('contenteditable', 'true')
-    expect(shouldIgnore(div, false)).toBe(true)
+    expect(shouldIgnore(div, 'Global', NONE)).toBe(true)
     const child = document.createElement('span')
     div.appendChild(child)
-    expect(shouldIgnore(child, false)).toBe(true)
+    expect(shouldIgnore(child, 'Global', NONE)).toBe(true)
   })
 
-  it('lets plain targets through unless a dialog is open', () => {
-    expect(shouldIgnore(document.createElement('div'), false)).toBe(false)
-    expect(shouldIgnore(document.body, false)).toBe(false)
-    expect(shouldIgnore(null, false)).toBe(false)
-    expect(shouldIgnore(document.createElement('div'), true)).toBe(true)
+  it('lets plain targets through when no dialog is open', () => {
+    expect(shouldIgnore(document.createElement('div'), 'Global', NONE)).toBe(
+      false,
+    )
+    expect(shouldIgnore(document.body, 'Navigate', NONE)).toBe(false)
+    expect(shouldIgnore(null, 'Global', NONE)).toBe(false)
+  })
+
+  it('blocks every shortcut while a non-bead dialog is open', () => {
+    for (const group of ['Global', 'Navigate', 'Bead'] as const) {
+      expect(shouldIgnore(document.body, group, OTHER)).toBe(true)
+    }
+  })
+
+  it('allows only bead shortcuts while the bead modal is the sole dialog', () => {
+    expect(shouldIgnore(document.body, 'Bead', BEAD)).toBe(false)
+    expect(shouldIgnore(document.body, 'Navigate', BEAD)).toBe(true)
+    expect(shouldIgnore(document.body, 'Global', BEAD)).toBe(true)
+  })
+
+  it('blocks bead shortcuts when another dialog sits above the bead modal', () => {
+    expect(shouldIgnore(document.body, 'Bead', { total: 2, bead: 1 })).toBe(
+      true,
+    )
   })
 })
 
