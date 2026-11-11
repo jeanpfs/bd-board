@@ -155,7 +155,10 @@ export function BeadCard({
   } = useSortable({ id: bead.id, data: { bead } })
 
   const epic = isEpic(bead)
-  const due = bead.due_at ? dueState(bead.due_at, new Date()) : null
+  const due =
+    bead.due_at && mapStatus(bead).column !== 'closed'
+      ? dueState(bead.due_at, new Date())
+      : null
   const badge = mapStatus(bead).badge
   const labels = bead.labels ?? []
   const childBeads = bead.childBeads ?? []
@@ -275,7 +278,10 @@ export function BeadCard({
             ) : null}
             {due ? (
               <span
-                className={cn('whitespace-nowrap', DUE_TEXT_CLASS[due.kind])}
+                className={cn(
+                  'whitespace-nowrap font-sans',
+                  DUE_TEXT_CLASS[due.kind],
+                )}
               >
                 {due.label}
               </span>

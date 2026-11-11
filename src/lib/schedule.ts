@@ -1,5 +1,6 @@
 import { addDays, differenceInCalendarDays, format, startOfDay } from 'date-fns'
 
+import { mapStatus } from './types'
 import type { Bead } from './types'
 
 /** `90`, `90m`, `3h`, `1h30m`, `1h 30m`, `1.5h` → minutes; null when invalid or ≤ 0. */
@@ -49,23 +50,21 @@ export function dueState(dueAt: string, now: Date): DueState {
   if (days < 0) return { kind: 'overdue', label: `Overdue ${-days}d` }
   if (days === 0) return { kind: 'soon', label: 'Today' }
   if (days === 1) return { kind: 'soon', label: 'Tomorrow' }
-  if (days <= 7) return { kind: 'soon', label: format(due, 'EEE') }
+  if (days <= 6) return { kind: 'soon', label: format(due, 'EEE') }
   return { kind: 'later', label: format(due, 'MMM d') }
 }
 
 /** Open bead whose due day is before today's local calendar day. */
 export function isOverdue(b: Bead, now: Date): boolean {
-  if (!b.due_at || b.status === 'closed') return false
+  if (!b.due_at || mapStatus(b).column === 'closed') return false
   return dueState(b.due_at, now).kind === 'overdue'
 }
 
-/** Open bead due today or within the next 7 local days, not overdue. */
+/** Open bead due today or within the next 6 days (7 local days), not overdue. */
 export function isDueThisWeek(b: Bead, now: Date): boolean {
-  if (!b.due_at || b.status === 'closed') return false
-  return (
-    differenceInCalendarDays(new Date(b.due_at), now) >= 0 &&
-    differenceInCalendarDays(new Date(b.due_at), now) <= 7
-  )
+  if (!b.due_at || mapStatus(b).column === 'closed') return false
+  const days = differenceInCalendarDays(new Date(b.due_at), now)
+  return days >= 0 && days <= 6
 }
 
 export interface QuickDue {

@@ -226,12 +226,15 @@ function BoardPage() {
 
   const counts = useMemo(() => {
     const now = new Date()
+    const visible = snoozed
+      ? beads
+      : beads.filter((b) => b.status !== 'deferred')
     return {
-      dueWeek: beads.filter((b) => isDueThisWeek(b, now)).length,
-      overdue: beads.filter((b) => isOverdue(b, now)).length,
+      dueWeek: visible.filter((b) => isDueThisWeek(b, now)).length,
+      overdue: visible.filter((b) => isOverdue(b, now)).length,
       snoozed: beads.filter((b) => b.status === 'deferred').length,
     }
-  }, [beads])
+  }, [beads, snoozed])
 
   const columns = useMemo(() => {
     const grouped: Record<BeadColumn, Bead[]> = {

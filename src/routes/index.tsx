@@ -264,7 +264,7 @@ function NeedsYou({
           ? `${shown.length} of ${rows.length}, most urgent first`
           : `${rows.length}, most urgent first`
       }
-      empty="Nothing needs you: no open P0, nothing blocked or stale, every project readable."
+      empty="Nothing needs you: no open P0, nothing overdue, nothing blocked or stale, every project readable."
     >
       {shown}
     </AttentionBlock>

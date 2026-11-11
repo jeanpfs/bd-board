@@ -145,7 +145,7 @@ export function ProjectOverview({
         <AttentionBlock
           title="Needs attention"
           meta={attention.length}
-          empty="Nothing needs attention: no open P0, nothing blocked, nothing stale."
+          empty="Nothing needs attention: no open P0, nothing overdue, nothing blocked, nothing stale."
         >
           {attention.map(({ kind, bead, detail }) => (
             <AttentionRow

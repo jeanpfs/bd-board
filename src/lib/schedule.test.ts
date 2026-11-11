@@ -69,7 +69,7 @@ describe('dueState', () => {
     })
   })
 
-  it('names tomorrow, then weekdays, within seven days', () => {
+  it('names tomorrow, then weekdays, within the next six days', () => {
     expect(dueState(new Date(2026, 10, 12, 9, 0).toISOString(), now)).toEqual({
       kind: 'soon',
       label: 'Tomorrow',
@@ -78,13 +78,17 @@ describe('dueState', () => {
       kind: 'soon',
       label: 'Mon',
     })
-    expect(dueState(new Date(2026, 10, 18, 23, 0).toISOString(), now)).toEqual({
+    expect(dueState(new Date(2026, 10, 17, 23, 0).toISOString(), now)).toEqual({
       kind: 'soon',
-      label: 'Wed',
+      label: 'Tue',
     })
   })
 
-  it('shows the date once it is more than seven days away', () => {
+  it('shows the date from day seven on', () => {
+    expect(dueState(new Date(2026, 10, 18, 9, 0).toISOString(), now)).toEqual({
+      kind: 'later',
+      label: 'Nov 18',
+    })
     expect(dueState(new Date(2026, 10, 19, 9, 0).toISOString(), now)).toEqual({
       kind: 'later',
       label: 'Nov 19',
@@ -154,10 +158,18 @@ describe('isOverdue and isDueThisWeek', () => {
     expect(isDueThisWeek(bead({}), now)).toBe(false)
   })
 
-  it('covers today through seven days ahead, and excludes overdue', () => {
+  it('treats a custom status in the done category as closed', () => {
+    const shipped = { status: 'shipped', status_category: 'done' as const }
+    expect(isOverdue(bead({ due_at: due(1), ...shipped }), now)).toBe(false)
+    expect(isDueThisWeek(bead({ due_at: due(12), ...shipped }), now)).toBe(
+      false,
+    )
+  })
+
+  it('covers today through six days ahead, seven local days, and excludes overdue', () => {
     expect(isDueThisWeek(bead({ due_at: due(11, 0) }), now)).toBe(true)
-    expect(isDueThisWeek(bead({ due_at: due(18, 23) }), now)).toBe(true)
-    expect(isDueThisWeek(bead({ due_at: due(19) }), now)).toBe(false)
+    expect(isDueThisWeek(bead({ due_at: due(17, 23) }), now)).toBe(true)
+    expect(isDueThisWeek(bead({ due_at: due(18) }), now)).toBe(false)
     expect(isDueThisWeek(bead({ due_at: due(10) }), now)).toBe(false)
   })
 })

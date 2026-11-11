@@ -133,7 +133,7 @@ export function BoardHeader({
           </span>
         </Toggle>
 
-        {overdueCount > 0 ? (
+        {overdueCount > 0 || due === 'overdue' ? (
           <Toggle
             pressed={due === 'overdue'}
             onPressedChange={(on) => setDue(on ? 'overdue' : undefined)}
@@ -144,7 +144,7 @@ export function BoardHeader({
           </Toggle>
         ) : null}
 
-        {snoozedCount > 0 ? (
+        {snoozedCount > 0 || snoozed ? (
           <Toggle
             pressed={snoozed}
             onPressedChange={setSnoozed}
