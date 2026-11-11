@@ -89,12 +89,21 @@ describe('searchBeads', () => {
     expect(ids(searchBeads('login', items))).toEqual(['b-1', 'a-1'])
   })
 
-  it('does not let scope beat a better rank', () => {
+  it('lets the scoped project beat a better rank', () => {
     const items = [
       item('a-5', 'About b-7 mention', { project: 'a' }, 0), // word prefix
       item('b-7', 'Other', { project: 'b' }, 1), // exact id
     ]
-    expect(ids(searchBeads('b-7', items, 'a'))).toEqual(['b-7', 'a-5'])
+    expect(ids(searchBeads('b-7', items, 'a'))).toEqual(['a-5', 'b-7'])
+    expect(ids(searchBeads('b-7', items))).toEqual(['b-7', 'a-5'])
+  })
+
+  it('puts a closed scoped bead after an open unscoped one', () => {
+    const items = [
+      item('a-1', 'Login', { project: 'a', status: 'closed' }, 0),
+      item('b-1', 'Login page', { project: 'b' }, 1),
+    ]
+    expect(ids(searchBeads('login', items, 'a'))).toEqual(['b-1', 'a-1'])
   })
 
   it('puts closed beads last, even when they rank better', () => {

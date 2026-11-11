@@ -49,9 +49,9 @@ export function matchRange(
 }
 
 /**
- * Ranks beads for the palette: exact id, id prefix, title word prefix, title
- * substring. Closed beads always come last. Among equal ranks the scoped
- * project wins, then input order.
+ * Ranks beads for the palette: closed beads last, then the scoped project,
+ * then match rank (exact id, id prefix, title word prefix, title substring),
+ * then input order.
  */
 export function searchBeads(
   query: string,
@@ -69,9 +69,9 @@ export function searchBeads(
     (a, b) =>
       Number(a.item.bead.status === 'closed') -
         Number(b.item.bead.status === 'closed') ||
-      a.rank - b.rank ||
       Number(b.item.project.id === scopeProject) -
         Number(a.item.project.id === scopeProject) ||
+      a.rank - b.rank ||
       a.item.index - b.item.index,
   )
   return scored.slice(0, limit).map((s) => s.item)

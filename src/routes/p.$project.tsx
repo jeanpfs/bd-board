@@ -159,7 +159,7 @@ function BoardPage() {
       search: { ...boardSearch, new: undefined },
       replace: true,
     })
-  }, [boardSearch.new, navigate])
+  }, [boardSearch, navigate, project])
 
   const beadParam = boardSearch.bead
   const knowledgeParam = boardSearch.k

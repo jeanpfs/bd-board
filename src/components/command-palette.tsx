@@ -10,8 +10,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Circle, Folder, GitBranch, Home, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { CloseBeadDialog } from '@/components/close-bead-dialog'
 import { PriorityBadge } from '@/components/priority-badge'
 import {
+  Command,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
@@ -23,9 +25,9 @@ import { Kbd } from '@/components/ui/kbd'
 import { useAllProjectBeads } from '@/hooks/use-all-project-beads'
 import { branchName, matchRange, searchBeads } from '@/lib/command-search'
 import type { CommandBeadItem } from '@/lib/command-search'
-import { closeBeadFn, getProjects, updateBeadStatusFn } from '@/lib/server'
 import { closeRefusalReason } from '@/lib/close-policy'
-import { isEpic, COLUMNS, statusText } from '@/lib/types'
+import { getProjects, updateBeadStatusFn } from '@/lib/server'
+import { COLUMNS, isEpic, statusText } from '@/lib/types'
 import { toErrorMessage } from '@/lib/utils'
 
 import type { Bead, BeadColumn, Project } from '@/lib/types'
@@ -98,6 +100,12 @@ function Highlighted({ text, query }: { text: string; query: string }) {
 
 /* ---------- palette ---------- */
 
+interface CloseTarget {
+  bead: Bead
+  project: string
+  refusal: string
+}
+
 export function CommandPalette() {
   const open = usePaletteOpen()
   const { project: routeProject } = useParams({ strict: false })
@@ -107,10 +115,10 @@ export function CommandPalette() {
 
   const [query, setQuery] = useState('')
   const [statusPage, setStatusPage] = useState(false)
+  const [closeTarget, setCloseTarget] = useState<CloseTarget | null>(null)
   const [mac] = useState(isMacPlatform)
   const desktop = isDesktop()
   const newTabRef = useRef(false)
-  const goPendingRef = useRef(false)
 
   const projectsQuery = useQuery({
     queryKey: ['projects'],
@@ -139,6 +147,10 @@ export function CommandPalette() {
     return bead ? { bead, project: routeProject } : null
   })()
 
+  const scopeName = routeProject
+    ? (projects.find((p) => p.id === routeProject)?.name ?? routeProject)
+    : null
+
   // Global Mod+K toggles the palette.
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -165,8 +177,30 @@ export function CommandPalette() {
     [query, items, routeProject],
   )
 
+  // cmdk does not filter (see `shouldFilter={false}`), so the action and
+  // navigation groups are filtered here by the same label match.
+  const trimmed = query.trim()
+  const matches = (label: string) =>
+    !trimmed || matchRange(label, trimmed) !== null
+  const showNewBead = routeProject !== undefined && matches('New bead')
+  const showActions =
+    showNewBead ||
+    (focused !== null &&
+      (matches('Change status') || matches('Copy branch name')))
+  const showHome = matches('Home')
+  const visibleProjects = projects.filter((p) => matches(p.name))
+  const showGoTo = showHome || visibleProjects.length > 0
+  const statusOptions = focused
+    ? COLUMNS.filter((c) => c.key !== focused.bead.status)
+    : []
+
   function close() {
     setPaletteOpen(false)
+  }
+
+  function openStatusPage() {
+    setQuery('')
+    setStatusPage(true)
   }
 
   function openBead(item: CommandBeadItem, newTab: boolean) {
@@ -227,64 +261,36 @@ export function CommandPalette() {
   ) {
     close()
     try {
-      if (status === 'closed') {
-        await closeBeadFn({
-          data: { project: target.project, id: target.bead.id },
-        })
-      } else {
-        await updateBeadStatusFn({
-          data: { project: target.project, id: target.bead.id, status },
-        })
-      }
+      await updateBeadStatusFn({
+        data: { project: target.project, id: target.bead.id, status },
+      })
       toast.success(
         `${target.bead.id} → ${COLUMNS.find((c) => c.key === status)?.label ?? status}`,
       )
     } catch (error) {
       const message = toErrorMessage(error, 'Failed to change status')
-      toast.error(closeRefusalReason(message) ?? message)
+      const refusal = status === 'closed' ? closeRefusalReason(message) : null
+      if (refusal !== null) {
+        setCloseTarget({ bead: target.bead, project: target.project, refusal })
+      } else {
+        toast.error(message)
+      }
     } finally {
       queryClient.invalidateQueries({ queryKey: ['beads', target.project] })
     }
   }
 
+  // Enter with Mod opens in a new tab (web only); Backspace on an empty
+  // status page returns to the root page.
   function onKeyDown(event: React.KeyboardEvent) {
     const mod = mac ? event.metaKey : event.ctrlKey
     newTabRef.current = event.key === 'Enter' && mod && !desktop
-    if (statusPage || query) {
-      goPendingRef.current = false
-      return
-    }
-    // Single-key shortcuts only while the input is empty.
-    if (mod || event.altKey) return
-    if (goPendingRef.current && /^[1-9]$/.test(event.key)) {
-      event.preventDefault()
-      goPendingRef.current = false
-      const p = projects.at(Number(event.key) - 1)
-      if (p) {
-        close()
-        openProject(p, false)
-      }
-      return
-    }
-    goPendingRef.current = false
-    if (event.key === 'g') {
-      event.preventDefault()
-      goPendingRef.current = true
-    } else if (event.key === 'c' && routeProject) {
-      event.preventDefault()
-      close()
-      newBead()
-    } else if (event.key === 's' && focused) {
-      event.preventDefault()
-      setStatusPage(true)
-    } else if (event.key === 'b' && focused) {
-      event.preventDefault()
-      close()
-      void copyBranch(focused.bead)
+    if (event.key === 'Backspace' && statusPage && !query) {
+      setStatusPage(false)
     }
   }
 
-  const newTab = () => {
+  function takeNewTab() {
     const value = newTabRef.current
     newTabRef.current = false
     return value
@@ -293,188 +299,206 @@ export function CommandPalette() {
   const footerMod = mac ? 'Cmd' : 'Ctrl'
 
   return (
-    <CommandDialog
-      open={open}
-      onOpenChange={setPaletteOpen}
-      title="Command palette"
-      description="Search beads, run actions, go to a project."
-      className="top-1/3 w-[640px] max-w-[calc(100vw-2rem)]"
-    >
-      <div className="flex h-[52px] items-center gap-2.5 border-b border-border px-4">
-        <CommandInput
-          placeholder="Search beads, actions, projects…"
-          value={query}
-          onValueChange={setQuery}
-          onKeyDown={onKeyDown}
-          className="h-auto"
-        />
-        {routeProject && !statusPage ? (
-          <span className="shrink-0 text-xs text-muted-foreground">
-            in {routeProject}
-          </span>
-        ) : null}
-        <Kbd>Esc</Kbd>
-      </div>
-      <CommandList className="max-h-[440px] p-1.5">
-        {statusPage && focused ? (
-          <CommandGroup heading={`Change status of ${focused.bead.id}`}>
-            {COLUMNS.map((c) => (
-              <CommandItem
-                key={c.key}
-                value={`status:${c.key}`}
-                onSelect={() => setStatus(focused, c.key)}
-              >
-                <Circle
-                  className="size-3.5 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                {c.label}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        ) : (
-          <>
-            <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
-              No matches.
-            </CommandEmpty>
-            {results.length > 0 ? (
-              <CommandGroup heading="Beads">
-                {results.map((item) => (
-                  <CommandItem
-                    key={`${item.project.id}:${item.bead.id}`}
-                    value={`bead:${item.project.id}:${item.bead.id}`}
-                    onSelect={() => {
-                      const useNewTab = newTab()
-                      close()
-                      openBead(item, useNewTab)
-                    }}
-                  >
-                    <PriorityBadge priority={item.bead.priority} />
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {item.bead.id}
-                    </span>
-                    <span className="min-w-0 truncate">
-                      <Highlighted
-                        text={item.bead.title}
-                        query={query.trim()}
-                      />
-                    </span>
-                    <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                      {beadMeta(item.bead)}
-                    </span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
+    <>
+      <CommandDialog
+        open={open}
+        onOpenChange={setPaletteOpen}
+        title="Command palette"
+        description="Search beads, run actions, go to a project."
+        className="top-1/3 w-[640px] max-w-[calc(100vw-2rem)]"
+      >
+        <Command shouldFilter={false}>
+          <div className="flex h-[52px] items-center gap-2.5 border-b border-border px-4">
+            <CommandInput
+              placeholder="Search beads, actions, projects…"
+              value={query}
+              onValueChange={setQuery}
+              onKeyDown={onKeyDown}
+              className="h-auto"
+            />
+            {scopeName && !statusPage ? (
+              <span className="shrink-0 text-xs text-muted-foreground">
+                in {scopeName}
+              </span>
             ) : null}
-            {routeProject || focused ? (
-              <CommandGroup heading="Actions">
-                {routeProject ? (
+            <Kbd>Esc</Kbd>
+          </div>
+          <CommandList className="max-h-[440px] p-1.5">
+            {statusPage && focused ? (
+              <CommandGroup heading={`Change status of ${focused.bead.id}`}>
+                {statusOptions.map((c) => (
                   <CommandItem
-                    value="action:new-bead"
-                    onSelect={() => {
-                      close()
-                      newBead()
-                    }}
-                  >
-                    <Plus
-                      className="size-3.5 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                    New bead
-                    <Kbd className="ml-auto">C</Kbd>
-                  </CommandItem>
-                ) : null}
-                {focused ? (
-                  <CommandItem
-                    value="action:change-status"
-                    onSelect={() => setStatusPage(true)}
+                    key={c.key}
+                    value={`status:${c.key}`}
+                    onSelect={() => setStatus(focused, c.key)}
                   >
                     <Circle
                       className="size-3.5 text-muted-foreground"
                       aria-hidden="true"
                     />
-                    Change status of {focused.bead.id}…
-                    <Kbd className="ml-auto">S</Kbd>
+                    {c.label}
                   </CommandItem>
-                ) : null}
-                {focused ? (
-                  <CommandItem
-                    value="action:copy-branch"
-                    onSelect={() => {
-                      close()
-                      void copyBranch(focused.bead)
-                    }}
-                  >
-                    <GitBranch
-                      className="size-3.5 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                    Copy branch name
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {branchName(focused.bead)}
-                    </span>
-                    <Kbd className="ml-auto">B</Kbd>
-                  </CommandItem>
-                ) : null}
+                ))}
               </CommandGroup>
-            ) : null}
-            <CommandGroup heading="Go to">
-              <CommandItem
-                value="go:home"
-                onSelect={() => {
-                  const useNewTab = newTab()
-                  close()
-                  goHome(useNewTab)
-                }}
-              >
-                <Home
-                  className="size-3.5 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                Home
-              </CommandItem>
-              {projects.map((p, i) => (
-                <CommandItem
-                  key={p.id}
-                  value={`go:project:${p.id}`}
-                  onSelect={() => {
-                    const useNewTab = newTab()
-                    close()
-                    openProject(p, useNewTab)
-                  }}
-                >
-                  <Folder
-                    className="size-3.5 text-muted-foreground"
-                    aria-hidden="true"
-                  />
-                  {p.name}
-                  <span className="text-xs text-muted-foreground">
-                    {beadsByProject.get(p.id)?.length ?? p.counts.total} beads
-                  </span>
-                  <span className="ml-auto flex gap-1">
-                    <Kbd>G</Kbd>
-                    <Kbd>{i + 1}</Kbd>
-                  </span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </>
-        )}
-      </CommandList>
-      <div className="flex h-10 items-center gap-4 border-t border-border px-4 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1.5">
-          <Kbd>↑</Kbd>
-          <Kbd>↓</Kbd> navigate
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <Kbd>Enter</Kbd> open
-        </span>
-        {desktop ? null : (
-          <span className="inline-flex items-center gap-1.5">
-            <Kbd>{footerMod} Enter</Kbd> open in new tab
-          </span>
-        )}
-      </div>
-    </CommandDialog>
+            ) : (
+              <>
+                <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
+                  No matches.
+                </CommandEmpty>
+                {results.length > 0 ? (
+                  <CommandGroup heading="Beads">
+                    {results.map((item) => (
+                      <CommandItem
+                        key={`${item.project.id}:${item.bead.id}`}
+                        value={`bead:${item.project.id}:${item.bead.id}`}
+                        onSelect={() => {
+                          const useNewTab = takeNewTab()
+                          close()
+                          openBead(item, useNewTab)
+                        }}
+                      >
+                        <PriorityBadge priority={item.bead.priority} />
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {item.bead.id}
+                        </span>
+                        <span className="min-w-0 truncate">
+                          <Highlighted text={item.bead.title} query={trimmed} />
+                        </span>
+                        <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                          {beadMeta(item.bead)}
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                ) : null}
+                {showActions ? (
+                  <CommandGroup heading="Actions">
+                    {showNewBead ? (
+                      <CommandItem
+                        value="action:new-bead"
+                        onSelect={() => {
+                          close()
+                          newBead()
+                        }}
+                      >
+                        <Plus
+                          className="size-3.5 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                        New bead
+                        <Kbd className="ml-auto">C</Kbd>
+                      </CommandItem>
+                    ) : null}
+                    {focused && matches('Change status') ? (
+                      <CommandItem
+                        value="action:change-status"
+                        onSelect={() => openStatusPage()}
+                      >
+                        <Circle
+                          className="size-3.5 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                        Change status of {focused.bead.id}…
+                        <Kbd className="ml-auto">S</Kbd>
+                      </CommandItem>
+                    ) : null}
+                    {focused && matches('Copy branch name') ? (
+                      <CommandItem
+                        value="action:copy-branch"
+                        onSelect={() => {
+                          close()
+                          void copyBranch(focused.bead)
+                        }}
+                      >
+                        <GitBranch
+                          className="size-3.5 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                        Copy branch name
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {branchName(focused.bead)}
+                        </span>
+                        <Kbd className="ml-auto">B</Kbd>
+                      </CommandItem>
+                    ) : null}
+                  </CommandGroup>
+                ) : null}
+                {showGoTo ? (
+                  <CommandGroup heading="Go to">
+                    {showHome ? (
+                      <CommandItem
+                        value="go:home"
+                        onSelect={() => {
+                          const useNewTab = takeNewTab()
+                          close()
+                          goHome(useNewTab)
+                        }}
+                      >
+                        <Home
+                          className="size-3.5 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                        Home
+                      </CommandItem>
+                    ) : null}
+                    {visibleProjects.map((p, i) => (
+                      <CommandItem
+                        key={p.id}
+                        value={`go:project:${p.id}`}
+                        onSelect={() => {
+                          const useNewTab = takeNewTab()
+                          close()
+                          openProject(p, useNewTab)
+                        }}
+                      >
+                        <Folder
+                          className="size-3.5 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                        {p.name}
+                        <span className="text-xs text-muted-foreground">
+                          {beadsByProject.get(p.id)?.length ?? p.counts.total}{' '}
+                          beads
+                        </span>
+                        <span className="ml-auto flex gap-1">
+                          <Kbd>G</Kbd>
+                          <Kbd>{i + 1}</Kbd>
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                ) : null}
+              </>
+            )}
+          </CommandList>
+          <div className="flex h-10 items-center gap-4 border-t border-border px-4 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <Kbd>↑</Kbd>
+              <Kbd>↓</Kbd> navigate
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Kbd>Enter</Kbd> open
+            </span>
+            {desktop ? null : (
+              <span className="inline-flex items-center gap-1.5">
+                <Kbd>{footerMod} Enter</Kbd> open in new tab
+              </span>
+            )}
+          </div>
+        </Command>
+      </CommandDialog>
+      {closeTarget ? (
+        <CloseBeadDialog
+          key={`${closeTarget.project}:${closeTarget.bead.id}`}
+          project={closeTarget.project}
+          bead={closeTarget.bead}
+          open
+          onOpenChange={(next) => {
+            if (!next) setCloseTarget(null)
+          }}
+          refusal={closeTarget.refusal}
+        />
+      ) : null}
+    </>
   )
 }
