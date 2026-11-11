@@ -228,7 +228,12 @@ mod tests {
         let labels: Vec<_> = gate.options.iter().map(|o| o.label.as_str()).collect();
         assert_eq!(
             labels,
-            ["Designated migrator", "Every other clone", "other", "Option"]
+            [
+                "Designated migrator",
+                "Every other clone",
+                "other",
+                "Option"
+            ]
         );
         assert_eq!(gate.options[0].when.as_deref(), Some("one clone"));
         assert_eq!(gate.options[0].risk.as_deref(), Some("high"));
