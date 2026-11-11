@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -57,6 +57,7 @@ interface BoardSearch {
   nested?: string
   due?: 'week' | 'overdue'
   snoozed?: '1'
+  new?: '1'
 }
 
 const BOARD_VIEWS = new Set(['status', 'epic', 'priority'])
@@ -98,6 +99,7 @@ export const Route = createFileRoute('/p/$project')({
         ? serializePriorities(parsePriorityParam(search.p))
         : undefined,
     ready: search.ready === '1' ? '1' : undefined,
+    new: search.new === '1' ? '1' : undefined,
     assignee:
       typeof search.assignee === 'string' && search.assignee.length > 0
         ? search.assignee
@@ -146,6 +148,18 @@ function BoardPage() {
     refusal: string
   } | null>(null)
   const [gateOpen, setGateOpen] = useState(false)
+
+  // The command palette's "New bead" navigates here with `?new=1`.
+  useEffect(() => {
+    if (boardSearch.new !== '1') return
+    setCreateOpen(true)
+    navigate({
+      to: '/p/$project',
+      params: { project },
+      search: { ...boardSearch, new: undefined },
+      replace: true,
+    })
+  }, [boardSearch.new, navigate])
 
   const beadParam = boardSearch.bead
   const knowledgeParam = boardSearch.k
