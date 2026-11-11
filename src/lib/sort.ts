@@ -1,3 +1,4 @@
+import { isDueThisWeek, isOverdue } from './schedule'
 import { groupBeadLinks, mapStatus } from './types'
 
 import type { Bead } from './types'
@@ -71,7 +72,13 @@ export function beadMatches(
   priorities: number[],
   ready = false,
   assignee = '',
+  due?: 'week' | 'overdue',
+  snoozed = false,
+  now: Date = new Date(),
 ): boolean {
+  if (bead.status === 'deferred' && !snoozed) return false
+  if (due === 'week' && !isDueThisWeek(bead, now)) return false
+  if (due === 'overdue' && !isOverdue(bead, now)) return false
   if (ready && !isReady(bead)) return false
   if (assignee && bead.assignee !== assignee) return false
   if (

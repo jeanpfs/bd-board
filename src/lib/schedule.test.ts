@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest'
 
 import {
   dueState,
+  isDueThisWeek,
+  isOverdue,
   formatEstimate,
   localDateParam,
   parseEstimate,
   quickDue,
 } from './schedule'
+
+import type { Bead } from './types'
 
 describe('parseEstimate', () => {
   it.each([
@@ -115,5 +119,45 @@ describe('quickDue', () => {
   it('moves next Monday forward when today is Monday', () => {
     // Mon, Nov 16 2026: the next Monday is Nov 23, not today
     expect(quickDue(new Date(2026, 10, 16, 9))[2]?.hint).toBe('Nov 23')
+  })
+})
+
+describe('isOverdue and isDueThisWeek', () => {
+  // Wed, Nov 11 2026
+  const now = new Date(2026, 10, 11, 12)
+  const due = (day: number, hour = 9) =>
+    new Date(2026, 10, day, hour).toISOString()
+  const bead = (over: Partial<Bead>): Bead => ({
+    id: 'bd-board-a',
+    title: 'Alpha',
+    status: 'open',
+    priority: 2,
+    issue_type: 'task',
+    labels: [],
+    ...over,
+  })
+
+  it('is overdue from the previous calendar day, never earlier today', () => {
+    expect(isOverdue(bead({ due_at: due(10, 23) }), now)).toBe(true)
+    expect(isOverdue(bead({ due_at: due(11, 0) }), now)).toBe(false)
+    expect(isOverdue(bead({ due_at: due(12) }), now)).toBe(false)
+  })
+
+  it('ignores beads without a due date and closed beads', () => {
+    expect(isOverdue(bead({}), now)).toBe(false)
+    expect(isOverdue(bead({ due_at: due(1), status: 'closed' }), now)).toBe(
+      false,
+    )
+    expect(
+      isDueThisWeek(bead({ due_at: due(12), status: 'closed' }), now),
+    ).toBe(false)
+    expect(isDueThisWeek(bead({}), now)).toBe(false)
+  })
+
+  it('covers today through seven days ahead, and excludes overdue', () => {
+    expect(isDueThisWeek(bead({ due_at: due(11, 0) }), now)).toBe(true)
+    expect(isDueThisWeek(bead({ due_at: due(18, 23) }), now)).toBe(true)
+    expect(isDueThisWeek(bead({ due_at: due(19) }), now)).toBe(false)
+    expect(isDueThisWeek(bead({ due_at: due(10) }), now)).toBe(false)
   })
 })

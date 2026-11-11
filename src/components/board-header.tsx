@@ -47,6 +47,13 @@ interface BoardHeaderProps {
   setSort: (value: SortKey) => void
   nested: boolean
   setNested: (value: boolean) => void
+  due: 'week' | 'overdue' | undefined
+  setDue: (value: 'week' | 'overdue' | undefined) => void
+  snoozed: boolean
+  setSnoozed: (value: boolean) => void
+  dueWeekCount: number
+  overdueCount: number
+  snoozedCount: number
   onCreate: () => void
   liveIndicator: React.ReactNode
 }
@@ -77,6 +84,13 @@ export function BoardHeader({
   setSort,
   nested,
   setNested,
+  due,
+  setDue,
+  snoozed,
+  setSnoozed,
+  dueWeekCount,
+  overdueCount,
+  snoozedCount,
   onCreate,
   liveIndicator,
 }: BoardHeaderProps) {
@@ -107,6 +121,39 @@ export function BoardHeader({
             )
           })}
         </ToggleGroup>
+
+        <Toggle
+          pressed={due === 'week'}
+          onPressedChange={(on) => setDue(on ? 'week' : undefined)}
+          className="gap-1.5"
+        >
+          Due this week
+          <span className="font-mono tabular-nums text-muted-foreground">
+            {dueWeekCount}
+          </span>
+        </Toggle>
+
+        {overdueCount > 0 ? (
+          <Toggle
+            pressed={due === 'overdue'}
+            onPressedChange={(on) => setDue(on ? 'overdue' : undefined)}
+            className="gap-1.5 text-status-blocked"
+          >
+            Overdue
+            <span className="font-mono tabular-nums">{overdueCount}</span>
+          </Toggle>
+        ) : null}
+
+        {snoozedCount > 0 ? (
+          <Toggle
+            pressed={snoozed}
+            onPressedChange={setSnoozed}
+            className="gap-1.5"
+          >
+            <span className="font-mono tabular-nums">{snoozedCount}</span>
+            snoozed
+          </Toggle>
+        ) : null}
 
         <Toggle
           pressed={nested}

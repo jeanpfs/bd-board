@@ -227,8 +227,8 @@ function NeedsYou({
     // attentionList orders within a project; re-rank across projects.
     .sort(
       (a, b) =>
-        ['p0', 'blocked', 'stale'].indexOf(a.kind) -
-          ['p0', 'blocked', 'stale'].indexOf(b.kind) ||
+        ['p0', 'overdue', 'blocked', 'stale'].indexOf(a.kind) -
+          ['p0', 'overdue', 'blocked', 'stale'].indexOf(b.kind) ||
         a.bead.priority - b.bead.priority,
     )
 

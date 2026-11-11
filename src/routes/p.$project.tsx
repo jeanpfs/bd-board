@@ -26,6 +26,7 @@ import { CreateBeadDialog } from '@/components/create-bead-dialog'
 import { ProjectKnowledgePanel } from '@/components/project-knowledge-panel'
 import { LiveUpdatesIndicator } from '@/components/live-updates-indicator'
 import { Button } from '@/components/ui/button'
+import { isDueThisWeek, isOverdue } from '@/lib/schedule'
 import { getBeads, getProjects, updateBeadStatusFn } from '@/lib/server'
 import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
 import { beadMatches, compareBeads } from '@/lib/sort'
@@ -54,6 +55,8 @@ interface BoardSearch {
   view?: BoardView
   sort?: SortKey
   nested?: string
+  due?: 'week' | 'overdue'
+  snoozed?: '1'
 }
 
 const BOARD_VIEWS = new Set(['status', 'epic', 'priority'])
@@ -112,6 +115,11 @@ export const Route = createFileRoute('/p/$project')({
         ? (search.sort as SortKey)
         : undefined,
     nested: search.nested === '1' ? '1' : undefined,
+    due:
+      search.due === 'week' || search.due === 'overdue'
+        ? search.due
+        : undefined,
+    snoozed: search.snoozed === '1' ? '1' : undefined,
   }),
   component: BoardPage,
 })
@@ -152,6 +160,8 @@ function BoardPage() {
   const assignee = boardSearch.assignee ?? ''
   const sort = boardSearch.sort ?? 'priority'
   const nested = boardSearch.nested === '1'
+  const due = boardSearch.due
+  const snoozed = boardSearch.snoozed === '1'
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -200,11 +210,28 @@ function BoardPage() {
     () =>
       beads.filter(
         (bead) =>
-          beadMatches(bead, search, priorities, ready, assignee) &&
+          beadMatches(
+            bead,
+            search,
+            priorities,
+            ready,
+            assignee,
+            due,
+            snoozed,
+          ) &&
           (!nested || !bead.parent),
       ),
-    [beads, search, priorities, ready, assignee, nested],
+    [beads, search, priorities, ready, assignee, nested, due, snoozed],
   )
+
+  const counts = useMemo(() => {
+    const now = new Date()
+    return {
+      dueWeek: beads.filter((b) => isDueThisWeek(b, now)).length,
+      overdue: beads.filter((b) => isOverdue(b, now)).length,
+      snoozed: beads.filter((b) => b.status === 'deferred').length,
+    }
+  }, [beads])
 
   const columns = useMemo(() => {
     const grouped: Record<BeadColumn, Bead[]> = {
@@ -320,6 +347,15 @@ function BoardPage() {
           setAssignee={(value) =>
             patchBoardSearch({ assignee: value || undefined })
           }
+          due={due}
+          setDue={(value) => patchBoardSearch({ due: value })}
+          snoozed={snoozed}
+          setSnoozed={(value) =>
+            patchBoardSearch({ snoozed: value ? '1' : undefined })
+          }
+          dueWeekCount={counts.dueWeek}
+          overdueCount={counts.overdue}
+          snoozedCount={counts.snoozed}
           sort={sort}
           setSort={(value) => patchBoardSearch({ sort: value })}
           nested={nested}
@@ -403,6 +439,8 @@ function BoardPage() {
           priorities={priorities}
           ready={ready}
           assignee={assignee}
+          due={due}
+          snoozed={snoozed}
           sort={sort}
           groupBy={view}
           nested={nested}

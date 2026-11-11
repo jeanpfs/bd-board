@@ -4,6 +4,7 @@ import { ChevronRight } from 'lucide-react'
 
 import { ProjectChip } from '@/components/project-chip'
 import { getBeads, getProjects } from '@/lib/server'
+import { isOverdue } from '@/lib/schedule'
 import { isReady } from '@/lib/sort'
 import { mapStatus } from '@/lib/types'
 
@@ -54,6 +55,7 @@ export function ProjectTopbar() {
     return column === 'open' || column === 'blocked'
   }).length
   const ready = beads?.filter(isReady).length
+  const overdue = beads?.filter((b) => isOverdue(b, new Date())).length
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-4 border-b border-border bg-background px-4">
@@ -81,6 +83,7 @@ export function ProjectTopbar() {
       {open !== undefined && ready !== undefined ? (
         <p className="truncate text-xs text-muted-foreground">
           {open} open · {ready} ready
+          {overdue ? ` · ${overdue} overdue` : null}
         </p>
       ) : null}
     </header>

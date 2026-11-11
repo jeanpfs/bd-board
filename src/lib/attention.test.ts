@@ -65,6 +65,24 @@ describe('attentionList', () => {
     ])
   })
 
+  it('places an overdue bead between P0 and blocked, skipping closed ones', () => {
+    const dueYesterday = new Date(NOW - 86_400_000).toISOString()
+    const list = attentionList(
+      [
+        bead({ id: 'blocked', status: 'blocked' }),
+        bead({ id: 'late', due_at: dueYesterday }),
+        bead({ id: 'p0', priority: 0, status: 'in_progress' }),
+        bead({ id: 'done', status: 'closed', due_at: dueYesterday }),
+      ],
+      NOW,
+    )
+    expect(list.map((a) => [a.bead.id, a.kind, a.detail])).toEqual([
+      ['p0', 'p0', 'P0 · in progress'],
+      ['late', 'overdue', 'Overdue 1d'],
+      ['blocked', 'blocked', 'blocked'],
+    ])
+  })
+
   it('counts an in-progress bead as stale from exactly STALE_DAYS', () => {
     const ids = (n: number) =>
       attentionList(
@@ -127,10 +145,29 @@ describe('projectHeadline', () => {
     ).toMatchObject({ value: 2, label: 'ready to pick up' })
   })
 
+  it('ranks overdue above blocked and below open P0s', () => {
+    const late = bead({
+      id: 'late',
+      due_at: new Date(NOW - 2 * 86_400_000).toISOString(),
+    })
+    expect(projectHeadline(project({ counts }), [late], NOW)).toMatchObject({
+      value: 1,
+      label: 'overdue',
+      tone: 'danger',
+    })
+    expect(
+      projectHeadline(
+        project({ counts }),
+        [late, bead({ id: 'p0', priority: 0 })],
+        NOW,
+      ),
+    ).toMatchObject({ label: 'P0 open' })
+  })
+
   it('falls back to open counts before the bead list loads', () => {
     expect(
       projectHeadline(project({ counts: { ...counts, blocked: 0 } })),
-    ).toMatchObject({ value: 3, label: 'open', rank: 4 })
+    ).toMatchObject({ value: 3, label: 'open', rank: 5 })
   })
 })
 

@@ -1,3 +1,4 @@
+import { isOverdue, dueState } from './schedule.ts'
 import { isReady } from './sort.ts'
 import { mapStatus, statusText } from './types.ts'
 
@@ -7,7 +8,7 @@ import type { Bead, Project } from './types.ts'
 export const STALE_DAYS = 7
 const DAY_MS = 24 * 60 * 60 * 1000
 
-export type AttentionKind = 'p0' | 'blocked' | 'stale'
+export type AttentionKind = 'p0' | 'overdue' | 'blocked' | 'stale'
 
 export interface Attention {
   kind: AttentionKind
@@ -16,7 +17,12 @@ export interface Attention {
   detail: string
 }
 
-const SEVERITY: Record<AttentionKind, number> = { p0: 0, blocked: 1, stale: 2 }
+const SEVERITY: Record<AttentionKind, number> = {
+  p0: 0,
+  overdue: 1,
+  blocked: 2,
+  stale: 3,
+}
 
 function timeOf(value?: string): number {
   const t = value ? Date.parse(value) : NaN
@@ -32,6 +38,12 @@ export function beadAttention(
   if (status.column === 'closed') return null
   if (bead.priority === 0) {
     return { kind: 'p0', detail: `P0 · ${statusText(bead)}` }
+  }
+  if (isOverdue(bead, new Date(now)) && bead.due_at) {
+    return {
+      kind: 'overdue',
+      detail: dueState(bead.due_at, new Date(now)).label,
+    }
   }
   if (status.column === 'blocked') {
     return { kind: 'blocked', detail: 'blocked' }
@@ -95,10 +107,14 @@ export interface Headline {
 
 /**
  * The one number a project card leads with: a problem, then open P0s, then
- * blocked, then ready to pick up, then open. `beads` is optional because a
+ * overdue, then blocked, then ready to pick up, then open. `beads` is optional because a
  * project's bead list loads after its counts.
  */
-export function projectHeadline(project: Project, beads?: Bead[]): Headline {
+export function projectHeadline(
+  project: Project,
+  beads?: Bead[],
+  now: number = Date.now(),
+): Headline {
   const problem = projectProblem(project)
   if (problem) {
     return {
@@ -113,21 +129,27 @@ export function projectHeadline(project: Project, beads?: Bead[]): Headline {
         .length
     : 0
   if (p0 > 0) return { value: p0, label: 'P0 open', tone: 'danger', rank: 1 }
+  const overdue = beads
+    ? beads.filter((b) => isOverdue(b, new Date(now))).length
+    : 0
+  if (overdue > 0) {
+    return { value: overdue, label: 'overdue', tone: 'danger', rank: 2 }
+  }
   const { counts } = project
   if (counts.blocked > 0) {
-    return { value: counts.blocked, label: 'blocked', tone: 'danger', rank: 2 }
+    return { value: counts.blocked, label: 'blocked', tone: 'danger', rank: 3 }
   }
   const ready = beads ? beads.filter(isReady).length : 0
   if (ready > 0) {
-    return { value: ready, label: 'ready to pick up', tone: 'default', rank: 3 }
+    return { value: ready, label: 'ready to pick up', tone: 'default', rank: 4 }
   }
   const open = counts.open + counts.deferred
-  if (open > 0) return { value: open, label: 'open', tone: 'default', rank: 4 }
+  if (open > 0) return { value: open, label: 'open', tone: 'default', rank: 5 }
   return {
     value: null,
     label: counts.total > 0 ? 'All closed' : 'No beads yet',
     tone: 'default',
-    rank: 5,
+    rank: 6,
   }
 }
 

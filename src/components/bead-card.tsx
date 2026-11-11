@@ -19,10 +19,12 @@ import { InteractiveRow } from '@/components/ui/interactive-row'
 import { PriorityBadge } from '@/components/priority-badge'
 import { SubtaskProgress } from '@/components/subtask-progress'
 import { cn, initials } from '@/lib/utils'
+import { dueState, formatEstimate } from '@/lib/schedule'
 import { groupBeadLinks, isEpic, mapStatus } from '@/lib/types'
 
 import type { LucideIcon } from 'lucide-react'
 import type { Bead, BeadColumn } from '@/lib/types'
+import type { DueState } from '@/lib/schedule'
 
 interface BeadCardProps {
   bead: Bead
@@ -131,6 +133,12 @@ function LinkStat({
   )
 }
 
+const DUE_TEXT_CLASS: Record<DueState['kind'], string> = {
+  overdue: 'text-status-blocked',
+  soon: 'text-warn',
+  later: 'text-muted-foreground',
+}
+
 export function BeadCard({
   bead,
   onOpen,
@@ -147,6 +155,7 @@ export function BeadCard({
   } = useSortable({ id: bead.id, data: { bead } })
 
   const epic = isEpic(bead)
+  const due = bead.due_at ? dueState(bead.due_at, new Date()) : null
   const badge = mapStatus(bead).badge
   const labels = bead.labels ?? []
   const childBeads = bead.childBeads ?? []
@@ -262,6 +271,18 @@ export function BeadCard({
               <span className="inline-flex items-center gap-0.5 tabular-nums">
                 <MessageSquare className="size-3" aria-hidden="true" />
                 {bead.comment_count}
+              </span>
+            ) : null}
+            {due ? (
+              <span
+                className={cn('whitespace-nowrap', DUE_TEXT_CLASS[due.kind])}
+              >
+                {due.label}
+              </span>
+            ) : null}
+            {bead.estimated_minutes ? (
+              <span className="whitespace-nowrap">
+                {formatEstimate(bead.estimated_minutes)}
               </span>
             ) : null}
             {bead.assignee ? (

@@ -1,4 +1,11 @@
-import { AlertTriangle, Ban, Clock, DatabaseZap, FolderX } from 'lucide-react'
+import {
+  AlertTriangle,
+  Ban,
+  Clock,
+  ClockAlert,
+  DatabaseZap,
+  FolderX,
+} from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -13,6 +20,11 @@ export const SIGNAL_ICON: Record<
   { icon: LucideIcon; className: string; label: string }
 > = {
   p0: { icon: AlertTriangle, className: 'text-status-blocked', label: 'P0' },
+  overdue: {
+    icon: ClockAlert,
+    className: 'text-status-blocked',
+    label: 'Overdue',
+  },
   blocked: { icon: Ban, className: 'text-status-blocked', label: 'Blocked' },
   stale: { icon: Clock, className: 'text-warn', label: 'Stale' },
   missing: {

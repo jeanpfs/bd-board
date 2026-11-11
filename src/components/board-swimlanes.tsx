@@ -43,6 +43,8 @@ interface BoardSwimlanesProps {
   priorities: number[]
   ready: boolean
   assignee: string
+  due: 'week' | 'overdue' | undefined
+  snoozed: boolean
   sort: SortKey
   groupBy: SwimlaneGroup
   nested?: boolean
@@ -267,6 +269,8 @@ export function BoardSwimlanes({
   priorities,
   ready,
   assignee,
+  due,
+  snoozed,
   sort,
   groupBy,
   nested = false,
@@ -275,7 +279,7 @@ export function BoardSwimlanes({
 }: BoardSwimlanesProps) {
   const { lanes, totals, hasAny } = useMemo(() => {
     const matches = (b: Bead) =>
-      beadMatches(b, search, priorities, ready, assignee)
+      beadMatches(b, search, priorities, ready, assignee, due, snoozed)
     const epicIds = new Set(beads.filter(isEpic).map((e) => e.id))
     // In nested mode, children of a non-epic parent are pulled out of the
     // lane grid and shown inline inside their parent's card instead — but an
@@ -349,7 +353,17 @@ export function BoardSwimlanes({
       totals: totalByColumn,
       hasAny: builtLanes.length > 0,
     }
-  }, [beads, search, priorities, ready, assignee, groupBy, nested])
+  }, [
+    beads,
+    search,
+    priorities,
+    ready,
+    assignee,
+    due,
+    snoozed,
+    groupBy,
+    nested,
+  ])
 
   if (!hasAny) {
     return (
