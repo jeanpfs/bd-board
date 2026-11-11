@@ -31,7 +31,7 @@ describe('sidebar collapse', () => {
 
     const insideRail = await browser.execute(() => {
       const aside = document.querySelector('aside')
-      const button = aside?.querySelector('button[aria-label]')
+      const button = aside?.querySelector('[aria-label="Expand sidebar"]')
       if (!aside || !button) return false
       const rail = aside.getBoundingClientRect()
       const rect = button.getBoundingClientRect()
@@ -64,7 +64,7 @@ describe('sidebar collapse', () => {
         (await browser.execute(
           () =>
             document.readyState === 'complete' &&
-            Boolean(document.querySelector('aside button[aria-label]')),
+            Boolean(document.querySelector('aside [aria-label$="sidebar"]')),
         )) === true,
       { timeout: 20000, timeoutMsg: 'app did not reload' },
     )
@@ -74,43 +74,32 @@ describe('sidebar collapse', () => {
     expect(await storedCollapsed()).toBe('1')
   })
 
-  it('shows the logo and toggle button centered when collapsed', async () => {
+  it('keeps the project switcher inside the collapsed rail', async () => {
     await $('[aria-label="Collapse sidebar"]').click()
     await waitForSidebarWidth(COLLAPSED)
 
-    const logoVisible = await browser.execute(() => {
+    const switcherVisible = await browser.execute(() => {
       const aside = document.querySelector('aside')
-      const logo = aside?.querySelector('a[aria-label="bd board home"] svg')
-      if (!aside || !logo) return false
+      const icon = aside?.querySelector('[aria-label^="Switch project"] svg')
+      if (!aside || !icon) return false
       const rail = aside.getBoundingClientRect()
-      const logoRect = logo.getBoundingClientRect()
+      const rect = icon.getBoundingClientRect()
       return (
-        logoRect.left >= rail.left &&
-        logoRect.right <= rail.right &&
-        logoRect.width > 0
+        rect.left >= rail.left && rect.right <= rail.right && rect.width > 0
       )
     })
 
-    expect(logoVisible).toBe(true)
+    expect(switcherVisible).toBe(true)
   })
 
-  it('displays the logo and text in expanded state', async () => {
-    const logoVisible = await browser.execute(() => {
-      const link = document.querySelector('a[aria-label="bd board home"]')
-      const svg = link?.querySelector('svg')
-      const text = link?.querySelector('span')
-      return {
-        hasSvg: Boolean(svg),
-        hasText: Boolean(text) && text!.textContent === 'bd board',
-        justify: getComputedStyle(link!).justifyContent,
-      }
-    })
+  it('names "All projects" in the switcher on the home', async () => {
+    const label = await browser.execute(
+      () =>
+        document.querySelector('aside [aria-label^="Switch project"]')
+          ?.innerText ?? '',
+    )
 
-    expect(logoVisible).toEqual({
-      hasSvg: true,
-      hasText: true,
-      justify: 'normal',
-    })
+    expect(label).toContain('All projects')
   })
 
   it('navigates to home when clicking the Home link', async () => {

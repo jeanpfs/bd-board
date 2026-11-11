@@ -10,15 +10,21 @@ import type {
   BeadLink,
   BeadUpdate,
   Comment,
+  DeletePlan,
   Project,
   ProjectComment,
   ProjectCounts,
   ProjectKnowledge,
   ProjectKnowledgeEntry,
   RelatedBead,
+  StatusCategory,
 } from './types.ts'
+import { BUILT_IN_STATUSES, CATEGORY_COLUMN } from './types.ts'
 import { parseKnowledgeCommentText } from './knowledge.ts'
 import { loadRegistry } from './registry.ts'
+import type { RegistryEntry } from './registry.ts'
+import { migrationGateError, parseMigrationGate } from './migration-gate.ts'
+import type { MigrationGate } from './migration-gate.ts'
 
 const execFileAsync = promisify(execFile)
 
@@ -59,30 +65,21 @@ export function bdErrorMessage(
   const stdoutTrim = stdout.trim()
   const stderrTrim = stderr.trim()
 
-  // Try to parse stdout as JSON and extract message or error
-  if (stdoutTrim) {
+  // bd --json reports errors as JSON on stdout or, for some commands, stderr.
+  for (const candidate of [stdoutTrim, stderrTrim]) {
+    if (!candidate.startsWith('{')) continue
     try {
-      const json = JSON.parse(stdoutTrim) as Record<string, unknown>
-
-      // Check for message field
-      if (typeof json.message === 'string' && json.message) {
-        let result = json.message
-        if (typeof json.hint === 'string' && json.hint) {
-          result += ` (${json.hint})`
+      const json = JSON.parse(candidate) as Record<string, unknown>
+      for (const key of ['message', 'error']) {
+        const text = json[key]
+        if (typeof text === 'string' && text) {
+          return typeof json.hint === 'string' && json.hint
+            ? `${text} (${json.hint})`
+            : text
         }
-        return result
-      }
-
-      // Check for error field
-      if (typeof json.error === 'string' && json.error) {
-        let result = json.error
-        if (typeof json.hint === 'string' && json.hint) {
-          result += ` (${json.hint})`
-        }
-        return result
       }
     } catch {
-      // Not JSON, continue to stderr
+      // Not JSON, keep looking
     }
   }
 
@@ -137,11 +134,26 @@ export async function bdExec(
   throw new Error(`bd not found (tried: ${candidateList})`)
 }
 
+/** The error for a failed bd run, carrying a migration gate when bd reported one. */
+function bdFailure(result: {
+  code: number
+  stdout: string
+  stderr: string
+}): Error {
+  const message = bdErrorMessage(result.stdout, result.stderr, result.code)
+  const gate = parseMigrationGate(result.stdout, result.stderr)
+  if (!gate) return new Error(message)
+  // The text warning repeats the gate; keep only bd's own failure line.
+  const failure = result.stderr
+    .split('\n')
+    .reverse()
+    .find((line) => line.startsWith('Error:'))
+  return migrationGateError(gate, failure ?? message)
+}
+
 async function bdRaw(dir: string, args: string[]): Promise<string> {
   const result = await bdExec(dir, args)
-  if (result.code !== 0) {
-    throw new Error(bdErrorMessage(result.stdout, result.stderr, result.code))
-  }
+  if (result.code !== 0) throw bdFailure(result)
   return result.stdout
 }
 
@@ -161,22 +173,26 @@ async function bdJsonLines<T>(dir: string, args: string[]): Promise<T[]> {
     .map((line) => JSON.parse(line) as T)
 }
 
+const EMPTY_COUNTS: ProjectCounts = {
+  open: 0,
+  in_progress: 0,
+  blocked: 0,
+  closed: 0,
+  deferred: 0,
+  total: 0,
+}
+
 function buildCounts(
   rows: { status: string; c: string | number }[],
+  categories: Map<string, StatusCategory> = new Map(),
 ): ProjectCounts {
-  const totals: ProjectCounts = {
-    open: 0,
-    in_progress: 0,
-    blocked: 0,
-    closed: 0,
-    deferred: 0,
-    total: 0,
-  }
+  const totals = { ...EMPTY_COUNTS }
   for (const row of rows) {
     const n = Number(row.c)
     totals.total += n
     switch (row.status) {
       case 'open':
+      case 'pinned':
         totals.open += n
         break
       case 'in_progress':
@@ -192,6 +208,12 @@ function buildCounts(
       case 'deferred':
         totals.deferred += n
         break
+      default: {
+        // Custom status: count it where the board shows it.
+        const category = categories.get(row.status) ?? 'unspecified'
+        if (category === 'frozen') totals.deferred += n
+        else totals[CATEGORY_COLUMN[category]] += n
+      }
     }
   }
   return totals
@@ -199,124 +221,152 @@ function buildCounts(
 
 export function buildCountsFromGroups(
   groups: { group: string; count: number }[],
+  categories?: Map<string, StatusCategory>,
 ): ProjectCounts {
-  return buildCounts(groups.map((g) => ({ status: g.group, c: g.count })))
+  return buildCounts(
+    groups.map((g) => ({ status: g.group, c: g.count })),
+    categories,
+  )
 }
 
-async function counts(dir: string): Promise<ProjectCounts> {
+const STATUS_CATEGORIES = new Set<string>([
+  'active',
+  'wip',
+  'done',
+  'frozen',
+  'unspecified',
+])
+
+/** Custom status name → category, from `bd statuses --json`. */
+export function parseStatusCategories(result: {
+  custom_statuses?: { name?: unknown; category?: unknown }[]
+}): Map<string, StatusCategory> {
+  const categories = new Map<string, StatusCategory>()
+  for (const status of result.custom_statuses ?? []) {
+    if (typeof status.name !== 'string') continue
+    const category =
+      typeof status.category === 'string' &&
+      STATUS_CATEGORIES.has(status.category)
+        ? (status.category as StatusCategory)
+        : 'unspecified'
+    categories.set(status.name, category)
+  }
+  return categories
+}
+
+/** Empty when bd can't tell (gated database): custom statuses then fall back to "unspecified". */
+async function statusCategories(
+  dir: string,
+): Promise<Map<string, StatusCategory>> {
   try {
-    const result = await bdJson<{
-      groups?: { group: string; count: number }[]
-    }>(dir, ['count', '--by-status', '--json'])
-    return buildCountsFromGroups(result.groups ?? [])
+    return parseStatusCategories(await bdJson(dir, ['statuses', '--json']))
   } catch {
-    return {
-      open: 0,
-      in_progress: 0,
-      blocked: 0,
-      closed: 0,
-      deferred: 0,
-      total: 0,
+    return new Map()
+  }
+}
+
+/**
+ * `bd count` keeps working on a gated database (read-only on the old
+ * schema), so this is where the dashboard learns about a pending migration.
+ */
+async function counts(
+  dir: string,
+  categories: Map<string, StatusCategory>,
+): Promise<{ counts: ProjectCounts; migration: MigrationGate | null }> {
+  try {
+    const result = await bdExec(dir, ['count', '--by-status', '--json'])
+    const migration = parseMigrationGate(result.stdout, result.stderr)
+    if (result.code !== 0) return { counts: { ...EMPTY_COUNTS }, migration }
+    const json = JSON.parse(result.stdout) as {
+      groups?: { group: string; count: number }[]
     }
+    return {
+      counts: buildCountsFromGroups(json.groups ?? [], categories),
+      migration,
+    }
+  } catch {
+    return { counts: { ...EMPTY_COUNTS }, migration: null }
+  }
+}
+
+/** Runs `fn` over `items` with at most `limit` in flight, keeping order. */
+async function mapLimit<TItem, TResult>(
+  items: TItem[],
+  limit: number,
+  fn: (item: TItem) => Promise<TResult>,
+): Promise<TResult[]> {
+  const results: TResult[] = new Array(items.length)
+  let next = 0
+  async function worker() {
+    while (next < items.length) {
+      const index = next++
+      results[index] = await fn(items[index])
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, worker),
+  )
+  return results
+}
+
+/** Projects probed at once; each runs three bd processes. */
+const DISCOVERY_CONCURRENCY = 4
+
+async function discoverProject(entry: RegistryEntry): Promise<Project> {
+  const base = {
+    id: entry.id,
+    name: entry.label,
+    dir: entry.path,
+    beadsPath: '',
+    prefix: null,
+    external: false,
+    missing: false,
+    migration: null,
+    counts: { ...EMPTY_COUNTS },
+  }
+
+  if (!fsSync.existsSync(entry.path)) {
+    return { ...base, missing: true, error: 'folder no longer exists' }
+  }
+
+  try {
+    const probeResult = await bdJson<{
+      path?: string
+      database_path?: string
+      prefix?: string
+    }>(entry.path, ['where', '--json'])
+
+    if (!probeResult.path) {
+      return { ...base, error: 'bd where returned no beads path' }
+    }
+
+    const expectedBeads = path.join(entry.path, '.beads')
+    const categories = await statusCategories(entry.path)
+    const { counts: projectCounts, migration } = await counts(
+      entry.path,
+      categories,
+    )
+    return {
+      ...base,
+      beadsPath: probeResult.path,
+      prefix: probeResult.prefix || null,
+      external: probeResult.path !== expectedBeads,
+      error: null,
+      migration,
+      counts: projectCounts,
+    }
+  } catch (err) {
+    return { ...base, error: err instanceof Error ? err.message : String(err) }
   }
 }
 
 async function discoverProjects(): Promise<Project[]> {
   const entries = await loadRegistry()
-  const results: Project[] = []
-
-  for (const entry of entries) {
-    // Check if folder exists
-    if (!fsSync.existsSync(entry.path)) {
-      results.push({
-        id: entry.id,
-        name: entry.label,
-        dir: entry.path,
-        beadsPath: '',
-        prefix: null,
-        external: false,
-        missing: true,
-        error: 'folder no longer exists',
-        counts: {
-          open: 0,
-          in_progress: 0,
-          blocked: 0,
-          closed: 0,
-          deferred: 0,
-          total: 0,
-        },
-      })
-      continue
-    }
-
-    // Probe beads location
-    try {
-      const probeResult = await bdJson<{
-        path?: string
-        database_path?: string
-        prefix?: string
-      }>(entry.path, ['where', '--json'])
-
-      if (!probeResult.path) {
-        results.push({
-          id: entry.id,
-          name: entry.label,
-          dir: entry.path,
-          beadsPath: '',
-          prefix: null,
-          external: false,
-          missing: false,
-          error: 'bd where returned no beads path',
-          counts: {
-            open: 0,
-            in_progress: 0,
-            blocked: 0,
-            closed: 0,
-            deferred: 0,
-            total: 0,
-          },
-        })
-        continue
-      }
-
-      const expectedBeads = path.join(entry.path, '.beads')
-      const external = probeResult.path !== expectedBeads
-
-      const projectCounts = await counts(entry.path)
-      results.push({
-        id: entry.id,
-        name: entry.label,
-        dir: entry.path,
-        beadsPath: probeResult.path,
-        prefix: probeResult.prefix || null,
-        external,
-        missing: false,
-        error: null,
-        counts: projectCounts,
-      })
-    } catch (err) {
-      const error = err instanceof Error ? err.message : String(err)
-      results.push({
-        id: entry.id,
-        name: entry.label,
-        dir: entry.path,
-        beadsPath: '',
-        prefix: null,
-        external: false,
-        missing: false,
-        error,
-        counts: {
-          open: 0,
-          in_progress: 0,
-          blocked: 0,
-          closed: 0,
-          deferred: 0,
-          total: 0,
-        },
-      })
-    }
-  }
-
+  const results = await mapLimit(
+    entries,
+    DISCOVERY_CONCURRENCY,
+    discoverProject,
+  )
   return results.sort((a, b) => {
     const diff = b.counts.total - a.counts.total
     return diff !== 0 ? diff : a.name.localeCompare(b.name)
@@ -328,6 +378,11 @@ async function resolveDir(projectId: string): Promise<string> {
   const entry = entries.find((e) => e.id === projectId)
   if (!entry) {
     throw new Error(`unknown project id: ${projectId}`)
+  }
+  // Without this check, execFile fails with ENOENT for the missing cwd and
+  // bdExec misreports it as "bd not found".
+  if (!fsSync.existsSync(entry.path)) {
+    throw new Error(`project directory no longer exists: ${entry.path}`)
   }
   return entry.path
 }
@@ -389,8 +444,11 @@ function pushLink(
   target.set(id, list)
 }
 
-export function buildBeadGraph(rawBeads: Record<string, unknown>[]): Bead[] {
-  const beads = rawBeads.map(mapRawBead)
+export function buildBeadGraph(
+  rawBeads: Record<string, unknown>[],
+  categories: Map<string, StatusCategory> = new Map(),
+): Bead[] {
+  const beads = rawBeads.map((raw) => mapRawBead(raw, categories))
   const knownIds = new Set(beads.map((b) => b.id))
   const edges = collectEdges(rawBeads, knownIds)
 
@@ -449,7 +507,17 @@ function deriveChildren(beads: Bead[]): Bead[] {
   })
 }
 
-function mapRawBead(raw: Record<string, unknown>): Bead {
+function mapRawBead(
+  raw: Record<string, unknown>,
+  categories: Map<string, StatusCategory> = new Map(),
+): Bead {
+  const status = raw['status'] as string
+  const category = Object.prototype.hasOwnProperty.call(
+    BUILT_IN_STATUSES,
+    status,
+  )
+    ? undefined
+    : categories.get(status)
   return {
     id: raw['id'] as string,
     title: raw['title'] as string,
@@ -457,7 +525,8 @@ function mapRawBead(raw: Record<string, unknown>): Bead {
     acceptance_criteria: raw['acceptance_criteria'] as string | undefined,
     design: raw['design'] as string | undefined,
     notes: raw['notes'] as string | undefined,
-    status: raw['status'] as string,
+    status,
+    ...(category ? { status_category: category } : {}),
     priority: Number(raw['priority'] ?? 2),
     issue_type: raw['issue_type'] as string,
     assignee: raw['assignee'] as string | undefined,
@@ -521,12 +590,11 @@ function mapKnowledgeEntry(
 
 async function listBeads(projectId: string): Promise<Bead[]> {
   const dir = await resolveDir(projectId)
-  const raw = await bdJson<Record<string, unknown>[]>(dir, [
-    'list',
-    '--all',
-    '--json',
+  const [raw, categories] = await Promise.all([
+    bdJson<Record<string, unknown>[]>(dir, ['list', '--all', '--json']),
+    statusCategories(dir),
   ])
-  return buildBeadGraph(raw)
+  return buildBeadGraph(raw, categories)
 }
 
 async function getBeadDetail(
@@ -655,31 +723,137 @@ async function updateBead(
   await bdRaw(dir, args)
 }
 
+/**
+ * The bead plus its parent-child descendants. Upstream `--cascade` also
+ * follows `blocks`/`related` edges (fixed after bd 1.3.4), so a cascade
+ * delete of a blocker would delete the work it blocks; passing this set
+ * explicitly deletes only the subtree.
+ */
+export function deletionSet(beads: Bead[], id: string): string[] {
+  const childrenOf = new Map<string, string[]>()
+  for (const bead of beads) {
+    if (!bead.parent) continue
+    const list = childrenOf.get(bead.parent) ?? []
+    list.push(bead.id)
+    childrenOf.set(bead.parent, list)
+  }
+  const ids = [id]
+  // The iterator also visits ids appended while looping (breadth-first).
+  for (const current of ids) {
+    for (const child of childrenOf.get(current) ?? []) {
+      if (!ids.includes(child)) ids.push(child)
+    }
+  }
+  return ids
+}
+
+/** Beads outside the deletion that depend on something inside it. */
+export function unlinkedDependents(
+  beads: Bead[],
+  ids: string[],
+): DeletePlan['unlinked'] {
+  const deleting = new Set(ids)
+  const byId = new Map(beads.map((b) => [b.id, b]))
+  const seen = new Set<string>()
+  const unlinked: DeletePlan['unlinked'] = []
+  for (const id of ids) {
+    for (const link of byId.get(id)?.links ?? []) {
+      if (link.direction !== 'incoming' || deleting.has(link.id)) continue
+      const key = `${link.id}|${link.type}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      unlinked.push({
+        id: link.id,
+        title: byId.get(link.id)?.title ?? link.id,
+        type: link.type,
+      })
+    }
+  }
+  return unlinked
+}
+
+/**
+ * Drops bd's CLI hints from the preview: the "use --cascade … or --force"
+ * note and the "To proceed, run" command. The dialog explains both itself.
+ */
+function cleanDeletePreview(text: string): string {
+  return text
+    .split('\n')
+    .filter(
+      (line) =>
+        !line.includes('has dependents not in deletion set') &&
+        !line.startsWith('To proceed'),
+    )
+    .join('\n')
+    .trim()
+}
+
+async function planDelete(
+  dir: string,
+  id: string,
+): Promise<{ beads: Bead[]; ids: string[] }> {
+  const beads = buildBeadGraph(
+    await bdJson<Record<string, unknown>[]>(dir, ['list', '--all', '--json']),
+  )
+  if (!beads.some((b) => b.id === id)) throw new Error(`bead not found: ${id}`)
+  return { beads, ids: deletionSet(beads, id) }
+}
+
 async function previewDeleteBead(
   projectId: string,
   id: string,
-): Promise<string> {
+): Promise<DeletePlan> {
   const dir = await resolveDir(projectId)
-  const out = await bdRaw(dir, buildPreviewDeleteBeadArgs(id))
-  return out.trim()
+  const { beads, ids } = await planDelete(dir, id)
+  const result = await bdExec(dir, buildPreviewDeleteBeadArgs(ids))
+  // With dependents outside the set bd exits 1 but still prints the preview.
+  if (result.code !== 0 && !result.stdout.includes('DELETE PREVIEW')) {
+    throw bdFailure(result)
+  }
+  return {
+    ids,
+    preview: cleanDeletePreview(result.stdout),
+    unlinked: unlinkedDependents(beads, ids),
+  }
 }
 
 async function deleteBead(projectId: string, id: string): Promise<void> {
   const dir = await resolveDir(projectId)
   try {
-    await bdRaw(dir, buildDeleteBeadArgs(id))
+    const { ids } = await planDelete(dir, id)
+    await bdRaw(dir, buildDeleteBeadArgs(ids))
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     throw new Error(`Unable to delete bead. ${message}`)
   }
 }
 
-function buildPreviewDeleteBeadArgs(id: string): string[] {
-  return ['delete', id, '--cascade']
+function buildPreviewDeleteBeadArgs(ids: string[]): string[] {
+  return ['delete', ...ids]
 }
 
-function buildDeleteBeadArgs(id: string): string[] {
-  return ['delete', id, '--cascade', '--force']
+/** `--force` deletes the set and orphans outside dependents; never `--cascade`. */
+function buildDeleteBeadArgs(ids: string[]): string[] {
+  return ['delete', ...ids, '--force']
+}
+
+function buildCloseBeadArgs(
+  id: string,
+  opts: { reason?: string; force?: boolean },
+): string[] {
+  const args = ['close', id]
+  if (opts.reason) args.push('--reason', opts.reason)
+  if (opts.force) args.push('--force')
+  return args
+}
+
+async function closeBead(
+  projectId: string,
+  id: string,
+  opts: { reason?: string; force?: boolean },
+): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildCloseBeadArgs(id, opts))
 }
 
 async function createBead(
@@ -715,6 +889,7 @@ export const bdAdapter: BdAdapter = {
   getBeadDetail,
   getProjectKnowledge,
   updateBeadStatus,
+  closeBead,
   updateBead,
   previewDeleteBead,
   deleteBead,
@@ -729,6 +904,8 @@ export {
   getBeadDetail,
   getProjectKnowledge,
   updateBeadStatus,
+  closeBead,
+  buildCloseBeadArgs,
   updateBead,
   buildUpdateBeadArgs,
   previewDeleteBead,

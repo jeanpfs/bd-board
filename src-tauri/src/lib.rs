@@ -3,6 +3,7 @@ use std::env;
 use std::process::Command;
 
 mod desktop;
+mod migration_gate;
 mod registry;
 
 #[derive(Serialize)]
@@ -58,6 +59,7 @@ pub fn run() {
             desktop::update_bead_status,
             desktop::update_bead,
             desktop::preview_delete_bead,
+            desktop::close_bead,
             desktop::delete_bead,
             desktop::create_bead,
             desktop::add_comment,

@@ -40,12 +40,12 @@ export function StatusColumnHeader({
         className={cn('size-[7px] shrink-0 rounded-full', DOT_CLASS[column])}
         aria-hidden="true"
       />
-      <h2 className="truncate text-[12.5px] font-semibold tracking-[-0.005em] text-foreground">
+      <h2 className="truncate text-body font-semibold tracking-[-0.005em] text-foreground">
         {label}
       </h2>
       <span
         className={cn(
-          'ml-auto font-mono text-[11.5px] font-medium tabular-nums',
+          'ml-auto font-mono text-xs font-medium tabular-nums',
           COUNT_CLASS[column],
         )}
       >

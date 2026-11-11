@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { formatDistanceToNow } from 'date-fns'
-import { enUS } from 'date-fns/locale'
+import { relativeDate } from '@/lib/time'
 import {
   AlertTriangle,
   BookOpen,
@@ -62,13 +61,6 @@ const TYPE_BADGE: Record<KnowledgeType, string> = {
     'bg-k-deviation/15 text-k-deviation ring-1 ring-inset ring-k-deviation/38',
 }
 
-function relativeDate(value?: string): string {
-  if (!value) return ''
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return ''
-  return formatDistanceToNow(parsed, { addSuffix: true, locale: enUS })
-}
-
 function matchesText(
   value: ProjectKnowledgeEntry | ProjectComment,
   query: string,
@@ -92,7 +84,7 @@ function TypeBadge({ type }: { type: KnowledgeType }) {
     <Badge
       variant="outline"
       className={cn(
-        'border-transparent font-mono text-[10px] tracking-[0.08em] uppercase',
+        'border-transparent font-mono text-badge tracking-[0.08em] uppercase',
         TYPE_BADGE[type],
       )}
     >
@@ -272,18 +264,18 @@ export function ProjectKnowledgePanel({
                           <div className="flex flex-wrap items-center gap-2">
                             <TypeBadge type={entry.type} />
                             {entry.created_at ? (
-                              <span className="text-[11.25px] text-faint">
+                              <span className="text-xs text-faint">
                                 {relativeDate(entry.created_at)}
                               </span>
                             ) : null}
                           </div>
 
-                          <p className="mt-1.5 text-[12.75px] leading-[1.58] whitespace-pre-wrap text-foreground/90">
+                          <p className="mt-1.5 text-body leading-[1.58] whitespace-pre-wrap text-foreground/90">
                             {entry.content}
                           </p>
 
                           {entry.bead_title ? (
-                            <p className="mt-1.5 truncate text-[11.25px] text-faint">
+                            <p className="mt-1.5 truncate text-xs text-faint">
                               {entry.bead_title}
                             </p>
                           ) : null}
@@ -320,7 +312,7 @@ export function ProjectKnowledgePanel({
                       key={comment.id}
                       className="rounded-[9px] bg-canvas px-3 py-2.5 ring-1 ring-inset ring-border"
                     >
-                      <div className="flex flex-wrap items-center gap-2 text-[11.5px] text-faint">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-faint">
                         {comment.knowledge_type ? (
                           <TypeBadge type={comment.knowledge_type} />
                         ) : null}
@@ -334,7 +326,7 @@ export function ProjectKnowledgePanel({
                           <span>· {relativeDate(comment.created_at)}</span>
                         ) : null}
                       </div>
-                      <p className="mt-1.5 text-[13px] whitespace-pre-wrap">
+                      <p className="mt-1.5 text-body whitespace-pre-wrap">
                         {comment.text}
                       </p>
                     </li>
@@ -361,10 +353,10 @@ function PanelHeader({
   return (
     <header className="flex items-center gap-1.5 border-b border-border px-3 py-2 text-muted-foreground">
       <Icon className="size-3.5" aria-hidden="true" />
-      <h2 className="font-mono text-[10.5px] font-medium tracking-[0.09em] uppercase">
+      <h2 className="font-mono text-badge font-medium tracking-[0.09em] uppercase">
         {title}
       </h2>
-      <span className="ml-auto font-mono text-[11px] tabular-nums text-faint">
+      <span className="ml-auto font-mono text-badge tabular-nums text-faint">
         {count}
       </span>
     </header>

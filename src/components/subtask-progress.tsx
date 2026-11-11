@@ -16,7 +16,7 @@ const SEGMENT_ORDER: { key: BeadColumn; className: string }[] = [
 ]
 
 function columnOf(bead: Bead): BeadColumn {
-  return mapStatus(bead.status).column
+  return mapStatus(bead).column
 }
 
 export function SubtaskProgress({

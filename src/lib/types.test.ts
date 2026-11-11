@@ -4,29 +4,49 @@ import { groupBeadLinks, isEpic, mapStatus } from './types'
 
 describe('mapStatus', () => {
   it('maps known bd statuses to board columns', () => {
-    expect(mapStatus('open')).toEqual({ column: 'open' })
-    expect(mapStatus('in_progress')).toEqual({ column: 'in_progress' })
-    expect(mapStatus('blocked')).toEqual({ column: 'blocked' })
-    expect(mapStatus('closed')).toEqual({ column: 'closed' })
+    expect(mapStatus({ status: 'open' })).toEqual({ column: 'open' })
+    expect(mapStatus({ status: 'in_progress' })).toEqual({
+      column: 'in_progress',
+    })
+    expect(mapStatus({ status: 'blocked' })).toEqual({ column: 'blocked' })
+    expect(mapStatus({ status: 'closed' })).toEqual({ column: 'closed' })
   })
 
   it('keeps special bd statuses visible as badges', () => {
-    expect(mapStatus('deferred')).toEqual({
+    expect(mapStatus({ status: 'deferred' })).toEqual({
       column: 'open',
       badge: { label: 'Deferred', tone: 'muted' },
     })
-    expect(mapStatus('hooked')).toEqual({
+    expect(mapStatus({ status: 'hooked' })).toEqual({
       column: 'in_progress',
       badge: { label: 'Hooked', tone: 'info' },
     })
-    expect(mapStatus('pinned')).toEqual({
+    expect(mapStatus({ status: 'pinned' })).toEqual({
       column: 'open',
       badge: { label: 'Pinned', tone: 'warning' },
     })
   })
 
-  it('falls back unknown statuses to open', () => {
-    expect(mapStatus('triaged')).toEqual({ column: 'open' })
+  it('places custom statuses by their bd category and names them', () => {
+    expect(mapStatus({ status: 'in_review', status_category: 'wip' })).toEqual({
+      column: 'in_progress',
+      badge: { label: 'In review', tone: 'info' },
+    })
+    expect(mapStatus({ status: 'archived', status_category: 'done' })).toEqual({
+      column: 'closed',
+      badge: { label: 'Archived', tone: 'info' },
+    })
+    expect(mapStatus({ status: 'icebox', status_category: 'frozen' })).toEqual({
+      column: 'open',
+      badge: { label: 'Icebox', tone: 'muted' },
+    })
+  })
+
+  it('still names a custom status whose category is unknown', () => {
+    expect(mapStatus({ status: 'triaged' })).toEqual({
+      column: 'open',
+      badge: { label: 'Triaged', tone: 'muted' },
+    })
   })
 })
 

@@ -55,7 +55,7 @@ export function KanbanColumn({
       >
         {beads.length === 0 ? (
           <div className="flex flex-1 items-center justify-center p-4">
-            <span className="font-mono text-[11px] text-white/22">—</span>
+            <span className="font-mono text-badge text-white/22">—</span>
           </div>
         ) : (
           <ScrollArea className="min-h-0 flex-1">

@@ -109,6 +109,23 @@ export function parseStatusUpdateInput(input: unknown): {
   }
 }
 
+export function parseCloseBeadInput(input: unknown): {
+  project: string
+  id: string
+  reason?: string
+  force: boolean
+} {
+  const data = record(input)
+  const force = data['force'] ?? false
+  if (typeof force !== 'boolean') throw new Error('force must be true or false')
+  return {
+    project: requiredString(data, 'project', PROJECT_RE, 'Project'),
+    id: requiredString(data, 'id', BEAD_ID_RE, 'Bead id'),
+    reason: optionalText(data, 'reason', 2000),
+    force,
+  }
+}
+
 export function parseCreateBeadInput(input: unknown): {
   project: string
   title: string

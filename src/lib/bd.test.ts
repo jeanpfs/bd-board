@@ -1,14 +1,23 @@
-import { describe, expect, it } from 'vitest'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import * as os from 'node:os'
+import * as path from 'node:path'
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   buildBeadGraph,
+  buildCloseBeadArgs,
   buildCountsFromGroups,
   buildDeleteBeadArgs,
   buildPreviewDeleteBeadArgs,
   buildProjectKnowledge,
   buildUpdateBeadArgs,
   COMMENTS_LIMIT,
+  deletionSet,
   KNOWLEDGE_LIMIT,
+  parseStatusCategories,
+  resolveDir,
+  unlinkedDependents,
 } from './bd'
 
 describe('buildUpdateBeadArgs', () => {
@@ -64,18 +73,97 @@ describe('buildUpdateBeadArgs', () => {
 })
 
 describe('delete bead arguments', () => {
-  it('keeps preview and confirmed delete commands separate', () => {
-    expect(buildPreviewDeleteBeadArgs('bd-board-a2k')).toEqual([
+  it('previews and deletes the explicit set, never with --cascade', () => {
+    const ids = ['bd-board-a2k', 'bd-board-a2k.1']
+    expect(buildPreviewDeleteBeadArgs(ids)).toEqual([
       'delete',
       'bd-board-a2k',
-      '--cascade',
+      'bd-board-a2k.1',
     ])
-    expect(buildDeleteBeadArgs('bd-board-a2k')).toEqual([
+    expect(buildDeleteBeadArgs(ids)).toEqual([
       'delete',
       'bd-board-a2k',
-      '--cascade',
+      'bd-board-a2k.1',
       '--force',
     ])
+  })
+})
+
+describe('deletionSet', () => {
+  const beads = buildBeadGraph([
+    { id: 'ep', title: 'Epic', status: 'open' },
+    { id: 'ep.1', title: 'Child', status: 'open', parent: 'ep' },
+    { id: 'ep.1.1', title: 'Grandchild', status: 'open', parent: 'ep.1' },
+    { id: 'other', title: 'Other', status: 'open' },
+    {
+      id: 'blocked',
+      title: 'Blocked by the child',
+      status: 'open',
+      dependencies: [
+        { issue_id: 'blocked', depends_on_id: 'ep.1', type: 'blocks' },
+      ],
+    },
+  ])
+
+  it('takes the bead and every parent-child descendant', () => {
+    expect(deletionSet(beads, 'ep')).toEqual(['ep', 'ep.1', 'ep.1.1'])
+    expect(deletionSet(beads, 'ep.1.1')).toEqual(['ep.1.1'])
+  })
+
+  it('keeps beads that only depend on the subtree and reports them', () => {
+    const ids = deletionSet(beads, 'ep')
+    expect(ids).not.toContain('blocked')
+    expect(unlinkedDependents(beads, ids)).toEqual([
+      { id: 'blocked', title: 'Blocked by the child', type: 'blocks' },
+    ])
+  })
+})
+
+describe('closeBead arguments', () => {
+  it('adds the reason and force only when given', () => {
+    expect(buildCloseBeadArgs('x-1', {})).toEqual(['close', 'x-1'])
+    expect(buildCloseBeadArgs('x-1', { reason: 'dup', force: true })).toEqual([
+      'close',
+      'x-1',
+      '--reason',
+      'dup',
+      '--force',
+    ])
+  })
+})
+
+describe('resolveDir', () => {
+  let home: string
+
+  beforeEach(async () => {
+    home = await mkdtemp(path.join(os.tmpdir(), 'bd-board-home-'))
+    vi.stubEnv('HOME', home)
+    await mkdir(path.join(home, '.config', 'bd-board'), { recursive: true })
+    await writeFile(
+      path.join(home, '.config', 'bd-board', 'projects.json'),
+      JSON.stringify({
+        version: 1,
+        projects: [
+          { id: 'here', path: home, label: 'here' },
+          { id: 'gone', path: path.join(home, 'removed'), label: 'gone' },
+        ],
+      }),
+    )
+  })
+
+  afterEach(async () => {
+    vi.unstubAllEnvs()
+    await rm(home, { recursive: true, force: true })
+  })
+
+  it('returns the registered folder', async () => {
+    await expect(resolveDir('here')).resolves.toBe(home)
+  })
+
+  it('reports a removed project folder instead of a missing bd binary', async () => {
+    await expect(resolveDir('gone')).rejects.toThrow(
+      `project directory no longer exists: ${path.join(home, 'removed')}`,
+    )
   })
 })
 
@@ -115,6 +203,36 @@ describe('buildCountsFromGroups', () => {
       closed: 0,
       deferred: 0,
       total: 3,
+    })
+  })
+
+  it('counts custom statuses in the column of their bd category', () => {
+    const categories = parseStatusCategories({
+      custom_statuses: [
+        { name: 'in_review', category: 'wip' },
+        { name: 'archived', category: 'done' },
+        { name: 'icebox', category: 'frozen' },
+        { name: 'plain', category: 'unspecified' },
+      ],
+    })
+    expect(
+      buildCountsFromGroups(
+        [
+          { group: 'in_review', count: 2 },
+          { group: 'archived', count: 3 },
+          { group: 'icebox', count: 4 },
+          { group: 'plain', count: 1 },
+          { group: 'unknown', count: 5 },
+        ],
+        categories,
+      ),
+    ).toEqual({
+      open: 6,
+      in_progress: 2,
+      blocked: 0,
+      closed: 3,
+      deferred: 4,
+      total: 15,
     })
   })
 })

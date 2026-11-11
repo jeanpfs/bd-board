@@ -1,4 +1,6 @@
 use crate::registry::{self, RegistryEntry};
+use crate::migration_gate::{self, MigrationGate};
+use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -13,6 +15,21 @@ const BD_FALLBACK: &str = "/opt/homebrew/bin/bd";
 const MAX_BUFFER: usize = 64 * 1024 * 1024;
 const COMMENTS_LIMIT: usize = 250;
 const KNOWLEDGE_LIMIT: usize = 500;
+
+#[derive(Serialize)]
+pub struct UnlinkedBead {
+    pub id: String,
+    pub title: String,
+    #[serde(rename = "type")]
+    pub kind: String,
+}
+
+#[derive(Serialize)]
+pub struct DeletePlan {
+    pub ids: Vec<String>,
+    pub preview: String,
+    pub unlinked: Vec<UnlinkedBead>,
+}
 
 #[derive(Serialize)]
 pub struct ProjectCounts {
@@ -36,6 +53,7 @@ pub struct Project {
     pub missing: bool,
     pub error: Option<String>,
     pub counts: ProjectCounts,
+    pub migration: Option<MigrationGate>,
 }
 
 #[derive(Serialize)]
@@ -109,6 +127,8 @@ pub struct Bead {
     pub dependent_count: Option<i64>,
     pub children: Option<Vec<String>>,
     pub child_beads: Option<Vec<Bead>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_category: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -205,47 +225,31 @@ pub fn bd_candidates() -> Vec<String> {
     candidates
 }
 
-fn bd_error_message(stdout: &str, stderr: &str, status: &std::process::ExitStatus) -> String {
-    let stdout_trim = stdout.trim();
-    let stderr_trim = stderr.trim();
-
-    // Try to parse stdout as JSON and extract message or error
-    if !stdout_trim.is_empty() {
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(stdout_trim) {
-            // Check for message field
-            if let Some(msg) = json.get("message").and_then(|v| v.as_str()) {
-                if !msg.is_empty() {
-                    let mut result = msg.to_string();
-                    if let Some(hint) = json.get("hint").and_then(|v| v.as_str()) {
-                        if !hint.is_empty() {
-                            result.push_str(&format!(" ({})", hint));
-                        }
-                    }
-                    return result;
-                }
-            }
-
-            // Check for error field
-            if let Some(err) = json.get("error").and_then(|v| v.as_str()) {
-                if !err.is_empty() {
-                    let mut result = err.to_string();
-                    if let Some(hint) = json.get("hint").and_then(|v| v.as_str()) {
-                        if !hint.is_empty() {
-                            result.push_str(&format!(" ({})", hint));
-                        }
-                    }
-                    return result;
-                }
-            }
-        }
+fn json_error_message(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+    if !trimmed.starts_with('{') {
+        return None;
     }
+    let json: Value = serde_json::from_str(trimmed).ok()?;
+    let message = ["message", "error"]
+        .iter()
+        .filter_map(|key| json.get(*key).and_then(Value::as_str))
+        .find(|s| !s.is_empty())?;
+    let mut result = message.to_string();
+    if let Some(hint) = json.get("hint").and_then(Value::as_str).filter(|h| !h.is_empty()) {
+        result.push_str(&format!(" ({})", hint));
+    }
+    Some(result)
+}
 
-    // Fall back to stderr
+fn bd_error_message(stdout: &str, stderr: &str, status: &std::process::ExitStatus) -> String {
+    if let Some(message) = json_error_message(stdout).or_else(|| json_error_message(stderr)) {
+        return message;
+    }
+    let stderr_trim = stderr.trim();
     if !stderr_trim.is_empty() {
         return format!("bd exited with status {}: {}", status, stderr_trim);
     }
-
-    // Last resort
     format!("bd exited with status {}", status)
 }
 
@@ -295,8 +299,25 @@ fn run_bd(dir: &Path, args: &[&str]) -> Result<String, String> {
     if cap.status.success() {
         Ok(cap.stdout)
     } else {
-        Err(bd_error_message(&cap.stdout, &cap.stderr, &cap.status))
+        Err(bd_failure(&cap))
     }
+}
+
+/// Failed bd run: a migration gate is encoded into the error string (see migration_gate.rs).
+fn bd_failure(cap: &BdCapture) -> String {
+    let message = bd_error_message(&cap.stdout, &cap.stderr, &cap.status);
+    let Some(gate) = migration_gate::parse_migration_gate(&cap.stdout, &cap.stderr) else {
+        return message;
+    };
+    let detail = cap
+        .stderr
+        .lines()
+        .rev()
+        .map(str::trim)
+        .find(|line| line.starts_with("Error:"))
+        .map(str::to_string)
+        .unwrap_or(message);
+    migration_gate::migration_gate_error(&gate, &detail)
 }
 
 // ---------------------------------------------------------------------------
@@ -748,7 +769,32 @@ fn value_labels(value: &Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn map_bead(value: &Value) -> Bead {
+const BUILT_IN_STATUSES: [&str; 7] = [
+    "open",
+    "in_progress",
+    "blocked",
+    "deferred",
+    "closed",
+    "pinned",
+    "hooked",
+];
+const STATUS_CATEGORIES: [&str; 5] = ["active", "wip", "done", "frozen", "unspecified"];
+
+/// Category of a custom (non-built-in) status; `None` for built-ins.
+fn status_category(status: &str, categories: &HashMap<String, String>) -> Option<String> {
+    if BUILT_IN_STATUSES.contains(&status) {
+        return None;
+    }
+    Some(
+        categories
+            .get(status)
+            .cloned()
+            .unwrap_or_else(|| "unspecified".to_string()),
+    )
+}
+
+fn map_bead(value: &Value, categories: &HashMap<String, String>) -> Bead {
+    let status = value_str(value, "status");
     Bead {
         id: value_str(value, "id"),
         title: value_str(value, "title"),
@@ -756,7 +802,7 @@ fn map_bead(value: &Value) -> Bead {
         acceptance_criteria: value_opt_str(value, "acceptance_criteria"),
         design: value_opt_str(value, "design"),
         notes: value_opt_str(value, "notes"),
-        status: value_str(value, "status"),
+        status: status.clone(),
         priority: value_i64(value, "priority").unwrap_or(2),
         issue_type: value_str(value, "issue_type"),
         assignee: value_opt_str(value, "assignee"),
@@ -771,6 +817,7 @@ fn map_bead(value: &Value) -> Bead {
         dependent_count: value_i64(value, "dependent_count"),
         children: None,
         child_beads: None,
+        status_category: status_category(&status, categories),
     }
 }
 
@@ -857,6 +904,7 @@ fn discover_projects_inner() -> Result<Vec<Project>, String> {
                 external: false,
                 missing: true,
                 error: Some("folder no longer exists".into()),
+                migration: None,
                 counts: ProjectCounts {
                     open: 0,
                     in_progress: 0,
@@ -872,7 +920,7 @@ fn discover_projects_inner() -> Result<Vec<Project>, String> {
         // Probe beads location
         match probe_beads_location(&dir_path) {
             Ok(location) => {
-                let counts = project_counts(&dir_path);
+                let (counts, migration) = project_counts(&dir_path);
                 projects.push(Project {
                     id: entry.id.clone(),
                     name: entry.label.clone(),
@@ -883,6 +931,7 @@ fn discover_projects_inner() -> Result<Vec<Project>, String> {
                     missing: false,
                     error: None,
                     counts,
+                    migration,
                 });
             }
             Err(err) => {
@@ -895,6 +944,7 @@ fn discover_projects_inner() -> Result<Vec<Project>, String> {
                     external: false,
                     missing: false,
                     error: Some(err),
+                    migration: None,
                     counts: ProjectCounts {
                         open: 0,
                         in_progress: 0,
@@ -918,7 +968,31 @@ fn discover_projects_inner() -> Result<Vec<Project>, String> {
     Ok(projects)
 }
 
-fn build_counts_from_groups(rows: &[Value]) -> ProjectCounts {
+fn status_categories(dir: &Path) -> HashMap<String, String> {
+    let Ok(cap) = exec_bd(dir, &["statuses", "--json"]) else {
+        return HashMap::new();
+    };
+    if !cap.status.success() {
+        return HashMap::new();
+    }
+    serde_json::from_str::<Value>(cap.stdout.trim())
+        .ok()
+        .and_then(|json| json.get("custom_statuses").and_then(Value::as_array).cloned())
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|entry| {
+            let name = entry.get("name").and_then(Value::as_str)?;
+            let category = entry
+                .get("category")
+                .and_then(Value::as_str)
+                .filter(|c| STATUS_CATEGORIES.contains(c))
+                .unwrap_or("unspecified");
+            Some((name.to_string(), category.to_string()))
+        })
+        .collect()
+}
+
+fn build_counts_from_groups(rows: &[Value], categories: &HashMap<String, String>) -> ProjectCounts {
     let mut counts = ProjectCounts {
         open: 0,
         in_progress: 0,
@@ -936,27 +1010,39 @@ fn build_counts_from_groups(rows: &[Value]) -> ProjectCounts {
             .unwrap_or(0);
         counts.total += n;
         match status {
-            "open" => counts.open += n,
+            "open" | "pinned" => counts.open += n,
             "in_progress" | "hooked" => counts.in_progress += n,
             "blocked" => counts.blocked += n,
             "closed" => counts.closed += n,
             "deferred" => counts.deferred += n,
-            _ => {}
+            other => match categories.get(other).map(String::as_str).unwrap_or("unspecified") {
+                "wip" => counts.in_progress += n,
+                "done" => counts.closed += n,
+                "frozen" => counts.deferred += n,
+                _ => counts.open += n,
+            },
         }
     }
 
     counts
 }
 
-fn project_counts(dir: &Path) -> ProjectCounts {
-    let result = bd_json(dir, &["count", "--by-status", "--json"]).ok();
-    let groups = result
-        .as_ref()
-        .and_then(|v| v.get("groups"))
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-    build_counts_from_groups(&groups)
+fn project_counts(dir: &Path) -> (ProjectCounts, Option<MigrationGate>) {
+    let categories = status_categories(dir);
+    let Ok(cap) = exec_bd(dir, &["count", "--by-status", "--json"]) else {
+        return (build_counts_from_groups(&[], &categories), None);
+    };
+    // The gate is reported even when bd exits non-zero.
+    let migration = migration_gate::parse_migration_gate(&cap.stdout, &cap.stderr);
+    let groups = if cap.status.success() {
+        serde_json::from_str::<Value>(cap.stdout.trim())
+            .ok()
+            .and_then(|v| v.get("groups").and_then(Value::as_array).cloned())
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    (build_counts_from_groups(&groups, &categories), migration)
 }
 
 fn resolve_dir(project_id: &str) -> Result<PathBuf, String> {
@@ -1006,12 +1092,13 @@ fn derive_children(beads: Vec<Bead>) -> Vec<Bead> {
 fn list_beads_inner(project_id: &str) -> Result<Vec<Bead>, String> {
     let dir = resolve_dir(project_id)?;
     let raw = bd_json(&dir, &["list", "--all", "--json"])?;
+    let categories = status_categories(&dir);
     let beads = raw
         .as_array()
         .cloned()
         .unwrap_or_default()
         .into_iter()
-        .map(|value| map_bead(&value))
+        .map(|value| map_bead(&value, &categories))
         .collect();
     Ok(derive_children(beads))
 }
@@ -1026,7 +1113,7 @@ fn get_bead_detail_inner(project_id: &str, id: &str) -> Result<BeadDetail, Strin
         .and_then(|arr| arr.first())
         .cloned()
         .unwrap_or(Value::Object(Default::default()));
-    let bead = map_bead(&raw);
+    let bead = map_bead(&raw, &HashMap::new());
     let raw_deps = raw
         .get("dependencies")
         .and_then(Value::as_array)
@@ -1183,36 +1270,217 @@ fn update_bead_inner(project_id: &str, id: &str, update: BeadUpdateInput) -> Res
     Ok(())
 }
 
-fn build_preview_delete_bead_args(id: &str) -> Vec<String> {
-    vec![
-        "delete".to_string(),
-        id.to_string(),
-        "--cascade".to_string(),
-    ]
+fn build_preview_delete_bead_args(ids: &[String]) -> Vec<String> {
+    std::iter::once("delete".to_string())
+        .chain(ids.iter().cloned())
+        .collect()
 }
 
-fn build_delete_bead_args(id: &str) -> Vec<String> {
-    vec![
-        "delete".to_string(),
-        id.to_string(),
-        "--cascade".to_string(),
-        "--force".to_string(),
-    ]
+fn build_delete_bead_args(ids: &[String]) -> Vec<String> {
+    let mut args = build_preview_delete_bead_args(ids);
+    args.push("--force".to_string());
+    args
 }
 
-fn preview_delete_bead_inner(project_id: &str, id: &str) -> Result<String, String> {
+fn build_close_bead_args(id: &str, reason: Option<&str>, force: bool) -> Vec<String> {
+    let mut args = vec!["close".to_string(), id.to_string()];
+    if let Some(reason) = reason.filter(|r| !r.is_empty()) {
+        args.push("--reason".to_string());
+        args.push(reason.to_string());
+    }
+    if force {
+        args.push("--force".to_string());
+    }
+    args
+}
+
+struct DependencyEdge {
+    from: String,
+    to: String,
+    kind: String,
+}
+
+/// Mirrors parseDependencyEdges + collectEdges: deduped, restricted to known ids.
+fn dependency_edges(raws: &[Value], known: &HashSet<String>) -> Vec<DependencyEdge> {
+    let mut seen = HashSet::new();
+    let mut edges = Vec::new();
+    for raw in raws {
+        let owner = value_str(raw, "id");
+        let deps = raw
+            .get("dependencies")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        for entry in deps {
+            let Some(to) = entry
+                .get("depends_on_id")
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+            else {
+                continue;
+            };
+            let from = entry
+                .get("issue_id")
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+                .unwrap_or_else(|| owner.clone());
+            let kind = entry
+                .get("type")
+                .and_then(Value::as_str)
+                .unwrap_or("blocks")
+                .to_string();
+            if from.is_empty() || !known.contains(&from) || !known.contains(to) {
+                continue;
+            }
+            if !seen.insert((from.clone(), to.to_string(), kind.clone())) {
+                continue;
+            }
+            edges.push(DependencyEdge {
+                from,
+                to: to.to_string(),
+                kind,
+            });
+        }
+    }
+    edges
+}
+
+/// Explicit `parent` wins; parent-child edges fill in the rest.
+fn parents_of(raws: &[Value], edges: &[DependencyEdge]) -> HashMap<String, String> {
+    let mut parents = HashMap::new();
+    for raw in raws {
+        if let Some(parent) = value_opt_str(raw, "parent").filter(|p| !p.is_empty()) {
+            parents.insert(value_str(raw, "id"), parent);
+        }
+    }
+    for edge in edges.iter().filter(|e| e.kind == "parent-child") {
+        parents
+            .entry(edge.from.clone())
+            .or_insert_with(|| edge.to.clone());
+    }
+    parents
+}
+
+/// The bead plus its parent-child descendants, breadth-first, root first.
+/// Never uses `--cascade`: it also follows blocks/related edges.
+fn deletion_set(raws: &[Value], id: &str) -> Vec<String> {
+    let known: HashSet<String> = raws.iter().map(|r| value_str(r, "id")).collect();
+    let edges = dependency_edges(raws, &known);
+    let parents = parents_of(raws, &edges);
+    let mut children: HashMap<String, Vec<String>> = HashMap::new();
+    for raw in raws {
+        let child = value_str(raw, "id");
+        if let Some(parent) = parents.get(&child) {
+            children.entry(parent.clone()).or_default().push(child);
+        }
+    }
+    let mut ids = vec![id.to_string()];
+    let mut next = 0;
+    while next < ids.len() {
+        let current = ids[next].clone();
+        next += 1;
+        for child in children.get(&current).into_iter().flatten() {
+            if !ids.contains(child) {
+                ids.push(child.clone());
+            }
+        }
+    }
+    ids
+}
+
+/// Beads outside the deletion that depend on something inside it.
+fn unlinked_dependents(raws: &[Value], ids: &[String]) -> Vec<UnlinkedBead> {
+    let known: HashSet<String> = raws.iter().map(|r| value_str(r, "id")).collect();
+    let edges = dependency_edges(raws, &known);
+    let titles: HashMap<String, String> = raws
+        .iter()
+        .map(|r| (value_str(r, "id"), value_str(r, "title")))
+        .collect();
+    let deleting: HashSet<&str> = ids.iter().map(String::as_str).collect();
+    let mut seen = HashSet::new();
+    let mut unlinked = Vec::new();
+    for id in ids {
+        for edge in edges
+            .iter()
+            .filter(|e| &e.to == id && !deleting.contains(e.from.as_str()))
+        {
+            if !seen.insert((edge.from.clone(), edge.kind.clone())) {
+                continue;
+            }
+            let title = titles
+                .get(&edge.from)
+                .filter(|t| !t.is_empty())
+                .cloned()
+                .unwrap_or_else(|| edge.from.clone());
+            unlinked.push(UnlinkedBead {
+                id: edge.from.clone(),
+                title,
+                kind: edge.kind.clone(),
+            });
+        }
+    }
+    unlinked
+}
+
+/// Drops bd's CLI hints (the --cascade note and the "To proceed" command).
+fn clean_delete_preview(text: &str) -> String {
+    text.lines()
+        .filter(|line| {
+            !line.contains("has dependents not in deletion set") && !line.starts_with("To proceed")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        .trim()
+        .to_string()
+}
+
+fn plan_delete(dir: &Path, id: &str) -> Result<(Vec<Value>, Vec<String>), String> {
+    let raws = bd_json(dir, &["list", "--all", "--json"])?
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    if !raws.iter().any(|r| value_str(r, "id") == id) {
+        return Err(format!("bead not found: {id}"));
+    }
+    let ids = deletion_set(&raws, id);
+    Ok((raws, ids))
+}
+
+fn preview_delete_bead_inner(project_id: &str, id: &str) -> Result<DeletePlan, String> {
     let dir = resolve_dir(project_id)?;
-    let args = build_preview_delete_bead_args(id);
-    let out = run_bd_mut(&dir, &args)?;
-    Ok(out.trim().to_string())
+    let (raws, ids) = plan_delete(&dir, id)?;
+    let args = build_preview_delete_bead_args(&ids);
+    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    let cap = exec_bd(&dir, &refs)?;
+    // bd exits 1 when the preview lists dependents outside the deletion set.
+    let is_preview = cap.status.code() == Some(1) && cap.stdout.contains("DELETE PREVIEW");
+    if !cap.status.success() && !is_preview {
+        return Err(bd_failure(&cap));
+    }
+    Ok(DeletePlan {
+        preview: clean_delete_preview(&cap.stdout),
+        unlinked: unlinked_dependents(&raws, &ids),
+        ids,
+    })
 }
 
 fn delete_bead_inner(project_id: &str, id: &str) -> Result<(), String> {
     let dir = resolve_dir(project_id)?;
-    let args = build_delete_bead_args(id);
-    run_bd_mut(&dir, &args)
+    plan_delete(&dir, id)
+        .and_then(|(_, ids)| run_bd_mut(&dir, &build_delete_bead_args(&ids)))
         .map(|_| ())
         .map_err(|err| format!("Unable to delete bead. {err}"))
+}
+
+fn close_bead_inner(
+    project_id: &str,
+    id: &str,
+    reason: Option<&str>,
+    force: bool,
+) -> Result<(), String> {
+    let dir = resolve_dir(project_id)?;
+    run_bd_mut(&dir, &build_close_bead_args(id, reason, force)).map(|_| ())
 }
 
 fn create_bead_inner(
@@ -1282,8 +1550,18 @@ pub fn update_bead(project_id: String, id: String, update: BeadUpdateInput) -> R
 }
 
 #[tauri::command]
-pub fn preview_delete_bead(project_id: String, id: String) -> Result<String, String> {
+pub fn preview_delete_bead(project_id: String, id: String) -> Result<DeletePlan, String> {
     preview_delete_bead_inner(&project_id, &id)
+}
+
+#[tauri::command]
+pub fn close_bead(
+    project_id: String,
+    id: String,
+    reason: Option<String>,
+    force: bool,
+) -> Result<(), String> {
+    close_bead_inner(&project_id, &id, reason.as_deref(), force)
 }
 
 #[tauri::command]
@@ -1375,7 +1653,7 @@ pub fn check_project_path(path: String) -> PathStatus {
 )]
 pub enum AddProjectOutcome {
     Registered {
-        project: Project,
+        project: Box<Project>,
     },
     NeedsInit {
         path: String,
@@ -1393,10 +1671,10 @@ pub fn add_project(path: String, name: Option<String>) -> Result<AddProjectOutco
             let entry = registry::add(&dir_path, name)?;
 
             // Get the counts
-            let counts = project_counts(&dir_path);
+            let (counts, migration) = project_counts(&dir_path);
 
             Ok(AddProjectOutcome::Registered {
-                project: Project {
+                project: Box::new(Project {
                     id: entry.id.clone(),
                     name: entry.label.clone(),
                     dir: entry.path,
@@ -1406,7 +1684,8 @@ pub fn add_project(path: String, name: Option<String>) -> Result<AddProjectOutco
                     missing: false,
                     error: None,
                     counts,
-                },
+                    migration,
+                }),
             })
         }
         Err(err) if is_missing_workspace_error(&err) => {
@@ -1459,7 +1738,7 @@ pub fn init_project(
         if !location.external {
             // Beads is in the expected location, just register it
             let entry = registry::add(&dir_path, name.clone())?;
-            let counts = project_counts(&dir_path);
+            let (counts, migration) = project_counts(&dir_path);
             return Ok(Project {
                 id: entry.id.clone(),
                 name: entry.label.clone(),
@@ -1470,6 +1749,7 @@ pub fn init_project(
                 missing: false,
                 error: None,
                 counts,
+                migration,
             });
         }
     }
@@ -1494,7 +1774,7 @@ pub fn init_project(
     let entry = registry::add(&dir_path, name)?;
 
     // Get the counts
-    let counts = project_counts(&dir_path);
+    let (counts, migration) = project_counts(&dir_path);
 
     Ok(Project {
         id: entry.id.clone(),
@@ -1506,6 +1786,7 @@ pub fn init_project(
         missing: false,
         error: None,
         counts,
+        migration,
     })
 }
 
@@ -1530,7 +1811,7 @@ mod tests {
             json!({"group": "open", "count": 16}),
             json!({"group": "blocked", "count": 9}),
         ];
-        let counts = build_counts_from_groups(&rows);
+        let counts = build_counts_from_groups(&rows, &HashMap::new());
         assert_eq!(counts.open, 16);
         assert_eq!(counts.blocked, 9);
         assert_eq!(counts.in_progress, 0);
@@ -1541,7 +1822,7 @@ mod tests {
 
     #[test]
     fn build_counts_from_groups_handles_empty_groups() {
-        let counts = build_counts_from_groups(&[]);
+        let counts = build_counts_from_groups(&[], &HashMap::new());
         assert_eq!(counts.total, 0);
         assert_eq!(counts.open, 0);
     }
@@ -1549,7 +1830,7 @@ mod tests {
     #[test]
     fn build_counts_from_groups_folds_hooked_into_in_progress() {
         let rows = vec![json!({"group": "hooked", "count": 3})];
-        let counts = build_counts_from_groups(&rows);
+        let counts = build_counts_from_groups(&rows, &HashMap::new());
         assert_eq!(counts.in_progress, 3);
         assert_eq!(counts.total, 3);
     }
@@ -1723,14 +2004,19 @@ mod tests {
     }
 
     #[test]
-    fn delete_bead_args_keep_preview_and_confirmed_commands_separate() {
+    fn delete_and_close_args_never_cascade() {
+        let ids = vec!["bd-board-a2k".to_string(), "bd-board-b3m".to_string()];
         assert_eq!(
-            build_preview_delete_bead_args("bd-board-a2k"),
-            vec!["delete", "bd-board-a2k", "--cascade"]
+            build_preview_delete_bead_args(&ids),
+            vec!["delete", "bd-board-a2k", "bd-board-b3m"]
         );
         assert_eq!(
-            build_delete_bead_args("bd-board-a2k"),
-            vec!["delete", "bd-board-a2k", "--cascade", "--force"]
+            build_delete_bead_args(&ids),
+            vec!["delete", "bd-board-a2k", "bd-board-b3m", "--force"]
+        );
+        assert_eq!(
+            build_close_bead_args("bd-board-a2k", Some("done"), true),
+            vec!["close", "bd-board-a2k", "--reason", "done", "--force"]
         );
     }
 
@@ -1771,6 +2057,72 @@ mod tests {
 
         let result = bd_error_message(stdout, stderr, &status);
         assert!(result.contains("boom"));
+    }
+
+    #[test]
+    fn bd_error_message_reads_json_on_stderr() {
+        let stderr = r#"{"message":"bad input","hint":"fix it"}"#;
+        let status = std::process::Command::new("false").output().unwrap().status;
+        assert_eq!(bd_error_message("", stderr, &status), "bad input (fix it)");
+    }
+
+    #[test]
+    fn build_counts_folds_custom_statuses_by_category() {
+        let rows = vec![
+            json!({"group": "review", "count": 2}),
+            json!({"group": "qa", "count": 3}),
+            json!({"group": "parked", "count": 4}),
+            json!({"group": "unknown", "count": 5}),
+            json!({"group": "pinned", "count": 1}),
+        ];
+        let categories = HashMap::from([
+            ("review".to_string(), "wip".to_string()),
+            ("qa".to_string(), "done".to_string()),
+            ("parked".to_string(), "frozen".to_string()),
+        ]);
+        let counts = build_counts_from_groups(&rows, &categories);
+        assert_eq!(counts.in_progress, 2);
+        assert_eq!(counts.closed, 3);
+        assert_eq!(counts.deferred, 4);
+        assert_eq!(counts.open, 6);
+        assert_eq!(counts.total, 15);
+    }
+
+    #[test]
+    fn deletion_set_follows_parent_child_edges_breadth_first() {
+        let raws = vec![
+            json!({"id": "root"}),
+            json!({"id": "a", "parent": "root"}),
+            json!({"id": "b", "parent": "root"}),
+            json!({"id": "c", "dependencies": [{"depends_on_id": "root", "type": "parent-child"}]}),
+            json!({"id": "a1", "parent": "a"}),
+            json!({"id": "other"}),
+        ];
+        assert_eq!(deletion_set(&raws, "root"), ["root", "a", "b", "c", "a1"]);
+    }
+
+    #[test]
+    fn unlinked_dependents_excludes_beads_inside_the_deletion() {
+        let raws = vec![
+            json!({"id": "root", "title": "Root"}),
+            json!({"id": "a", "title": "A", "parent": "root"}),
+            json!({"id": "x", "title": "X", "dependencies": [{"depends_on_id": "root", "type": "blocks"}]}),
+            json!({"id": "y", "title": "Y", "dependencies": [{"depends_on_id": "a", "type": "related"}]}),
+            json!({"id": "z", "title": "Z", "dependencies": [{"issue_id": "a", "depends_on_id": "root", "type": "parent-child"}]}),
+        ];
+        let ids = deletion_set(&raws, "root");
+        let unlinked = unlinked_dependents(&raws, &ids);
+        let found: Vec<(&str, &str)> = unlinked
+            .iter()
+            .map(|u| (u.id.as_str(), u.kind.as_str()))
+            .collect();
+        assert_eq!(found, [("x", "blocks"), ("y", "related")]);
+    }
+
+    #[test]
+    fn clean_delete_preview_drops_cli_hints() {
+        let text = "2 beads\n  x has dependents not in deletion set\nTo proceed, run:\n  bd delete x --force\n";
+        assert_eq!(clean_delete_preview(text), "2 beads\n  bd delete x --force");
     }
 
     #[test]
@@ -1853,7 +2205,7 @@ mod tests {
     #[test]
     fn add_project_outcome_registered_serializes_with_project_payload() {
         let outcome = AddProjectOutcome::Registered {
-            project: Project {
+            project: Box::new(Project {
                 id: "bd-board".to_string(),
                 name: "bd-board".to_string(),
                 dir: "/Users/jeanpfs/Code/bd-board".to_string(),
@@ -1862,8 +2214,9 @@ mod tests {
                 external: true,
                 missing: false,
                 error: None,
-                counts: build_counts_from_groups(&[]),
-            },
+                counts: build_counts_from_groups(&[], &HashMap::new()),
+                migration: None,
+            }),
         };
         let value = serde_json::to_value(&outcome).unwrap();
         assert_eq!(

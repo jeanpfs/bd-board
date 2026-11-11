@@ -1,6 +1,21 @@
 import { clsx } from 'clsx'
 import type { ClassValue } from 'clsx'
-import { twMerge } from 'tailwind-merge'
+import { extendTailwindMerge } from 'tailwind-merge'
+
+import { stripMigrationGate } from './migration-gate.ts'
+
+/*
+ * Custom @theme scales from src/styles.css. Without them tailwind-merge reads
+ * `text-badge` as a text color and drops it next to `text-muted-foreground`.
+ */
+const twMerge = extendTailwindMerge({
+  extend: {
+    theme: {
+      text: ['badge', 'body', 'title', 'metric'],
+      spacing: ['row', 'section', 'page', 'rail'],
+    },
+  },
+})
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -17,7 +32,7 @@ export function initials(name: string): string {
 }
 
 export function toErrorMessage(err: unknown, fallback: string): string {
-  if (typeof err === 'string') return err
-  if (err instanceof Error) return err.message
+  if (typeof err === 'string') return stripMigrationGate(err)
+  if (err instanceof Error) return stripMigrationGate(err.message)
   return fallback
 }

@@ -30,7 +30,7 @@ import type { LucideIcon } from 'lucide-react'
 import type { SortKey } from '@/lib/sort'
 
 export type BoardView = 'status' | 'epic' | 'priority'
-export type ProjectTab = 'board' | 'knowledge' | 'hierarchy'
+export type ProjectTab = 'overview' | 'board' | 'knowledge' | 'hierarchy'
 
 interface BoardHeaderProps {
   search: string
@@ -138,7 +138,16 @@ export function BoardHeader({
           {liveIndicator}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5"
+                aria-label={
+                  priorities.length > 0
+                    ? `Filter by priority (${priorities.length} selected)`
+                    : 'Filter by priority'
+                }
+              >
                 <SlidersHorizontal className="size-3.5" aria-hidden="true" />
                 Priority
                 {priorities.length > 0 ? (
@@ -183,6 +192,7 @@ export function BoardHeader({
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-8 gap-1.5">
                 <ArrowUpDown className="size-3.5" aria-hidden="true" />
+                <span className="text-muted-foreground">Sort:</span>
                 {SORT_OPTIONS.find((o) => o.key === sort)?.label}
               </Button>
             </DropdownMenuTrigger>

@@ -74,32 +74,32 @@ function TreeNode({
           <span
             className={cn(
               'size-1.5 shrink-0 rounded-full',
-              STATUS_DOT_CLASS[mapStatus(bead.status).column],
+              STATUS_DOT_CLASS[mapStatus(bead).column],
             )}
             aria-hidden="true"
           />
-          <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+          <span className="shrink-0 font-mono text-badge text-muted-foreground">
             {bead.id}
           </span>
           <span
             className={cn(
-              'shrink-0 rounded-[4px] px-1 py-px font-mono text-[10px] font-semibold tabular-nums ring-1 ring-inset ring-current',
+              'shrink-0 rounded-[4px] px-1 py-px font-mono text-badge font-semibold tabular-nums ring-1 ring-inset ring-current',
               PRIORITY_TEXT_CLASS[priority],
             )}
           >
             P{priority}
           </span>
           {epic ? (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-[4px] bg-primary/30 px-1.5 py-px text-[10px] font-semibold tracking-[0.06em] text-primary-text uppercase ring-1 ring-inset ring-ring/45">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-[4px] bg-primary/30 px-1.5 py-px text-badge font-semibold tracking-[0.06em] text-primary-text uppercase ring-1 ring-inset ring-ring/45">
               <Layers className="size-2.5" aria-hidden="true" />
               Epic
             </span>
           ) : null}
-          <span className="truncate text-[12.75px] text-foreground">
+          <span className="truncate text-body text-foreground">
             {bead.title}
           </span>
           {hasChildren ? (
-            <span className="ml-auto shrink-0 font-mono text-[10.5px] tabular-nums text-faint">
+            <span className="ml-auto shrink-0 font-mono text-badge tabular-nums text-faint">
               {children.length}
             </span>
           ) : null}

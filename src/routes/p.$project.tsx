@@ -18,17 +18,25 @@ import { BoardSwimlanes } from '@/components/board-swimlanes'
 import { KanbanColumn } from '@/components/kanban-column'
 import { BeadCard } from '@/components/bead-card'
 import { BeadDetailModal } from '@/components/bead-detail-modal'
+import { CloseBeadDialog } from '@/components/close-bead-dialog'
+import { MigrationGateCard } from '@/components/migration-gate-card'
 import { HierarchyView } from '@/components/hierarchy-view'
 import { KnowledgeDetailModal } from '@/components/knowledge-detail-modal'
 import { CreateBeadDialog } from '@/components/create-bead-dialog'
 import { ProjectKnowledgePanel } from '@/components/project-knowledge-panel'
 import { LiveUpdatesIndicator } from '@/components/live-updates-indicator'
 import { Button } from '@/components/ui/button'
-import { getBeads, updateBeadStatusFn } from '@/lib/server'
+import { getBeads, getProjects, updateBeadStatusFn } from '@/lib/server'
 import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
 import { beadMatches, compareBeads } from '@/lib/sort'
 import { toErrorMessage } from '@/lib/utils'
+import { closeRefusalReason } from '@/lib/close-policy'
+import {
+  migrationGateFromMessage,
+  stripMigrationGate,
+} from '@/lib/migration-gate'
 import { useBeadFeed } from '@/hooks/use-bead-feed'
+import { ProjectOverview } from '@/components/project-overview'
 
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import type { BoardView, ProjectTab } from '@/components/board-header'
@@ -49,7 +57,7 @@ interface BoardSearch {
 }
 
 const BOARD_VIEWS = new Set(['status', 'epic', 'priority'])
-const PROJECT_TABS = new Set(['board', 'knowledge', 'hierarchy'])
+const PROJECT_TABS = new Set(['overview', 'board', 'knowledge', 'hierarchy'])
 const SORT_KEYS = new Set(['priority', 'recent', 'title'])
 
 function parsePriorityParam(value?: string): number[] {
@@ -125,11 +133,16 @@ function BoardPage() {
 
   const [createOpen, setCreateOpen] = useState(false)
   const [activeBead, setActiveBead] = useState<Bead | null>(null)
+  const [closing, setClosing] = useState<{
+    bead: Bead
+    refusal: string
+  } | null>(null)
+  const [gateOpen, setGateOpen] = useState(false)
 
   const beadParam = boardSearch.bead
   const knowledgeParam = boardSearch.k
   const search = boardSearch.q ?? ''
-  const tab = boardSearch.tab ?? 'board'
+  const tab = boardSearch.tab ?? 'overview'
   const view = boardSearch.view ?? 'epic'
   const priorities = useMemo(
     () => parsePriorityParam(boardSearch.p),
@@ -156,6 +169,22 @@ function BoardPage() {
     staleTime: 3000,
     retry: false,
   })
+
+  // Shares the rail's query; the dashboard learns about pending migrations
+  // from `bd count`, which still works on a gated database.
+  const projectsQuery = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => getProjects(),
+    staleTime: 5000,
+  })
+  const projectInfo = projectsQuery.data?.find((p) => p.id === project)
+  const migration = projectInfo?.migration ?? null
+  const loadError = beadsQuery.isError
+    ? beadsQuery.error instanceof Error
+      ? beadsQuery.error.message
+      : String(beadsQuery.error)
+    : null
+  const loadGate = loadError ? migrationGateFromMessage(loadError) : null
 
   const beads = beadsQuery.data ?? []
 
@@ -184,8 +213,7 @@ function BoardPage() {
       blocked: [],
       closed: [],
     }
-    for (const bead of filtered)
-      grouped[mapStatus(bead.status).column].push(bead)
+    for (const bead of filtered) grouped[mapStatus(bead).column].push(bead)
     const compare = compareBeads(sort)
     for (const key of COLUMN_KEYS) grouped[key].sort(compare)
     return grouped
@@ -229,7 +257,7 @@ function BoardPage() {
   async function applyDrop(activeId: string, toColumn: BeadColumn) {
     const previous = queryClient.getQueryData<Bead[]>(['beads', project])
     const bead = (previous ?? beads).find((b) => b.id === activeId)
-    if (!bead || mapStatus(bead.status).column === toColumn) return
+    if (!bead || mapStatus(bead).column === toColumn) return
 
     queryClient.setQueryData<Bead[]>(['beads', project], (old) =>
       (old ?? []).map((b) =>
@@ -242,9 +270,10 @@ function BoardPage() {
       })
     } catch (error) {
       queryClient.setQueryData(['beads', project], previous)
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to move bead',
-      )
+      const message = toErrorMessage(error, 'Failed to move bead')
+      const refusal = toColumn === 'closed' ? closeRefusalReason(message) : null
+      if (refusal) setClosing({ bead, refusal })
+      else toast.error(message)
     } finally {
       queryClient.invalidateQueries({ queryKey: ['beads', project] })
     }
@@ -253,7 +282,7 @@ function BoardPage() {
   function columnOfId(id: string): BeadColumn | null {
     if ((COLUMN_KEYS as string[]).includes(id)) return id as BeadColumn
     const bead = beadsById.get(id)
-    return bead ? mapStatus(bead.status).column : null
+    return bead ? mapStatus(bead).column : null
   }
 
   function onDragStart(event: DragStartEvent) {
@@ -304,12 +333,58 @@ function BoardPage() {
         />
       ) : null}
 
+      {migration && !loadGate ? (
+        <div className="mb-2 flex flex-col gap-2">
+          <div className="flex items-center gap-2 rounded-lg bg-warn/10 px-3 py-1.5 text-xs ring-1 ring-inset ring-warn/30">
+            <span className="min-w-0 flex-1 text-muted-foreground">
+              <span className="font-medium text-warn">Read-only.</span> Schema
+              migration pending (v{migration.currentVersion} → v
+              {migration.latestVersion}); bd blocks writes until one clone
+              migrates.
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2 text-xs"
+              aria-expanded={gateOpen}
+              onClick={() => setGateOpen((v) => !v)}
+            >
+              {gateOpen ? 'Hide options' : 'Show options'}
+            </Button>
+          </div>
+          {gateOpen ? <MigrationGateCard gate={migration} /> : null}
+        </div>
+      ) : null}
+
       {beadsQuery.isLoading ? (
         <BoardSkeleton />
+      ) : loadGate ? (
+        <div className="flex flex-1 items-start justify-center overflow-y-auto pt-6">
+          <MigrationGateCard
+            gate={loadGate}
+            detail={stripMigrationGate(loadError!)
+              .split('\n')
+              .slice(1)
+              .join('\n')}
+            onRetry={() => beadsQuery.refetch()}
+          />
+        </div>
       ) : beadsQuery.isError ? (
         <BoardError
           message={toErrorMessage(beadsQuery.error, 'Failed to load beads')}
           onRetry={() => beadsQuery.refetch()}
+        />
+      ) : tab === 'overview' ? (
+        <ProjectOverview
+          project={project}
+          name={projectInfo?.name ?? project}
+          beads={beads}
+          liveIndicator={
+            <LiveUpdatesIndicator status={feed.status} message={feed.message} />
+          }
+          onOpen={openBead}
+          onOpenKnowledge={openKnowledge}
+          onCreate={() => setCreateOpen(true)}
         />
       ) : tab === 'knowledge' ? (
         <ProjectKnowledgePanel
@@ -385,6 +460,13 @@ function BoardPage() {
         epics={epics}
         open={createOpen}
         onOpenChange={setCreateOpen}
+      />
+      <CloseBeadDialog
+        project={project}
+        bead={closing?.bead ?? null}
+        open={closing !== null}
+        onOpenChange={(next) => !next && setClosing(null)}
+        refusal={closing?.refusal}
       />
     </div>
   )

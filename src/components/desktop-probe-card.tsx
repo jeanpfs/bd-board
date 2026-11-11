@@ -73,7 +73,7 @@ export function DesktopProbeCard() {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="text-sm font-medium">Desktop shell</p>
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-badge font-medium text-muted-foreground">
               <Terminal className="size-3" aria-hidden="true" />
               Tauri
             </span>

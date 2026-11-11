@@ -1,221 +1,159 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { ArrowUpRight, MoreVertical } from 'lucide-react'
-import { useQueryClient } from '@tanstack/react-query'
-import { getBeads } from '@/lib/server'
+import { ArrowRight } from 'lucide-react'
 
-import { ProgressRing } from '@/components/progress-ring'
-import { Button } from '@/components/ui/button'
-import { EditProjectModal } from '@/components/edit-project-modal'
 import { ConfirmDeleteModal } from '@/components/confirm-delete-modal'
+import { EditProjectModal } from '@/components/edit-project-modal'
+import { SIGNAL_ICON } from '@/components/home-sections'
+import { ProjectActionsMenu } from '@/components/project-actions-menu'
+import { ProjectChip } from '@/components/project-chip'
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
-import type { Project } from '@/lib/types'
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card'
+import { lastActivity, projectHeadline, projectProblem } from '@/lib/attention'
+import { isReady } from '@/lib/sort'
+import { relativeDate } from '@/lib/time'
+import { cn } from '@/lib/utils'
 
-interface LegendItem {
-  key: string
-  label: string
-  value: number
-  dotClassName: string
-  textClassName: string
-}
+import type { Bead, Project } from '@/lib/types'
 
-const SEGMENT_ORDER: {
-  key: 'closed' | 'in_progress' | 'blocked' | 'open'
-  className: string
-}[] = [
-  { key: 'closed', className: 'bg-status-closed' },
-  { key: 'in_progress', className: 'bg-status-progress' },
-  { key: 'blocked', className: 'bg-status-blocked' },
-  { key: 'open', className: 'bg-status-open' },
-]
+const TONE_CLASS = {
+  danger: 'text-status-blocked',
+  warn: 'text-warn',
+  default: 'text-foreground',
+} as const
 
-export function ProjectCard({ project }: { project: Project }) {
-  const queryClient = useQueryClient()
+/**
+ * One project on the home: a single headline number (see `projectHeadline`),
+ * one line of context, and the full counts on hover.
+ */
+export function ProjectCard({
+  project,
+  index,
+  beads,
+}: {
+  project: Project
+  /** Registry position; picks the chip color. */
+  index: number
+  beads?: Bead[]
+}) {
   const [isEditing, setIsEditing] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
   const { counts } = project
+  const problem = projectProblem(project)
+  const headline = projectHeadline(project, beads)
   const open = counts.open + counts.deferred
-  const pctDone = counts.total > 0 ? (counts.closed / counts.total) * 100 : null
+  const active = beads ? lastActivity(beads) : undefined
 
-  const barCounts = {
-    closed: counts.closed,
-    in_progress: counts.in_progress,
-    blocked: counts.blocked,
-    open,
-  }
+  // Context line: what the headline did not already say.
+  const meta = problem
+    ? [project.dir]
+    : [
+        headline.label !== 'open' && open > 0 ? `${open} open` : null,
+        counts.in_progress > 0 ? `${counts.in_progress} in progress` : null,
+        active ? `active ${relativeDate(active)}` : null,
+      ].filter(Boolean)
 
-  const legend: LegendItem[] = [
-    {
-      key: 'closed',
-      label: 'Closed',
-      value: counts.closed,
-      dotClassName: 'bg-status-closed',
-      textClassName: 'text-status-closed',
-    },
-    {
-      key: 'in_progress',
-      label: 'In Progress',
-      value: counts.in_progress,
-      dotClassName: 'bg-status-progress',
-      textClassName: 'text-status-progress',
-    },
-    {
-      key: 'blocked',
-      label: 'Blocked',
-      value: counts.blocked,
-      dotClassName: 'bg-status-blocked',
-      textClassName: 'text-status-blocked',
-    },
-    {
-      key: 'open',
-      label: 'Open',
-      value: open,
-      dotClassName: 'bg-status-open',
-      textClassName: 'text-status-open',
-    },
+  const details = [
+    { label: 'open', value: open },
+    { label: 'in progress', value: counts.in_progress },
+    { label: 'blocked', value: counts.blocked },
+    { label: 'ready', value: beads ? beads.filter(isReady).length : null },
+    { label: 'closed', value: counts.closed },
   ]
 
-  // Handle error or missing state
-  if (project.error || project.missing) {
-    return (
-      <div className="rounded-[12px] outline-none focus-visible:ring-2 focus-visible:ring-ring/60">
-        <div className="flex h-full items-start gap-3 rounded-[12px] bg-card/50 p-4 shadow-card ring-1 ring-inset ring-border/50">
-          <div className="flex min-w-0 flex-1 flex-col">
-            <h3 className="truncate text-[15px] font-medium tracking-[-0.01em] text-muted-foreground">
-              {project.name}
-            </h3>
-            <p className="mt-[3px] font-mono text-[11px] text-faint">
-              {project.error || 'Folder not found'}
-            </p>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const ProblemIcon = problem ? SIGNAL_ICON[problem.kind].icon : null
 
   return (
     <>
-      <Link
-        to="/p/$project"
-        params={{ project: project.id }}
-        onMouseEnter={() =>
-          queryClient.prefetchQuery({
-            queryKey: ['beads', project.id],
-            queryFn: () => getBeads({ data: { project: project.id } }),
-            staleTime: 3000,
-          })
-        }
-        className="group block rounded-[12px] outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-      >
-        <div className="relative flex h-full items-start gap-3 rounded-[12px] bg-card p-4 shadow-card ring-1 ring-inset ring-border transition-[background-color,box-shadow,transform] duration-[140ms] ease-out group-hover:-translate-y-0.5 group-hover:bg-card-hover group-hover:shadow-[0_8px_22px_-8px_oklch(0_0_0/60%)] group-hover:ring-ring/45">
-          <div className="flex items-start gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <h3 className="truncate text-[15px] font-medium tracking-[-0.01em]">
+      <div className="group relative">
+        <HoverCard openDelay={500} closeDelay={80}>
+          <HoverCardTrigger asChild>
+            <Link
+              to="/p/$project"
+              params={{ project: project.id }}
+              className="flex h-full flex-col gap-3 rounded-xl bg-card p-4 ring-1 ring-transparent ring-inset outline-none transition-colors hover:bg-card-hover hover:ring-border focus-visible:ring-2 focus-visible:ring-ring/60"
+            >
+              <span className="flex min-w-0 items-center gap-2.5 pr-12">
+                <ProjectChip name={project.name} index={index} size={22} />
+                <span className="truncate text-sm font-medium text-foreground">
                   {project.name}
-                </h3>
-                <ArrowUpRight
-                  className="size-3.5 shrink-0 text-transparent transition-colors duration-[140ms] group-hover:text-primary-text"
-                  aria-hidden="true"
-                />
-              </div>
-              <p
-                className="mt-[3px] font-mono text-[11px] text-faint truncate"
-                title={project.beadsPath}
-              >
-                {project.beadsPath}
-              </p>
-            </div>
-
-            <ProgressRing value={pctDone} />
-          </div>
-
-          {counts.total > 0 ? (
-            <span className="mt-3.5 flex h-[5px] w-full overflow-hidden rounded-full bg-white/7">
-              {SEGMENT_ORDER.filter((s) => barCounts[s.key] > 0).map((s) => (
-                <span
-                  key={s.key}
-                  className={s.className}
-                  style={{
-                    width: `${(barCounts[s.key] / counts.total) * 100}%`,
-                  }}
-                />
-              ))}
-            </span>
-          ) : null}
-
-          <div className="mt-3.5 grid grid-cols-2 gap-x-3.5 gap-y-1.5">
-            {legend.map((item) => (
-              <span
-                key={item.key}
-                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
-              >
-                <span
-                  className={`size-1.5 shrink-0 rounded-full ${item.dotClassName}`}
-                  aria-hidden="true"
-                />
-                <span
-                  className={`font-mono font-medium tabular-nums ${item.textClassName}`}
-                >
-                  {item.value}
                 </span>
-                <span className="truncate">{item.label}</span>
               </span>
-            ))}
-          </div>
-          <Popover open={menuOpen} onOpenChange={setMenuOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                size="icon-xs"
-                variant="ghost"
-                title="Project actions"
-                className="absolute top-2 right-2 opacity-0 transition-opacity duration-[140ms] group-hover:opacity-100"
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                }}
+              <span
+                className={cn(
+                  'flex min-w-0 items-baseline gap-2',
+                  TONE_CLASS[headline.tone],
+                )}
               >
-                <MoreVertical className="size-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-32 p-1" side="left" align="start">
-              <div className="flex flex-col gap-0.5">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="justify-start text-sm"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    setIsEditing(true)
-                    setMenuOpen(false)
-                  }}
+                {ProblemIcon ? (
+                  <ProblemIcon
+                    className="size-4 shrink-0 self-center"
+                    aria-hidden="true"
+                  />
+                ) : null}
+                {headline.value !== null ? (
+                  <span className="text-metric leading-none font-semibold tabular-nums">
+                    {headline.value}
+                  </span>
+                ) : null}
+                <span
+                  className={cn(
+                    'truncate text-body',
+                    headline.value !== null &&
+                      headline.tone === 'default' &&
+                      'text-muted-foreground',
+                  )}
                 >
-                  Edit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="justify-start text-sm text-destructive hover:text-destructive"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    setIsDeleting(true)
-                    setMenuOpen(false)
-                  }}
-                >
-                  Delete
-                </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
-      </Link>
+                  {headline.label}
+                </span>
+              </span>
+              <span
+                className="truncate text-xs text-muted-foreground"
+                title={problem ? project.dir : undefined}
+              >
+                {meta.length > 0 ? meta.join(' · ') : 'No activity yet'}
+              </span>
+            </Link>
+          </HoverCardTrigger>
+          {problem ? null : (
+            <HoverCardContent align="start" className="w-auto">
+              <dl className="flex gap-4 text-xs text-muted-foreground">
+                {details.map((d) => (
+                  <div key={d.label} className="flex items-baseline gap-1">
+                    <dt className="sr-only">{d.label}</dt>
+                    <dd className="font-medium text-foreground tabular-nums">
+                      {d.value ?? '–'}
+                    </dd>
+                    <span aria-hidden="true">{d.label}</span>
+                  </div>
+                ))}
+              </dl>
+            </HoverCardContent>
+          )}
+        </HoverCard>
+        <ArrowRight
+          className="pointer-events-none absolute top-[22px] right-4 size-3.5 text-faint transition-colors group-hover:text-foreground"
+          aria-hidden="true"
+        />
+        <ProjectActionsMenu
+          projectName={project.name}
+          side="left"
+          onEdit={() => setIsEditing(true)}
+          onDelete={() => setIsDeleting(true)}
+          className={cn(
+            'absolute top-3 right-9 focus-visible:opacity-100',
+            // A broken project keeps its menu visible: Edit (fix the path)
+            // and Delete are the only ways to resolve it from the home.
+            problem?.kind === 'missing' || problem?.kind === 'error'
+              ? 'opacity-100'
+              : 'opacity-0 group-hover:opacity-100',
+          )}
+          iconClassName="size-4"
+        />
+      </div>
       {isEditing && (
         <EditProjectModal
           open={isEditing}

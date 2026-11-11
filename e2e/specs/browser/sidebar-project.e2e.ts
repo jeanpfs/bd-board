@@ -14,7 +14,7 @@ describe('sidebar collapse inside a project', () => {
       desktop_probe: null,
       get_project_knowledge: { entries: [] },
     })
-    await $('nav[aria-label="Projects"] li a').waitForExist({ timeout: 20000 })
+    await $('nav[aria-label="Project"] li a').waitForExist({ timeout: 20000 })
   })
 
   it('hides the Quick filters group when collapsed', async () => {
@@ -26,12 +26,12 @@ describe('sidebar collapse inside a project', () => {
     expect(await $$('nav[aria-label="Quick filters"]')).toHaveLength(0)
   })
 
-  it('renders project rows as centered icons with a title tooltip', async () => {
+  it('renders the project views as centered icons with a title tooltip', async () => {
     await $('[aria-label="Collapse sidebar"]').click()
     await waitForSidebarWidth(COLLAPSED)
 
     const rows = await browser.execute(() =>
-      [...document.querySelectorAll('nav[aria-label="Projects"] li a')].map(
+      [...document.querySelectorAll('nav[aria-label="Project"] li a')].map(
         (a) => ({
           title: a.getAttribute('title'),
           text: (a as HTMLElement).innerText.trim(),
@@ -41,14 +41,43 @@ describe('sidebar collapse inside a project', () => {
       ),
     )
 
-    expect(rows).toHaveLength(1)
+    expect(rows.map((r) => r.title)).toEqual([
+      'Overview',
+      'Board',
+      'Hierarchy',
+      'Knowledge',
+    ])
     expect(rows[0]).toEqual({
-      title: 'tako',
+      title: 'Overview',
       text: '',
       hasIcon: true,
       justify: 'center',
     })
   })
+
+  it('lands on the Overview and marks it current', async () => {
+    const current = await browser.execute(() =>
+      [...document.querySelectorAll('nav[aria-label="Project"] a')]
+        .filter((a) => a.getAttribute('aria-current') === 'page')
+        .map((a) => (a as HTMLElement).innerText.trim()),
+    )
+    expect(current).toEqual(['Overview'])
+  })
+
+  it('switches back to all projects from the switcher', async () => {
+    await $('aside [aria-label^="Switch project"]').click()
+    const item = await $('[role="menuitem"]*=tako')
+    await expect(item).toBeDisplayed()
+    expect(await item.$('[aria-label="Current"]').isExisting()).toBe(true)
+
+    await $('[role="menuitem"]*=All projects').click()
+    await browser.waitUntil(
+      async () => (await browser.getUrl()).endsWith('/') === true,
+      { timeout: 5000, timeoutMsg: 'navigation to all projects failed' },
+    )
+    await expect($('nav[aria-label="Projects"]')).toBeDisplayed()
+  })
+
   it('Home link is displayed and not active when inside a project', async () => {
     const homeLink = await $('nav[aria-label="Home"] a')
     await expect(homeLink).toBeDisplayed()

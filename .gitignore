@@ -22,4 +22,5 @@ src-tauri/gen/
 .agents/
 .claude/
 .codex/
+.impeccable/
 logs/

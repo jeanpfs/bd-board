@@ -8,7 +8,8 @@ Visual kanban board and multi-project dashboard for [`bd` (beads)](https://githu
 
 ## Features
 
-- Multi-project dashboard with live status counts.
+- Home across projects: what needs you now (open P0s, blocked or stale work, unreadable projects), projects ordered by urgency, your assigned beads, and recent updates.
+- Project overview: needs attention, epic progress, ready to pick up, in progress, and the latest decisions from Knowledge.
 - Board view grouped by status or by epic swimlanes.
 - Priority filtering, text search, and sort controls with URL state.
 - Epic progress from child beads.
@@ -20,7 +21,7 @@ Visual kanban board and multi-project dashboard for [`bd` (beads)](https://githu
 
 - Node.js 24+.
 - pnpm 10+.
-- `bd` 1.3.0 or newer. Older versions are not supported (the board relies on the events journal for live updates).
+- `bd` 1.3.0 or newer; 1.3.4 recommended (1.3.3 fixed security and data-loss bugs). Older versions are not supported (the board relies on the events journal for live updates).
 - Repositories with `.beads/metadata.json` under the configured roots.
 
 **Live updates:** the board subscribes to `bd events tail --follow` and refetches only when the journal reports a change (plus a 60 s safety refetch). When a project's journal is off, the board enables it automatically by running `bd config set events-journal true` in that project (a one-time write to its beads config) and shows a toast. It falls back to 8 s polling only while connecting or after a transient feed error.

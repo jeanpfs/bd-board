@@ -4,6 +4,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { bdAdapter } from './bd.ts'
 import {
   parseBeadInput,
+  parseCloseBeadInput,
   parseCommentInput,
   parseCreateBeadInput,
   parseProjectInput,
@@ -18,6 +19,7 @@ import type {
   BeadFeedMessage,
   BeadDetail,
   BeadUpdate,
+  DeletePlan,
   Project,
   ProjectKnowledge,
 } from './types.ts'
@@ -49,6 +51,16 @@ const webUpdateBeadStatus = createServerFn({ method: 'POST' })
     return { ok: true as const }
   })
 
+const webCloseBead = createServerFn({ method: 'POST' })
+  .validator(parseCloseBeadInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.closeBead(data.project, data.id, {
+      reason: data.reason,
+      force: data.force,
+    })
+    return { ok: true as const }
+  })
+
 const webUpdateBead = createServerFn({ method: 'POST' })
   .validator(parseUpdateBeadInput)
   .handler(async ({ data }) => {
@@ -58,10 +70,7 @@ const webUpdateBead = createServerFn({ method: 'POST' })
 
 const webPreviewDeleteBead = createServerFn({ method: 'POST' })
   .validator(parseBeadInput)
-  .handler(async ({ data }) => {
-    const preview = await bdAdapter.previewDeleteBead(data.project, data.id)
-    return { preview }
-  })
+  .handler(({ data }) => bdAdapter.previewDeleteBead(data.project, data.id))
 
 const webDeleteBead = createServerFn({ method: 'POST' })
   .validator(parseBeadInput)
@@ -152,6 +161,23 @@ export async function updateBeadStatusFn({
   return webUpdateBeadStatus({ data })
 }
 
+export async function closeBeadFn({
+  data,
+}: {
+  data: { project: string; id: string; reason?: string; force?: boolean }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('close_bead', {
+      projectId: data.project,
+      id: data.id,
+      reason: data.reason,
+      force: data.force ?? false,
+    })
+    return { ok: true }
+  }
+  return webCloseBead({ data })
+}
+
 export async function updateBeadFn({
   data,
 }: {
@@ -172,13 +198,12 @@ export async function previewDeleteBeadFn({
   data,
 }: {
   data: { project: string; id: string }
-}): Promise<{ preview: string }> {
+}): Promise<DeletePlan> {
   if (isDesktopApp()) {
-    const preview = await invoke<string>('preview_delete_bead', {
+    return invoke<DeletePlan>('preview_delete_bead', {
       projectId: data.project,
       id: data.id,
     })
-    return { preview }
   }
   return webPreviewDeleteBead({ data })
 }
