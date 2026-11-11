@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { Timer } from 'lucide-react'
 
 import { Input } from '@/components/ui/input'
 import { formatEstimate, parseEstimate } from '@/lib/schedule'
@@ -54,6 +55,7 @@ export function EstimateInput({
 
   return (
     <div className="flex items-center gap-2">
+      <Timer aria-hidden="true" className="text-muted-foreground" />
       <Input
         aria-label="Estimate"
         placeholder="e.g. 3h"

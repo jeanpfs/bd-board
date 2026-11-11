@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { differenceInCalendarDays, format } from 'date-fns'
+import { differenceInCalendarDays, format, startOfDay } from 'date-fns'
+import { CalendarDays } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -11,18 +12,23 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { localDateParam, QUICK_DUE } from '@/lib/schedule'
+import { localDateParam, quickDue } from '@/lib/schedule'
 import { updateBeadFn } from '@/lib/server'
 import { cn, toErrorMessage } from '@/lib/utils'
 
 import type { Bead } from '@/lib/types'
 
-/** Days-until label for the trigger; warns only within a week. */
-function dueWarning(dueAt: string, now: Date): string | null {
+/** Days-until warning for the trigger; `null` beyond a week. */
+function dueWarning(
+  dueAt: string,
+  now: Date,
+): { text: string; tone: 'overdue' | 'soon' } | null {
   const days = differenceInCalendarDays(new Date(dueAt), now)
-  if (days < 0) return 'overdue'
-  if (days === 0) return 'today'
-  if (days <= 7) return `in ${days} ${days === 1 ? 'day' : 'days'}`
+  if (days < 0) return { text: 'overdue', tone: 'overdue' }
+  if (days === 0) return { text: 'today', tone: 'soon' }
+  if (days <= 7) {
+    return { text: `in ${days} ${days === 1 ? 'day' : 'days'}`, tone: 'soon' }
+  }
   return null
 }
 
@@ -42,14 +48,25 @@ export function DueDatePicker({
   const now = new Date()
   const due = bead.due_at ? new Date(bead.due_at) : undefined
   const warning = bead.due_at ? dueWarning(bead.due_at, now) : null
+  const shownDay = pickedDay ?? (due ? startOfDay(due) : undefined)
+
+  function reset() {
+    setDraft(null)
+    setPickedDay(undefined)
+  }
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next)
+    // Closing without saving discards the draft.
+    if (!next) reset()
+  }
 
   const mutation = useMutation({
     mutationFn: (value: string) =>
       updateBeadFn({ data: { project, id: bead.id, update: { due: value } } }),
     onSuccess: () => {
       setOpen(false)
-      setDraft(null)
-      setPickedDay(undefined)
+      reset()
       queryClient.invalidateQueries({ queryKey: ['beads', project] })
       queryClient.invalidateQueries({ queryKey: ['bead', project, bead.id] })
     },
@@ -69,22 +86,32 @@ export function DueDatePicker({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="h-[30px] rounded-[7px]">
+          <CalendarDays aria-hidden="true" className="text-muted-foreground" />
           {due ? (
             <span className="tabular-nums">{format(due, 'EEE, MMM d')}</span>
           ) : (
             <span className="text-muted-foreground">No due date</span>
           )}
           {warning ? (
-            <span className="text-badge text-muted-foreground">{warning}</span>
+            <span
+              className={cn(
+                'text-badge',
+                warning.tone === 'overdue'
+                  ? 'text-status-blocked'
+                  : 'text-warn',
+              )}
+            >
+              {warning.text}
+            </span>
           ) : null}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[268px] gap-3 p-3">
         <div className="flex flex-col gap-1">
-          {QUICK_DUE.map((quick) => (
+          {quickDue(now).map((quick) => (
             <InteractiveRow
               key={quick.label}
               variant="plain"
@@ -96,10 +123,13 @@ export function DueDatePicker({
               onClick={() => pickQuick(quick.value)}
             >
               <span>{quick.label}</span>
+              <span className="ml-auto text-body tabular-nums text-muted-foreground">
+                {quick.hint}
+              </span>
             </InteractiveRow>
           ))}
         </div>
-        <Calendar selected={pickedDay} onSelect={pickDay} />
+        <Calendar selected={shownDay} onSelect={pickDay} />
         <p className="truncate font-mono text-badge text-muted-foreground">
           bd update {bead.id} --due {draft ?? '<value>'}
         </p>

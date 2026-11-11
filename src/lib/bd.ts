@@ -851,7 +851,7 @@ async function planDelete(
   id: string,
 ): Promise<{ beads: Bead[]; ids: string[] }> {
   const beads = buildBeadGraph(
-    await bdJson<Record<string, unknown>[]>(dir, ['list', '--all', '--json']),
+    await bdJson<Record<string, unknown>[]>(dir, buildListBeadsArgs()),
   )
   if (!beads.some((b) => b.id === id)) throw new Error(`bead not found: ${id}`)
   return { beads, ids: deletionSet(beads, id) }

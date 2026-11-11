@@ -6,6 +6,7 @@ import {
   endOfWeek,
   format,
   isSameDay,
+  isToday,
   isSameMonth,
   startOfMonth,
   startOfWeek,
@@ -66,7 +67,9 @@ function Calendar({ selected, onSelect }: CalendarProps) {
           return (
             <Button
               key={day.toISOString()}
-              variant={isSelected ? 'default' : 'ghost'}
+              variant={
+                isSelected ? 'default' : isToday(day) ? 'outline' : 'ghost'
+              }
               size="icon-xs"
               aria-label={format(day, 'PPP')}
               aria-pressed={isSelected}

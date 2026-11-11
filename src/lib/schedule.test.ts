@@ -5,7 +5,7 @@ import {
   formatEstimate,
   localDateParam,
   parseEstimate,
-  QUICK_DUE,
+  quickDue,
 } from './schedule'
 
 describe('parseEstimate', () => {
@@ -88,19 +88,32 @@ describe('dueState', () => {
   })
 })
 
-describe('QUICK_DUE', () => {
+describe('quickDue', () => {
   it('offers bd-parsable values in a fixed order', () => {
-    expect(QUICK_DUE.map((q) => q.label)).toEqual([
-      'Today',
-      'Tomorrow',
-      'Next Monday',
-      'In 2 weeks',
-    ])
-    expect(QUICK_DUE.map((q) => q.value).slice(1)).toEqual([
-      'tomorrow',
-      'next monday',
-      '+2w',
-    ])
-    expect(QUICK_DUE[0]?.value).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    const labels = quickDue(new Date(2026, 10, 11, 12)).map((q) => q.label)
+    expect(labels).toEqual(['Today', 'Tomorrow', 'Next Monday', 'In 2 weeks'])
+    expect(
+      quickDue(new Date(2026, 10, 11, 12))
+        .map((q) => q.value)
+        .slice(1),
+    ).toEqual(['tomorrow', 'next monday', '+2w'])
+  })
+
+  it('takes Today from the clock it is given, so midnight rolls it over', () => {
+    expect(quickDue(new Date(2026, 10, 11, 23, 59))[0]?.value).toBe(
+      '2026-11-11',
+    )
+    expect(quickDue(new Date(2026, 10, 12, 0, 1))[0]?.value).toBe('2026-11-12')
+  })
+
+  it('hints weekdays for the next two days and dates after that', () => {
+    // Wed, Nov 11 2026
+    const hints = quickDue(new Date(2026, 10, 11, 12)).map((q) => q.hint)
+    expect(hints).toEqual(['Wed', 'Thu', 'Nov 16', 'Nov 25'])
+  })
+
+  it('moves next Monday forward when today is Monday', () => {
+    // Mon, Nov 16 2026: the next Monday is Nov 23, not today
+    expect(quickDue(new Date(2026, 10, 16, 9))[2]?.hint).toBe('Nov 23')
   })
 })

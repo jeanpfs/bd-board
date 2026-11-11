@@ -46,11 +46,15 @@ export function SnoozeMenu({ project, bead }: { project: string; bead: Bead }) {
     },
   })
 
-  if (snoozedUntil) {
+  const snoozed = snoozedUntil !== null || bead.status === 'deferred'
+
+  if (snoozed) {
     return (
       <div className="flex items-center gap-2">
         <span className="text-body tabular-nums">
-          Snoozed until {format(snoozedUntil, 'EEE, MMM d')}
+          {snoozedUntil
+            ? `Snoozed until ${format(snoozedUntil, 'EEE, MMM d')}`
+            : 'Snoozed'}
         </span>
         <Button
           variant="outline"

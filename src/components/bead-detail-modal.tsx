@@ -170,7 +170,7 @@ function LinkedBeadList({
               </span>
               <span className="ml-auto flex shrink-0 items-center gap-1.5">
                 {target?.due_at ? (
-                  <span className="font-mono text-badge text-muted-foreground">
+                  <span className="text-badge text-muted-foreground">
                     due {format(new Date(target.due_at), 'MMM d')}
                   </span>
                 ) : null}

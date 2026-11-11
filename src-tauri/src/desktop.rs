@@ -1526,7 +1526,7 @@ fn clean_delete_preview(text: &str) -> String {
 }
 
 fn plan_delete(dir: &Path, id: &str) -> Result<(Vec<Value>, Vec<String>), String> {
-    let raws = bd_json(dir, &["list", "--all", "--json"])?
+    let raws = bd_json(dir, build_list_beads_args())?
         .as_array()
         .cloned()
         .unwrap_or_default();

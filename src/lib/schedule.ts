@@ -1,4 +1,4 @@
-import { differenceInCalendarDays, format } from 'date-fns'
+import { addDays, differenceInCalendarDays, format, startOfDay } from 'date-fns'
 
 /** `90`, `90m`, `3h`, `1h30m`, `1h 30m`, `1.5h` → minutes; null when invalid or ≤ 0. */
 export function parseEstimate(text: string): number | null {
@@ -53,13 +53,44 @@ export function dueState(dueAt: string, now: Date): DueState {
 
 export interface QuickDue {
   label: 'Today' | 'Tomorrow' | 'Next Monday' | 'In 2 weeks'
+  /** What `bd update --due` / `bd defer --until` receives. */
   value: string
+  /** Right-hand hint in the picker: weekday for the next two days, else the date. */
+  hint: string
 }
 
-/** Quick due presets; `value` is what `bd update --due` receives. */
-export const QUICK_DUE: QuickDue[] = [
-  { label: 'Today', value: localDateParam(new Date()) },
-  { label: 'Tomorrow', value: 'tomorrow' },
-  { label: 'Next Monday', value: 'next monday' },
-  { label: 'In 2 weeks', value: '+2w' },
-]
+/** The next Monday strictly after `now`. */
+function nextMonday(now: Date): Date {
+  const daysAhead = (1 - now.getDay() + 7) % 7 || 7
+  return addDays(startOfDay(now), daysAhead)
+}
+
+/**
+ * Quick due presets relative to `now`. Pass the current time at render so
+ * `Today` stays correct across midnight.
+ */
+export function quickDue(now: Date): QuickDue[] {
+  const twoWeeks = addDays(startOfDay(now), 14)
+  return [
+    {
+      label: 'Today',
+      value: localDateParam(now),
+      hint: format(now, 'EEE'),
+    },
+    {
+      label: 'Tomorrow',
+      value: 'tomorrow',
+      hint: format(addDays(now, 1), 'EEE'),
+    },
+    {
+      label: 'Next Monday',
+      value: 'next monday',
+      hint: format(nextMonday(now), 'MMM d'),
+    },
+    {
+      label: 'In 2 weeks',
+      value: '+2w',
+      hint: format(twoWeeks, 'MMM d'),
+    },
+  ]
+}
