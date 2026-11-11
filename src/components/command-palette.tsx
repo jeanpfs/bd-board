@@ -418,7 +418,6 @@ export function CommandPalette() {
                         <span className="font-mono text-xs text-muted-foreground">
                           {branchName(focused.bead)}
                         </span>
-                        <Kbd className="ml-auto">B</Kbd>
                       </CommandItem>
                     ) : null}
                   </CommandGroup>
@@ -441,7 +440,7 @@ export function CommandPalette() {
                         Home
                       </CommandItem>
                     ) : null}
-                    {visibleProjects.map((p, i) => (
+                    {visibleProjects.map((p) => (
                       <CommandItem
                         key={p.id}
                         value={`go:project:${p.id}`}
@@ -459,10 +458,6 @@ export function CommandPalette() {
                         <span className="text-xs text-muted-foreground">
                           {beadsByProject.get(p.id)?.length ?? p.counts.total}{' '}
                           beads
-                        </span>
-                        <span className="ml-auto flex gap-1">
-                          <Kbd>G</Kbd>
-                          <Kbd>{i + 1}</Kbd>
                         </span>
                       </CommandItem>
                     ))}
