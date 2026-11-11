@@ -1,8 +1,11 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core'
+import type { RelationKind, RemovableRelationKind } from './relations.ts'
 import { createServerFn } from '@tanstack/react-start'
 
 import { bdAdapter } from './bd.ts'
 import {
+  parseRelationInput,
+  parseRemoveRelationInput,
   parseBeadInput,
   parseCloseBeadInput,
   parseCommentInput,
@@ -59,6 +62,25 @@ const webCloseBead = createServerFn({ method: 'POST' })
       reason: data.reason,
       force: data.force,
     })
+    return { ok: true as const }
+  })
+
+const webAddRelation = createServerFn({ method: 'POST' })
+  .validator(parseRelationInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.addRelation(data.project, data.id, data.kind, data.target)
+    return { ok: true as const }
+  })
+
+const webRemoveRelation = createServerFn({ method: 'POST' })
+  .validator(parseRemoveRelationInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.removeRelation(
+      data.project,
+      data.id,
+      data.kind,
+      data.target,
+    )
     return { ok: true as const }
   })
 
@@ -192,6 +214,45 @@ export async function closeBeadFn({
     return { ok: true }
   }
   return webCloseBead({ data })
+}
+
+export async function addRelationFn({
+  data,
+}: {
+  data: { project: string; id: string; kind: RelationKind; target: string }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('add_relation', {
+      projectId: data.project,
+      id: data.id,
+      kind: data.kind,
+      target: data.target,
+    })
+    return { ok: true }
+  }
+  return webAddRelation({ data })
+}
+
+export async function removeRelationFn({
+  data,
+}: {
+  data: {
+    project: string
+    id: string
+    kind: RemovableRelationKind
+    target: string
+  }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('remove_relation', {
+      projectId: data.project,
+      id: data.id,
+      kind: data.kind,
+      target: data.target,
+    })
+    return { ok: true }
+  }
+  return webRemoveRelation({ data })
 }
 
 export async function updateBeadFn({

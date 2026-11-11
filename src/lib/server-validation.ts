@@ -1,4 +1,6 @@
 import { LABEL_RE } from './labels'
+import { isRelationKind, isRemovableRelation } from './relations'
+import type { RelationKind, RemovableRelationKind } from './relations'
 import type { BeadColumn, BeadUpdate } from './types'
 
 const PROJECT_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/
@@ -124,6 +126,46 @@ export function parseCloseBeadInput(input: unknown): {
     reason: optionalText(data, 'reason', 2000),
     force,
   }
+}
+
+function relationParts<T extends RelationKind>(
+  data: Record<string, unknown>,
+  kind: T,
+): { project: string; id: string; kind: T; target: string } {
+  const id = requiredString(data, 'id', BEAD_ID_RE, 'Bead id')
+  const target = requiredString(data, 'target', BEAD_ID_RE, 'Target bead id')
+  if (id === target) throw new Error('A bead cannot relate to itself')
+  return {
+    project: requiredString(data, 'project', PROJECT_RE, 'Project'),
+    id,
+    kind,
+    target,
+  }
+}
+
+export function parseRelationInput(input: unknown): {
+  project: string
+  id: string
+  kind: RelationKind
+  target: string
+} {
+  const data = record(input)
+  const kind = data['kind']
+  if (!isRelationKind(kind)) throw new Error('Unknown relation kind')
+  return relationParts(data, kind)
+}
+
+export function parseRemoveRelationInput(input: unknown): {
+  project: string
+  id: string
+  kind: RemovableRelationKind
+  target: string
+} {
+  const data = record(input)
+  const kind = data['kind']
+  if (!isRelationKind(kind) || !isRemovableRelation(kind))
+    throw new Error('Unknown relation kind')
+  return relationParts(data, kind)
 }
 
 export function parseDeferInput(input: unknown): {

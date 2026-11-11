@@ -22,6 +22,8 @@ import {
   parseStatusCategories,
   resolveDir,
   unlinkedDependents,
+  buildShowBeadArgs,
+  mapBeadDetail,
 } from './bd'
 
 describe('buildUpdateBeadArgs', () => {
@@ -73,6 +75,65 @@ describe('buildUpdateBeadArgs', () => {
       '--remove-label',
       'ui',
     ])
+  })
+})
+
+describe('buildShowBeadArgs', () => {
+  it('asks for dependents so the detail can list what is blocked by this bead', () => {
+    expect(buildShowBeadArgs('bd-a')).toEqual([
+      'show',
+      'bd-a',
+      '--include-dependents',
+      '--json',
+    ])
+  })
+})
+
+describe('mapBeadDetail', () => {
+  const issue = (id: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    title: `Title ${id}`,
+    status: 'open',
+    issue_type: 'task',
+    ...extra,
+  })
+
+  it('maps dependencies and dependents with their dependency types', () => {
+    const detail = mapBeadDetail(
+      [
+        issue('bd-a', {
+          dependencies: [issue('bd-up', { dependency_type: 'blocks' })],
+          dependents: [
+            {
+              id: 'bd-down',
+              title: 'Down',
+              status: 'open',
+              issue_type: 'task',
+              dependency_type: 'relates-to',
+              created_at: '0001-01-01T00:00:00Z',
+            },
+          ],
+        }),
+      ],
+      [],
+    )
+    expect(detail.dependencies?.map((d) => [d.id, d.dependency_type])).toEqual([
+      ['bd-up', 'blocks'],
+    ])
+    expect(detail.dependents).toEqual([
+      {
+        id: 'bd-down',
+        title: 'Down',
+        status: 'open',
+        issue_type: 'task',
+        dependency_type: 'relates-to',
+      },
+    ])
+  })
+
+  it('returns no dependents when bd omits them', () => {
+    const detail = mapBeadDetail([issue('bd-a')], [])
+    expect(detail.dependents).toEqual([])
   })
 })
 

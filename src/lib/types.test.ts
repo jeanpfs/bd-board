@@ -82,6 +82,20 @@ describe('groupBeadLinks', () => {
     ).toEqual({ blockedBy: [], blocking: [], related: [] })
   })
 
+  describe('groupBeadLinks relates-to', () => {
+    it('keeps relates-to links in the related group', () => {
+      expect(
+        groupBeadLinks([
+          { id: 'ravo-x', type: 'relates-to', direction: 'outgoing' },
+        ]),
+      ).toEqual({
+        blockedBy: [],
+        blocking: [],
+        related: [{ id: 'ravo-x', type: 'relates-to', direction: 'outgoing' }],
+      })
+    })
+  })
+
   it('handles a bead with no links', () => {
     expect(groupBeadLinks()).toEqual({
       blockedBy: [],

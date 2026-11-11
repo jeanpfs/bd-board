@@ -156,6 +156,7 @@ pub struct BeadDetail {
     #[serde(flatten)]
     pub bead: Bead,
     pub dependencies: Vec<RelatedBead>,
+    pub dependents: Vec<RelatedBead>,
     pub comments: Vec<Comment>,
 }
 
@@ -1155,9 +1156,42 @@ fn list_beads_inner(project_id: &str) -> Result<Vec<Bead>, String> {
     Ok(derive_children(beads))
 }
 
+fn build_show_bead_args(id: &str) -> Vec<String> {
+    vec![
+        "show".to_string(),
+        id.to_string(),
+        "--include-dependents".to_string(),
+        "--json".to_string(),
+    ]
+}
+
+fn map_related_bead(d: &Value) -> RelatedBead {
+    RelatedBead {
+        id: value_str(d, "id"),
+        title: value_str(d, "title"),
+        status: value_str(d, "status"),
+        issue_type: value_str(d, "issue_type"),
+        dependency_type: value_str(d, "dependency_type"),
+        due_at: value_present_str(d, "due_at"),
+    }
+}
+
+fn map_related_list(raw: &Value, key: &str) -> Vec<RelatedBead> {
+    raw.get(key)
+        .and_then(Value::as_array)
+        .map(|items| items.iter().map(map_related_bead).collect())
+        .unwrap_or_default()
+}
+
 fn get_bead_detail_inner(project_id: &str, id: &str) -> Result<BeadDetail, String> {
     let dir = resolve_dir(project_id)?;
-    let raw_arr = bd_json(&dir, &["show", id, "--json"])?;
+    let raw_arr = bd_json(
+        &dir,
+        &build_show_bead_args(id)
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+    )?;
     let raw_comments = bd_json(&dir, &["comments", id, "--json"]).ok();
 
     let raw = raw_arr
@@ -1166,23 +1200,8 @@ fn get_bead_detail_inner(project_id: &str, id: &str) -> Result<BeadDetail, Strin
         .cloned()
         .unwrap_or(Value::Object(Default::default()));
     let bead = map_bead(&raw, &HashMap::new());
-    let raw_deps = raw
-        .get("dependencies")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-
-    let dependencies = raw_deps
-        .into_iter()
-        .map(|d| RelatedBead {
-            id: value_str(&d, "id"),
-            title: value_str(&d, "title"),
-            status: value_str(&d, "status"),
-            issue_type: value_str(&d, "issue_type"),
-            dependency_type: value_str(&d, "dependency_type"),
-            due_at: value_present_str(&d, "due_at"),
-        })
-        .collect();
+    let dependencies = map_related_list(&raw, "dependencies");
+    let dependents = map_related_list(&raw, "dependents");
 
     let comments = match raw_comments {
         Some(Value::Array(items)) => items.into_iter().map(|v| map_comment(&v)).collect(),
@@ -1192,6 +1211,7 @@ fn get_bead_detail_inner(project_id: &str, id: &str) -> Result<BeadDetail, Strin
     Ok(BeadDetail {
         bead,
         dependencies,
+        dependents,
         comments,
     })
 }
@@ -1384,6 +1404,30 @@ fn build_close_bead_args(id: &str, reason: Option<&str>, force: bool) -> Vec<Str
     args
 }
 
+/// Mirrors the editor's relation kinds: each maps to the bd command that creates it.
+fn build_add_relation_args(kind: &str, id: &str, target: &str) -> Result<Vec<String>, String> {
+    let args: Vec<&str> = match kind {
+        "blocked-by" => vec!["dep", "add", id, target],
+        "blocks" => vec!["dep", "add", target, id],
+        "relates-to" => vec!["dep", "relate", id, target],
+        "duplicate-of" => vec!["duplicate", id, "--of", target],
+        "supersedes" => vec!["supersede", target, "--with", id],
+        other => return Err(format!("Unknown relation kind: {other}")),
+    };
+    Ok(args.into_iter().map(str::to_string).collect())
+}
+
+/// Removes an edge created by `build_add_relation_args`; duplicate-of and supersedes have no removal.
+fn build_remove_relation_args(kind: &str, id: &str, target: &str) -> Result<Vec<String>, String> {
+    let args: Vec<&str> = match kind {
+        "blocked-by" => vec!["dep", "remove", id, target],
+        "blocks" => vec!["dep", "remove", target, id],
+        "relates-to" => vec!["dep", "unrelate", id, target],
+        other => return Err(format!("Relation kind cannot be removed: {other}")),
+    };
+    Ok(args.into_iter().map(str::to_string).collect())
+}
+
 struct DependencyEdge {
     from: String,
     to: String,
@@ -1573,6 +1617,21 @@ fn close_bead_inner(
     run_bd_mut(&dir, &build_close_bead_args(id, reason, force)).map(|_| ())
 }
 
+fn add_relation_inner(project_id: &str, id: &str, kind: &str, target: &str) -> Result<(), String> {
+    let dir = resolve_dir(project_id)?;
+    run_bd_mut(&dir, &build_add_relation_args(kind, id, target)?).map(|_| ())
+}
+
+fn remove_relation_inner(
+    project_id: &str,
+    id: &str,
+    kind: &str,
+    target: &str,
+) -> Result<(), String> {
+    let dir = resolve_dir(project_id)?;
+    run_bd_mut(&dir, &build_remove_relation_args(kind, id, target)?).map(|_| ())
+}
+
 fn build_create_bead_args(
     title: &str,
     description: Option<&str>,
@@ -1670,6 +1729,26 @@ pub fn close_bead(
     force: bool,
 ) -> Result<(), String> {
     close_bead_inner(&project_id, &id, reason.as_deref(), force)
+}
+
+#[tauri::command]
+pub fn add_relation(
+    project_id: String,
+    id: String,
+    kind: String,
+    target: String,
+) -> Result<(), String> {
+    add_relation_inner(&project_id, &id, &kind, &target)
+}
+
+#[tauri::command]
+pub fn remove_relation(
+    project_id: String,
+    id: String,
+    kind: String,
+    target: String,
+) -> Result<(), String> {
+    remove_relation_inner(&project_id, &id, &kind, &target)
 }
 
 #[tauri::command]
@@ -2319,7 +2398,7 @@ mod tests {
             json!({"id": "root", "title": "Root"}),
             json!({"id": "a", "title": "A", "parent": "root"}),
             json!({"id": "x", "title": "X", "dependencies": [{"depends_on_id": "root", "type": "blocks"}]}),
-            json!({"id": "y", "title": "Y", "dependencies": [{"depends_on_id": "a", "type": "related"}]}),
+            json!({"id": "y", "title": "Y", "dependencies": [{"depends_on_id": "a", "type": "relates-to"}]}),
             json!({"id": "z", "title": "Z", "dependencies": [{"issue_id": "a", "depends_on_id": "root", "type": "parent-child"}]}),
         ];
         let ids = deletion_set(&raws, "root");
@@ -2328,7 +2407,49 @@ mod tests {
             .iter()
             .map(|u| (u.id.as_str(), u.kind.as_str()))
             .collect();
-        assert_eq!(found, [("x", "blocks"), ("y", "related")]);
+        assert_eq!(found, [("x", "blocks"), ("y", "relates-to")]);
+    }
+
+    #[test]
+    fn relation_args_map_each_kind_to_bd_command() {
+        assert_eq!(
+            build_add_relation_args("blocked-by", "a", "b").unwrap(),
+            vec!["dep", "add", "a", "b"]
+        );
+        assert_eq!(
+            build_add_relation_args("blocks", "a", "b").unwrap(),
+            vec!["dep", "add", "b", "a"]
+        );
+        assert_eq!(
+            build_add_relation_args("relates-to", "a", "b").unwrap(),
+            vec!["dep", "relate", "a", "b"]
+        );
+        assert_eq!(
+            build_add_relation_args("duplicate-of", "a", "b").unwrap(),
+            vec!["duplicate", "a", "--of", "b"]
+        );
+        assert_eq!(
+            build_add_relation_args("supersedes", "a", "b").unwrap(),
+            vec!["supersede", "b", "--with", "a"]
+        );
+        assert!(build_add_relation_args("related", "a", "b").is_err());
+    }
+
+    #[test]
+    fn relation_removal_reverses_blocks_and_rejects_non_removable_kinds() {
+        assert_eq!(
+            build_remove_relation_args("blocked-by", "a", "b").unwrap(),
+            vec!["dep", "remove", "a", "b"]
+        );
+        assert_eq!(
+            build_remove_relation_args("blocks", "a", "b").unwrap(),
+            vec!["dep", "remove", "b", "a"]
+        );
+        assert_eq!(
+            build_remove_relation_args("relates-to", "a", "b").unwrap(),
+            vec!["dep", "unrelate", "a", "b"]
+        );
+        assert!(build_remove_relation_args("duplicate-of", "a", "b").is_err());
     }
 
     #[test]

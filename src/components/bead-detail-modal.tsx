@@ -37,6 +37,7 @@ import { CreateBeadDialog } from '@/components/create-bead-dialog'
 import { DueDatePicker } from '@/components/due-date-picker'
 import { EstimateInput } from '@/components/estimate-input'
 import { SnoozeMenu } from '@/components/snooze-menu'
+import { RelationsEditor } from '@/components/relations-editor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { InteractiveRow } from '@/components/ui/interactive-row'
@@ -53,7 +54,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { LabelsInput } from '@/components/labels-input'
 import { labelCounts } from '@/lib/labels'
 import { cn, initials, toErrorMessage } from '@/lib/utils'
-import { COLUMNS, groupBeadLinks, isEpic, mapStatus } from '@/lib/types'
+import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
+import { groupRelations } from '@/lib/relations'
 import { PRIORITY_TEXT_CLASS, PRIORITY_WORD } from '@/lib/sort'
 import {
   KNOWLEDGE_TYPE_BG_CLASS as K_BG_CLASS,
@@ -196,30 +198,6 @@ function LinkedBeadList({
         )
       })}
     </ul>
-  )
-}
-
-function LinkGroup({
-  label,
-  items,
-  resolveBead,
-  onOpenBead,
-}: {
-  label: string
-  items: { id: string; note?: string }[]
-  resolveBead: (id: string) => Bead | undefined
-  onOpenBead: (bead: Bead) => void
-}) {
-  if (items.length === 0) return null
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="px-2 text-xs text-faint">{label}</span>
-      <LinkedBeadList
-        items={items}
-        resolveBead={resolveBead}
-        onOpenBead={onOpenBead}
-      />
-    </div>
   )
 }
 
@@ -762,11 +740,14 @@ export function BeadDetailModal({
     () => childBeads.filter((c) => mapStatus(c).column === 'closed').length,
     [childBeads],
   )
-  const { blockedBy, blocking, related } = useMemo(
-    () => groupBeadLinks(bead?.links),
-    [bead?.links],
+  const {
+    blockedBy,
+    blocks: blocking,
+    related,
+  } = useMemo(
+    () => groupRelations(detail?.dependencies, detail?.dependents),
+    [detail?.dependencies, detail?.dependents],
   )
-  const linkCount = blockedBy.length + blocking.length + related.length
 
   const statusMutation = useMutation({
     mutationFn: (status: BeadColumn) =>
@@ -927,41 +908,14 @@ export function BeadDetailModal({
                       </section>
                     ) : null}
 
-                    {linkCount > 0 ? (
-                      <section>
-                        <SectionHeader
-                          icon={Link2}
-                          label="Dependencies"
-                          trailing={linkCount}
-                        />
-                        <div className="flex flex-col gap-3">
-                          <LinkGroup
-                            label="Blocked by"
-                            items={blockedBy.map((id) => ({ id }))}
-                            resolveBead={resolveBead}
-                            onOpenBead={onOpenBead}
-                          />
-                          <LinkGroup
-                            label="Blocking"
-                            items={blocking.map((id) => ({ id }))}
-                            resolveBead={resolveBead}
-                            onOpenBead={onOpenBead}
-                          />
-                          <LinkGroup
-                            label="Related"
-                            items={related.map((link) => ({
-                              id: link.id,
-                              note:
-                                link.direction === 'outgoing'
-                                  ? link.type
-                                  : `${link.type} (reverse)`,
-                            }))}
-                            resolveBead={resolveBead}
-                            onOpenBead={onOpenBead}
-                          />
-                        </div>
-                      </section>
-                    ) : null}
+                    <section>
+                      <RelationsEditor
+                        project={project}
+                        bead={bead}
+                        groups={{ blockedBy, blocks: blocking, related }}
+                        onOpenBead={onOpenBead}
+                      />
+                    </section>
 
                     {beadKnowledge.length > 0 ? (
                       <section>

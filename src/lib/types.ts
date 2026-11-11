@@ -103,6 +103,7 @@ export interface RelatedBead {
 
 export interface BeadDetail extends Bead {
   dependencies?: RelatedBead[]
+  dependents?: RelatedBead[]
   comments?: Comment[]
 }
 

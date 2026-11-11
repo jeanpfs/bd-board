@@ -6,6 +6,8 @@ import {
   parseCreateBeadInput,
   parseDeferInput,
   parseProjectInput,
+  parseRelationInput,
+  parseRemoveRelationInput,
   parseStatusUpdateInput,
   parseUpdateBeadInput,
 } from './server-validation'
@@ -179,6 +181,59 @@ describe('server input validation', () => {
         labels: ['bad label'],
       }),
     ).toThrow('Label is invalid')
+  })
+})
+
+describe('relation input validation', () => {
+  const base = {
+    project: 'bd-board',
+    id: 'bd-board-a2k',
+    target: 'bd-board-b3m',
+  }
+
+  it('accepts every relation kind', () => {
+    for (const kind of [
+      'blocked-by',
+      'blocks',
+      'relates-to',
+      'duplicate-of',
+      'supersedes',
+    ]) {
+      expect(parseRelationInput({ ...base, kind }).kind).toBe(kind)
+    }
+  })
+
+  it('rejects kinds that are not relation kinds', () => {
+    expect(() => parseRelationInput({ ...base, kind: 'related' })).toThrow(
+      'Unknown relation kind',
+    )
+    expect(() => parseRelationInput({ ...base, kind: 'parent-child' })).toThrow(
+      'Unknown relation kind',
+    )
+  })
+
+  it('rejects a bead related to itself', () => {
+    expect(() =>
+      parseRelationInput({ ...base, target: base.id, kind: 'blocks' }),
+    ).toThrow('A bead cannot relate to itself')
+  })
+
+  it('rejects malformed target ids', () => {
+    expect(() =>
+      parseRelationInput({ ...base, target: '../etc', kind: 'blocks' }),
+    ).toThrow('Target bead id is invalid')
+  })
+
+  it('accepts only the removable kinds on removal', () => {
+    for (const kind of ['blocked-by', 'blocks', 'relates-to']) {
+      expect(parseRemoveRelationInput({ ...base, kind }).kind).toBe(kind)
+    }
+    expect(() =>
+      parseRemoveRelationInput({ ...base, kind: 'duplicate-of' }),
+    ).toThrow('Unknown relation kind')
+    expect(() =>
+      parseRemoveRelationInput({ ...base, target: base.id, kind: 'blocks' }),
+    ).toThrow('A bead cannot relate to itself')
   })
 })
 

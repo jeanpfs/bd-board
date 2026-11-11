@@ -20,6 +20,8 @@ import type {
   StatusCategory,
 } from './types.ts'
 import { BUILT_IN_STATUSES, CATEGORY_COLUMN } from './types.ts'
+import { buildAddRelationArgs, buildRemoveRelationArgs } from './relations.ts'
+import type { RelationKind, RemovableRelationKind } from './relations.ts'
 import { parseKnowledgeCommentText } from './knowledge.ts'
 import { loadRegistry } from './registry.ts'
 import type { RegistryEntry } from './registry.ts'
@@ -628,6 +630,43 @@ async function listBeads(projectId: string): Promise<Bead[]> {
   return buildBeadGraph(raw, categories)
 }
 
+export function buildShowBeadArgs(id: string): string[] {
+  return ['show', id, '--include-dependents', '--json']
+}
+
+function mapRelatedBead(d: Record<string, unknown>): RelatedBead {
+  return {
+    id: String(d['id'] ?? ''),
+    title: String(d['title'] ?? ''),
+    status: String(d['status'] ?? 'open'),
+    issue_type: String(d['issue_type'] ?? 'task'),
+    dependency_type: String(d['dependency_type'] ?? ''),
+    ...(typeof d['due_at'] === 'string' ? { due_at: d['due_at'] } : {}),
+  }
+}
+
+function mapRelatedList(
+  raw: Record<string, unknown>,
+  key: string,
+): RelatedBead[] {
+  const list = Array.isArray(raw[key])
+    ? (raw[key] as Record<string, unknown>[])
+    : []
+  return list.map(mapRelatedBead)
+}
+
+export function mapBeadDetail(
+  rawArr: Record<string, unknown>[],
+  rawComments: Record<string, unknown>[],
+): BeadDetail {
+  const raw = rawArr[0] ?? {}
+  const bead = mapRawBead(raw)
+  const dependencies = mapRelatedList(raw, 'dependencies')
+  const dependents = mapRelatedList(raw, 'dependents')
+  const comments: Comment[] = rawComments.map(mapComment)
+  return { ...bead, dependencies, dependents, comments }
+}
+
 async function getBeadDetail(
   projectId: string,
   id: string,
@@ -635,31 +674,33 @@ async function getBeadDetail(
   const dir = await resolveDir(projectId)
 
   const [rawArr, rawComments] = await Promise.all([
-    bdJson<Record<string, unknown>[]>(dir, ['show', id, '--json']),
+    bdJson<Record<string, unknown>[]>(dir, buildShowBeadArgs(id)),
     bdJson<Record<string, unknown>[]>(dir, ['comments', id, '--json']).catch(
       () => [] as Record<string, unknown>[],
     ),
   ])
 
-  const raw = rawArr[0] ?? {}
-  const bead = mapRawBead(raw)
+  return mapBeadDetail(rawArr, rawComments)
+}
 
-  const rawDeps = Array.isArray(raw['dependencies'])
-    ? (raw['dependencies'] as Record<string, unknown>[])
-    : []
+async function addRelation(
+  projectId: string,
+  id: string,
+  kind: RelationKind,
+  target: string,
+): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildAddRelationArgs(kind, id, target))
+}
 
-  const dependencies: RelatedBead[] = rawDeps.map((d) => ({
-    id: String(d['id'] ?? ''),
-    title: String(d['title'] ?? ''),
-    status: String(d['status'] ?? 'open'),
-    issue_type: String(d['issue_type'] ?? 'task'),
-    dependency_type: String(d['dependency_type'] ?? ''),
-    ...(typeof d['due_at'] === 'string' ? { due_at: d['due_at'] } : {}),
-  }))
-
-  const comments: Comment[] = rawComments.map(mapComment)
-
-  return { ...bead, dependencies, comments }
+async function removeRelation(
+  projectId: string,
+  id: string,
+  kind: RemovableRelationKind,
+  target: string,
+): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildRemoveRelationArgs(kind, id, target))
 }
 
 export function buildProjectKnowledge(
@@ -966,6 +1007,8 @@ export const bdAdapter: BdAdapter = {
   getProjectKnowledge,
   updateBeadStatus,
   closeBead,
+  addRelation,
+  removeRelation,
   updateBead,
   deferBead,
   undeferBead,
@@ -983,6 +1026,8 @@ export {
   getProjectKnowledge,
   updateBeadStatus,
   closeBead,
+  addRelation,
+  removeRelation,
   buildCloseBeadArgs,
   updateBead,
   buildUpdateBeadArgs,
