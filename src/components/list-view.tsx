@@ -213,13 +213,17 @@ export function ListView({
               {group.beads.map((bead) => {
                 const isSelected = selectedSet.has(bead.id)
                 const { column } = mapStatus(bead)
-                const due = bead.due_at ? dueState(bead.due_at, now) : null
+                const due =
+                  bead.due_at && column !== 'closed'
+                    ? dueState(bead.due_at, now)
+                    : null
                 return (
                   <div
                     key={bead.id}
                     role="row"
                     tabIndex={0}
                     data-list-id={bead.id}
+                    data-bead-id={bead.id}
                     aria-selected={isSelected}
                     onClick={(event) => onRowToggle(bead.id, event.shiftKey)}
                     onKeyDown={(event) => {
