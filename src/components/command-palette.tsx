@@ -324,7 +324,7 @@ export function CommandPalette() {
         onOpenChange={setPaletteOpen}
         title="Command palette"
         description="Search beads, run actions, go to a project."
-        className="top-1/3 w-[640px] max-w-[calc(100vw-2rem)]"
+        className="top-1/3 w-[640px] max-w-[calc(100vw-2rem)] sm:max-w-[640px]"
       >
         <Command shouldFilter={false}>
           <div className="flex h-[52px] items-center gap-2.5 border-b border-border px-4">
@@ -517,7 +517,7 @@ export function CommandPalette() {
               </>
             )}
           </CommandList>
-          <div className="flex h-10 items-center gap-4 border-t border-border px-4 text-xs text-muted-foreground">
+          <div className="flex h-10 items-center gap-4 whitespace-nowrap border-t border-border px-4 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <Kbd>↑</Kbd>
               <Kbd>↓</Kbd> navigate
