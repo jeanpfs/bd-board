@@ -1,8 +1,35 @@
+import { SORT_OPTIONS } from './sort'
+
+import type { SortKey } from './sort'
+
+export type ViewGroupBy = 'status' | 'priority' | 'epic'
+
+export const VIEW_GROUP_OPTIONS: { key: ViewGroupBy; label: string }[] = [
+  { key: 'status', label: 'Status' },
+  { key: 'priority', label: 'Priority' },
+  { key: 'epic', label: 'Epic' },
+]
+
+export const DEFAULT_VIEW_GROUP: ViewGroupBy = 'status'
+export const DEFAULT_VIEW_SORT: SortKey = 'priority'
+
 export interface SavedView {
   id: string
   name: string
   query: string
   shared: boolean
+  /** Absent on views saved before grouping existed; treated as status. */
+  groupBy?: ViewGroupBy
+  /** Absent on older views; treated as priority. */
+  sort?: SortKey
+}
+
+export function parseViewGroup(value: unknown): ViewGroupBy | undefined {
+  return VIEW_GROUP_OPTIONS.find((o) => o.key === value)?.key
+}
+
+export function parseViewSort(value: unknown): SortKey | undefined {
+  return SORT_OPTIONS.find((o) => o.key === value)?.key
 }
 
 /** bd kv key holding the shared views array (JSON string). */
@@ -45,16 +72,24 @@ export function parseViews(json: string): SavedView[] {
   const views: SavedView[] = []
   for (const entry of raw) {
     if (typeof entry !== 'object' || entry === null) continue
-    const { id, name, query, shared } = entry as Record<string, unknown>
+    const { id, name, query, shared, groupBy, sort } = entry as Record<
+      string,
+      unknown
+    >
     if (!isViewId(id)) continue
     if (typeof name !== 'string' || !name.trim()) continue
     if (typeof query !== 'string' || queryTextError(query) !== null) continue
-    views.push({
+    const view: SavedView = {
       id,
       name: name.trim(),
       query: query.trim(),
       shared: shared === true,
-    })
+    }
+    const g = parseViewGroup(groupBy)
+    if (g) view.groupBy = g
+    const o = parseViewSort(sort)
+    if (o) view.sort = o
+    views.push(view)
   }
   return views
 }

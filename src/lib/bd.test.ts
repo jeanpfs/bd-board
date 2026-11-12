@@ -760,13 +760,21 @@ describe('bd query and kv args', () => {
 
   it('reads a found kv value', () => {
     expect(
-      parseKvGet(0, '{"found":true,"key":"k","schema_version":1,"value":"v"}', ''),
+      parseKvGet(
+        0,
+        '{"found":true,"key":"k","schema_version":1,"value":"v"}',
+        '',
+      ),
     ).toBe('v')
   })
 
   it('reads a missing key (exit 1, found:false) as null', () => {
     expect(
-      parseKvGet(1, '{"found":false,"key":"k","schema_version":1,"value":""}', ''),
+      parseKvGet(
+        1,
+        '{"found":false,"key":"k","schema_version":1,"value":""}',
+        '',
+      ),
     ).toBeNull()
   })
 

@@ -394,13 +394,15 @@ export function ProjectRail() {
                 </RailLink>
               ))}
               <li className="px-2">
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-muted-foreground"
                   onClick={() => setCreatingView(true)}
-                  className="h-7 w-full rounded-md px-2 text-left text-body text-muted-foreground outline-none hover:bg-foreground/6 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
                 >
                   + New view
-                </button>
+                </Button>
               </li>
             </RailGroup>
           ) : null}

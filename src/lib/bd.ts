@@ -1170,7 +1170,11 @@ async function kvGet(projectId: string, key: string): Promise<string | null> {
 }
 
 /** Writes a kv value through bd. */
-async function kvSet(projectId: string, key: string, value: string): Promise<void> {
+async function kvSet(
+  projectId: string,
+  key: string,
+  value: string,
+): Promise<void> {
   const dir = await resolveDir(projectId)
   await bdRaw(dir, buildKvSetArgs(key, value))
 }

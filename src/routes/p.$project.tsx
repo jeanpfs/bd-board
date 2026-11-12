@@ -605,7 +605,10 @@ function BoardPage() {
           project={project}
           viewId={boardSearch.v}
           onOpen={openBead}
-          onCreated={(view) => patchBoardSearch({ tab: 'view', v: view.id })}
+          onCreated={(created) =>
+            patchBoardSearch({ tab: 'view', v: created.id })
+          }
+          onDeleted={() => patchBoardSearch({ tab: 'board', v: undefined })}
         />
       ) : tab === 'ready' ? (
         readyQuery.isError ? (

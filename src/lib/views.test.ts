@@ -5,8 +5,8 @@ import {
   parseViews,
   personalViewsKey,
   queryTextError,
-  type SavedView,
 } from './views'
+import type { SavedView } from './views'
 
 const view = (id: string, shared = false): SavedView => ({
   id,
@@ -80,7 +80,9 @@ describe('newViewId', () => {
 
   it('always produces an id the parser accepts', () => {
     const id = newViewId('x'.repeat(200), [])
-    expect(parseViews(JSON.stringify([{ id, name: 'n', query: 'q' }]))).toHaveLength(1)
+    expect(
+      parseViews(JSON.stringify([{ id, name: 'n', query: 'q' }])),
+    ).toHaveLength(1)
   })
 })
 
@@ -100,5 +102,45 @@ describe('queryTextError', () => {
 
   it('accepts a normal query', () => {
     expect(queryTextError('type=bug AND updated>1d')).toBeNull()
+  })
+})
+
+describe('parseViews groupBy and sort', () => {
+  it('keeps older entries without grouping fields', () => {
+    const [parsed] = parseViews(
+      JSON.stringify([{ id: 'a', name: 'A', query: 'type=bug', shared: true }]),
+    )
+    expect(parsed).toEqual({
+      id: 'a',
+      name: 'A',
+      query: 'type=bug',
+      shared: true,
+    })
+  })
+
+  it('keeps valid groupBy and sort and drops unknown values', () => {
+    const views = parseViews(
+      JSON.stringify([
+        {
+          id: 'a',
+          name: 'A',
+          query: 'q',
+          shared: false,
+          groupBy: 'epic',
+          sort: 'title',
+        },
+        {
+          id: 'b',
+          name: 'B',
+          query: 'q',
+          shared: false,
+          groupBy: 'nope',
+          sort: 5,
+        },
+      ]),
+    )
+    expect(views[0]).toMatchObject({ groupBy: 'epic', sort: 'title' })
+    expect(views[1]).not.toHaveProperty('groupBy')
+    expect(views[1]).not.toHaveProperty('sort')
   })
 })

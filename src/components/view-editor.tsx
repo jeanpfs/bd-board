@@ -13,20 +13,33 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { getBeads, kvGetFn, kvSetFn, queryBeadsFn } from '@/lib/server'
 import {
+  getBeads,
+  kvGetFn,
+  kvSetFn,
+  queryBeadsFn,
+  validateQueryFn,
+} from '@/lib/server'
+import {
+  DEFAULT_VIEW_GROUP,
+  DEFAULT_VIEW_SORT,
+  VIEW_GROUP_OPTIONS,
   VIEWS_KV_KEY,
   VIEW_NAME_MAX_LENGTH,
   mergeViews,
   newViewId,
   parseViews,
   personalViewsKey,
+  parseViewGroup,
+  parseViewSort,
   queryTextError,
 } from '@/lib/views'
-import type { SavedView } from '@/lib/views'
+import type { SavedView, ViewGroupBy } from '@/lib/views'
+import { compareBeads, priorityLabel, SORT_OPTIONS } from '@/lib/sort'
+import type { SortKey } from '@/lib/sort'
 import { COLUMNS, mapStatus } from '@/lib/types'
 import type { Bead } from '@/lib/types'
-import { toErrorMessage } from '@/lib/utils'
+import { cn, toErrorMessage } from '@/lib/utils'
 
 function readPersonalViews(project: string): SavedView[] {
   if (typeof window === 'undefined') return []
@@ -105,18 +118,56 @@ export function useSavedViews(project: string) {
       }
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['views-shared', project] })
+      void queryClient.invalidateQueries({
+        queryKey: ['views-shared', project],
+      })
       void queryClient.invalidateQueries({
         queryKey: ['views-personal', project],
       })
     },
-    onError: (error) => toast.error(toErrorMessage(error)),
+    onError: (error) =>
+      toast.error(toErrorMessage(error, 'Could not save views.')),
+  })
+
+  const remove = useMutation({
+    mutationFn: async (view: SavedView) => {
+      if (view.shared) {
+        const current = parseViews(
+          (await kvGetFn({ data: { project, key: VIEWS_KV_KEY } })) ?? '[]',
+        )
+        await kvSetFn({
+          data: {
+            project,
+            key: VIEWS_KV_KEY,
+            value: JSON.stringify(current.filter((v) => v.id !== view.id)),
+          },
+        })
+      } else {
+        window.localStorage.setItem(
+          personalViewsKey(project),
+          JSON.stringify(
+            readPersonalViews(project).filter((v) => v.id !== view.id),
+          ),
+        )
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['views-shared', project],
+      })
+      void queryClient.invalidateQueries({
+        queryKey: ['views-personal', project],
+      })
+    },
+    onError: (error) =>
+      toast.error(toErrorMessage(error, 'Could not delete the view.')),
   })
 
   return {
     views: mergeViews(shared, personal),
     isLoading: sharedQuery.isPending,
     save,
+    remove,
   }
 }
 
@@ -159,10 +210,21 @@ export function ViewEditor({
       return
     }
     const view: SavedView = {
-      id: newViewId(trimmed, existing.map((v) => v.id)),
+      id: newViewId(
+        trimmed,
+        existing.map((v) => v.id),
+      ),
       name: trimmed,
       query: query.trim(),
       shared,
+      ...(base?.groupBy ? { groupBy: base.groupBy } : {}),
+      ...(base?.sort ? { sort: base.sort } : {}),
+    }
+    try {
+      await validateQueryFn({ data: { project, query: view.query } })
+    } catch (err) {
+      setError(toErrorMessage(err, 'bd could not parse this query.'))
+      return
     }
     try {
       await save.mutateAsync({ view })
@@ -244,15 +306,26 @@ interface ViewPageProps {
   viewId: string | undefined
   onOpen: (bead: Bead) => void
   onCreated: (view: SavedView) => void
+  onDeleted: () => void
 }
 
 /** A saved view: its bd query rendered as status columns, with inline query editing. */
-export function ViewPage({ project, viewId, onOpen, onCreated }: ViewPageProps) {
-  const { views, isLoading, save } = useSavedViews(project)
+export function ViewPage({
+  project,
+  viewId,
+  onOpen,
+  onCreated,
+  onDeleted,
+}: ViewPageProps) {
+  const { views, isLoading, save, remove } = useSavedViews(project)
   const view = views.find((v) => v.id === viewId)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [groupDraft, setGroupDraft] = useState<ViewGroupBy | null>(null)
+  const [sortDraft, setSortDraft] = useState<SortKey | null>(null)
   const [duplicating, setDuplicating] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   // Shares the board's beads cache; a refetch there re-runs the view's query.
   const liveBeads = useQuery({
@@ -282,23 +355,46 @@ export function ViewPage({ project, viewId, onOpen, onCreated }: ViewPageProps) 
 
   const draftQuery = draft ?? view.query
   const problem = draft === null ? null : queryTextError(draft)
-  const dirty = draft !== null && draft.trim() !== view.query
+  const groupBy = groupDraft ?? view.groupBy ?? DEFAULT_VIEW_GROUP
+  const sort = sortDraft ?? view.sort ?? DEFAULT_VIEW_SORT
+  const dirty =
+    (draft !== null && draft.trim() !== view.query) ||
+    groupBy !== (view.groupBy ?? DEFAULT_VIEW_GROUP) ||
+    sort !== (view.sort ?? DEFAULT_VIEW_SORT)
+
+  function resetDraft() {
+    setDraft(null)
+    setGroupDraft(null)
+    setSortDraft(null)
+    setSaveError(null)
+    setEditing(false)
+  }
 
   async function saveQuery() {
-    if (draft === null || problem) return
+    if (problem) return
+    try {
+      await validateQueryFn({ data: { project, query: draftQuery.trim() } })
+    } catch (err) {
+      setSaveError(toErrorMessage(err, 'bd could not parse this query.'))
+      return
+    }
+    setSaveError(null)
     try {
       await save.mutateAsync({
-        view: { ...view!, query: draft.trim() },
+        view: { ...view!, query: draftQuery.trim(), groupBy, sort },
         previous: view,
       })
-      setDraft(null)
-      setEditing(false)
+      resetDraft()
     } catch {
       // onError already surfaced the message.
     }
   }
 
-  const beads = beadsQuery.data ?? []
+  const beads = [...(beadsQuery.data ?? [])].sort(compareBeads(sort))
+  const titleById = new Map(
+    (liveBeads.data ?? []).map((b) => [b.id, b.title] as const),
+  )
+  const groups = buildGroups(beads, groupBy, titleById)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -316,15 +412,14 @@ export function ViewPage({ project, viewId, onOpen, onCreated }: ViewPageProps) 
             Duplicate
           </Button>
           {editing ? (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setDraft(null)
-                setEditing(false)
-              }}
-            >
-              Cancel
-            </Button>
+            <>
+              <Button variant="ghost" onClick={resetDraft}>
+                Cancel
+              </Button>
+              <Button variant="ghost" onClick={() => setDeleting(true)}>
+                Delete
+              </Button>
+            </>
           ) : (
             <Button
               variant="outline"
@@ -355,9 +450,9 @@ export function ViewPage({ project, viewId, onOpen, onCreated }: ViewPageProps) 
             value={draftQuery}
             onChange={(event) => setDraft(event.target.value)}
           />
-          {problem ? (
+          {problem || saveError ? (
             <p role="alert" className="text-sm text-destructive">
-              {problem}
+              {problem ?? saveError}
             </p>
           ) : null}
         </div>
@@ -369,21 +464,133 @@ export function ViewPage({ project, viewId, onOpen, onCreated }: ViewPageProps) 
 
       {beadsQuery.isError ? (
         <p role="alert" className="text-sm text-destructive">
-          {toErrorMessage(beadsQuery.error)}
+          {toErrorMessage(beadsQuery.error, 'Query failed.')}
         </p>
       ) : null}
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {COLUMNS.map((c) => (
-          <KanbanColumn
-            key={c.key}
-            column={c.key}
-            label={c.label}
-            beads={beads.filter((b) => mapStatus(b).column === c.key)}
-            onOpen={onOpen}
-          />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        <label className="flex items-center gap-1.5">
+          Group by
+          {editing ? (
+            <select
+              aria-label="Group by"
+              className="rounded-md border border-border bg-transparent px-1.5 py-0.5 text-foreground"
+              value={groupBy}
+              onChange={(event) =>
+                setGroupDraft(
+                  parseViewGroup(event.target.value) ?? DEFAULT_VIEW_GROUP,
+                )
+              }
+            >
+              {VIEW_GROUP_OPTIONS.map((o) => (
+                <option key={o.key} value={o.key}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-foreground">
+              {VIEW_GROUP_OPTIONS.find((o) => o.key === groupBy)?.label}
+            </span>
+          )}
+        </label>
+        <label className="flex items-center gap-1.5">
+          Sort
+          {editing ? (
+            <select
+              aria-label="Sort"
+              className="rounded-md border border-border bg-transparent px-1.5 py-0.5 text-foreground"
+              value={sort}
+              onChange={(event) =>
+                setSortDraft(
+                  parseViewSort(event.target.value) ?? DEFAULT_VIEW_SORT,
+                )
+              }
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.key} value={o.key}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-foreground">
+              {SORT_OPTIONS.find((o) => o.key === sort)?.label}
+            </span>
+          )}
+        </label>
+        <span>
+          Show{' '}
+          <span className="text-foreground">ID · priority · labels · due</span>
+        </span>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+        {groups.map((group) => (
+          <section
+            key={group.key}
+            className={cn(
+              'flex min-h-0 flex-col gap-2',
+              group.label ? 'h-80 shrink-0' : 'flex-1',
+            )}
+          >
+            {group.label ? (
+              <h2 className="text-sm font-medium">
+                {group.label}{' '}
+                <span className="font-mono text-xs text-faint">
+                  {group.beads.length}
+                </span>
+              </h2>
+            ) : null}
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {COLUMNS.map((c) => (
+                <KanbanColumn
+                  key={c.key}
+                  column={c.key}
+                  label={c.label}
+                  beads={group.beads.filter(
+                    (b) => mapStatus(b).column === c.key,
+                  )}
+                  onOpen={onOpen}
+                />
+              ))}
+            </div>
+          </section>
         ))}
       </div>
+
+      <Dialog open={deleting} onOpenChange={setDeleting}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Delete view</DialogTitle>
+            <DialogDescription>
+              Delete “{view.name}”?{' '}
+              {view.shared
+                ? 'It is shared with the project and will be removed for everyone.'
+                : 'This cannot be undone.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setDeleting(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={remove.isPending}
+              onClick={() => {
+                remove.mutate(view, {
+                  onSuccess: () => {
+                    setDeleting(false)
+                    onDeleted()
+                  },
+                })
+              }}
+            >
+              Delete view
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {duplicating ? (
         <ViewEditor
@@ -396,4 +603,38 @@ export function ViewPage({ project, viewId, onOpen, onCreated }: ViewPageProps) 
       ) : null}
     </div>
   )
+}
+
+interface ViewGroup {
+  key: string
+  /** Null for the single ungrouped (status) group. */
+  label: string | null
+  beads: Bead[]
+}
+
+/** Status grouping is the column grid itself; priority and epic add a heading per group. */
+function buildGroups(
+  beads: Bead[],
+  groupBy: ViewGroupBy,
+  titleById: Map<string, string>,
+): ViewGroup[] {
+  if (groupBy === 'status') return [{ key: 'all', label: null, beads }]
+  const groups = new Map<string, ViewGroup>()
+  for (const b of beads) {
+    const key =
+      groupBy === 'priority' ? `p${Math.max(0, b.priority)}` : (b.parent ?? '')
+    let group = groups.get(key)
+    if (!group) {
+      const label =
+        groupBy === 'priority'
+          ? priorityLabel(b.priority)
+          : b.parent
+            ? `${b.parent} · ${titleById.get(b.parent) ?? 'epic'}`
+            : 'No epic'
+      group = { key, label, beads: [] }
+      groups.set(key, group)
+    }
+    group.beads.push(b)
+  }
+  return [...groups.values()].sort((a, b) => a.key.localeCompare(b.key))
 }

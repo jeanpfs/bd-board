@@ -591,7 +591,11 @@ describe('query and shared views input', () => {
   it('rejects a shared views list with invalid entries or non-array JSON', () => {
     const bad = JSON.stringify([{ id: 'bad id', name: 'x', query: 'y' }])
     expect(() =>
-      parseViewsWriteInput({ project: 'ledger', key: 'bd-board.views', value: bad }),
+      parseViewsWriteInput({
+        project: 'ledger',
+        key: 'bd-board.views',
+        value: bad,
+      }),
     ).toThrow()
     expect(() =>
       parseViewsWriteInput({
