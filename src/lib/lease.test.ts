@@ -119,6 +119,14 @@ describe('agentRows', () => {
     expect(rows[0].human).toBe(false)
   })
 
+  it('treats an assignee as an agent when any of their claims has a lease', () => {
+    const rows = agentRows([
+      bead({ id: 'x', assignee: 'dev' }),
+      bead({ id: 'y', assignee: 'dev', lease_expires_at: at(MIN) }),
+    ])
+    expect(rows[0].human).toBe(false)
+  })
+
   it('skips in-progress beads with no assignee', () => {
     expect(agentRows([bead({ id: 'x' })])).toEqual([])
   })
@@ -142,5 +150,14 @@ describe('gateBlocks', () => {
       links: [{ id: 'n1', type: 'parent-child', direction: 'outgoing' }],
     })
     expect(gateBlocks([notGate], [other]).size).toBe(0)
+  })
+
+  it('ignores an incoming blocks link: the gate must be what blocks the bead', () => {
+    const gate = bead({ id: 'g1', issue_type: 'gate' })
+    const blocker = bead({
+      id: 'b',
+      links: [{ id: 'g1', type: 'blocks', direction: 'incoming' }],
+    })
+    expect(gateBlocks([gate], [blocker]).size).toBe(0)
   })
 })

@@ -146,6 +146,10 @@ describe('isReady', () => {
     expect(isReady(bead({ status: 'closed' }))).toBe(false)
     expect(isReady(bead({ status: 'deferred' }))).toBe(false)
   })
+
+  it('is false for an open gate: gates are not claimable work', () => {
+    expect(isReady(bead({ status: 'open', issue_type: 'gate' }))).toBe(false)
+  })
 })
 
 describe('beadMatches due and snoozed filters', () => {

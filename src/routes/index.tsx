@@ -26,6 +26,7 @@ import {
   projectProblem,
 } from '@/lib/attention'
 import { getStoredIdentity } from '@/lib/identity'
+import { isGate } from '@/lib/lease'
 import { getProjects } from '@/lib/server'
 import { relativeDate } from '@/lib/time'
 import { groupBeadLinks, mapStatus, statusText } from '@/lib/types'
@@ -376,7 +377,7 @@ function RecentlyUpdated({ located }: { located: Located[] }) {
   const recent = useMemo(
     () =>
       located
-        .filter(({ bead }) => bead.updated_at)
+        .filter(({ bead }) => bead.updated_at && !isGate(bead))
         .sort((a, b) =>
           (b.bead.updated_at ?? '').localeCompare(a.bead.updated_at ?? ''),
         )

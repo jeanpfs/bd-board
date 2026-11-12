@@ -42,7 +42,7 @@ export const SIGNAL_ICON: Record<
   migration: { icon: DatabaseZap, className: 'text-warn', label: 'Read-only' },
   'lease-expired': {
     icon: Unplug,
-    className: 'text-status-blocked',
+    className: 'text-warn',
     label: 'Lease expired',
   },
   gate: { icon: Hand, className: 'text-warn', label: 'Waiting on you' },

@@ -162,7 +162,7 @@ export function ProjectOverview({
               id={item.bead.id}
               title={item.bead.title}
               meta={
-                item.bead.assignee
+                item.bead.assignee && !item.detail.includes(item.bead.assignee)
                   ? `${item.detail} · ${item.bead.assignee}`
                   : item.detail
               }

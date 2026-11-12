@@ -623,13 +623,23 @@ function mapKnowledgeEntry(
   }
 }
 
+/** `bd list` can hide gate issues; add the ones `bd gate list` reports. */
+export function mergeGateRows(
+  rows: Record<string, unknown>[],
+  gates: Record<string, unknown>[],
+): Record<string, unknown>[] {
+  const known = new Set(rows.map((row) => row['id']))
+  return [...rows, ...gates.filter((gate) => !known.has(gate['id']))]
+}
+
 async function listBeads(projectId: string): Promise<Bead[]> {
   const dir = await resolveDir(projectId)
-  const [raw, categories] = await Promise.all([
+  const [raw, gates, categories] = await Promise.all([
     bdJson<Record<string, unknown>[]>(dir, buildListBeadsArgs()),
+    bdJson<Record<string, unknown>[]>(dir, buildListGatesArgs()),
     statusCategories(dir),
   ])
-  return buildBeadGraph(raw, categories)
+  return buildBeadGraph(mergeGateRows(raw, gates), categories)
 }
 
 export function buildShowBeadArgs(id: string): string[] {
@@ -1015,9 +1025,24 @@ async function resolveGate(projectId: string, id: string): Promise<void> {
   await bdRaw(dir, buildResolveGateArgs(id))
 }
 
-async function reclaimBead(projectId: string, id: string): Promise<void> {
+/** Number of beads `bd reclaim --json` reverted (`{"count":0,...}` when none). */
+export function parseReclaimCount(stdout: string): number {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(stdout.trim())
+  } catch {
+    throw new Error('Unexpected output from bd reclaim')
+  }
+  const count = (parsed as { count?: unknown } | null)?.count
+  if (typeof count !== 'number' || !Number.isInteger(count) || count < 0) {
+    throw new Error('Unexpected output from bd reclaim')
+  }
+  return count
+}
+
+async function reclaimBead(projectId: string, id: string): Promise<number> {
   const dir = await resolveDir(projectId)
-  await bdRaw(dir, buildReclaimBeadArgs(id))
+  return parseReclaimCount(await bdRaw(dir, buildReclaimBeadArgs(id)))
 }
 
 async function unclaimBead(

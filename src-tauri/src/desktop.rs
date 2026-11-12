@@ -1142,14 +1142,35 @@ fn derive_children(beads: Vec<Bead>) -> Vec<Bead> {
         .collect()
 }
 
+/// `bd list` can hide gate issues; add the ones `bd gate list` reports.
+fn merge_gate_rows(rows: &serde_json::Value, gates: &serde_json::Value) -> Vec<serde_json::Value> {
+    let mut merged = rows.as_array().cloned().unwrap_or_default();
+    let known: std::collections::HashSet<String> = merged
+        .iter()
+        .filter_map(|row| row.get("id").and_then(serde_json::Value::as_str))
+        .map(String::from)
+        .collect();
+    merged.extend(
+        gates
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|gate| {
+                gate.get("id")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|id| !known.contains(id))
+            })
+            .cloned(),
+    );
+    merged
+}
+
 fn list_beads_inner(project_id: &str) -> Result<Vec<Bead>, String> {
     let dir = resolve_dir(project_id)?;
     let raw = bd_json(&dir, build_list_beads_args())?;
+    let gates = bd_json(&dir, build_list_gates_args())?;
     let categories = status_categories(&dir);
-    let beads = raw
-        .as_array()
-        .cloned()
-        .unwrap_or_default()
+    let beads = merge_gate_rows(&raw, &gates)
         .into_iter()
         .map(|value| map_bead(&value, &categories))
         .collect();
@@ -1700,9 +1721,17 @@ fn resolve_gate_inner(project_id: &str, id: &str) -> Result<(), String> {
     run_bd_mut(&dir, &build_resolve_gate_args(id)).map(|_| ())
 }
 
-fn reclaim_bead_inner(project_id: &str, id: &str) -> Result<(), String> {
+/// Number of beads `bd reclaim --json` reverted (`{"count":0,...}` when none).
+fn parse_reclaim_count(stdout: &str) -> Result<u64, String> {
+    serde_json::from_str::<serde_json::Value>(stdout.trim())
+        .ok()
+        .and_then(|value| value.get("count").and_then(serde_json::Value::as_u64))
+        .ok_or_else(|| "Unexpected output from bd reclaim".to_string())
+}
+
+fn reclaim_bead_inner(project_id: &str, id: &str) -> Result<u64, String> {
     let dir = resolve_dir(project_id)?;
-    run_bd_mut(&dir, &build_reclaim_args(id)).map(|_| ())
+    parse_reclaim_count(&run_bd_mut(&dir, &build_reclaim_args(id))?)
 }
 
 fn unclaim_bead_inner(
@@ -1862,7 +1891,7 @@ pub fn resolve_gate(project_id: String, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn reclaim_bead(project_id: String, id: String) -> Result<(), String> {
+pub fn reclaim_bead(project_id: String, id: String) -> Result<u64, String> {
     reclaim_bead_inner(&project_id, &id)
 }
 
@@ -2382,10 +2411,29 @@ mod tests {
             vec!["gate", "list", "--all", "--json"]
         );
         assert_eq!(build_resolve_gate_args("g1"), vec!["gate", "resolve", "g1"]);
+        let merged = merge_gate_rows(
+            &serde_json::json!([{"id": "a"}, {"id": "g1"}]),
+            &serde_json::json!([{"id": "g1"}, {"id": "g2"}]),
+        );
+        let ids: Vec<&str> = merged.iter().filter_map(|row| row["id"].as_str()).collect();
+        assert_eq!(ids, vec!["a", "g1", "g2"]);
         assert_eq!(
             build_reclaim_args("bd-board-a2k"),
-            vec!["reclaim", "--id", "bd-board-a2k", "--older-than", "0s", "--json"]
+            vec![
+                "reclaim",
+                "--id",
+                "bd-board-a2k",
+                "--older-than",
+                "0s",
+                "--json"
+            ]
         );
+        assert_eq!(
+            parse_reclaim_count(r#"{"count":0,"reclaimed":null,"schema_version":1}"#),
+            Ok(0)
+        );
+        assert_eq!(parse_reclaim_count(r#"{"count":2}"#), Ok(2));
+        assert!(parse_reclaim_count("✓ done").is_err());
         assert_eq!(
             build_get_config_args("claim.pools"),
             vec!["config", "get", "claim.pools", "--json"]

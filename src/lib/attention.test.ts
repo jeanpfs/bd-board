@@ -198,13 +198,16 @@ describe('lease and gate attention', () => {
           id: 'a',
           status: 'in_progress',
           assignee: 'night-crew-2',
+          heartbeat_at: inAt(-18 * MIN),
           lease_expires_at: inAt(-6 * MIN),
         }),
       ],
       NOW,
     )
     expect(item).toMatchObject({ kind: 'lease-expired' })
-    expect(item.detail).toBe('lease expired 6m ago')
+    expect(item.detail).toBe(
+      'night-crew-2 stopped responding 18m ago · lease expired 6m ago',
+    )
   })
 
   it('does not flag a bead whose lease is still live', () => {
@@ -223,7 +226,12 @@ describe('lease and gate attention', () => {
   })
 
   it('flags a blocked bead waiting on an open gate with the gate id', () => {
-    const gate = bead({ id: 'g1', issue_type: 'gate', status: 'open' })
+    const gate = bead({
+      id: 'g1',
+      issue_type: 'gate',
+      status: 'open',
+      created_by: 'claude-code',
+    })
     const waiting = bead({
       id: 'ldg-axk.3',
       status: 'blocked',
@@ -232,7 +240,10 @@ describe('lease and gate attention', () => {
     const items = attentionList([gate, waiting], NOW)
     expect(items).toHaveLength(1)
     expect(items[0]).toMatchObject({ kind: 'gate', bead: waiting })
-    expect(items[0].detail).toBe('waiting on gate g1')
+    expect(items[0].gateId).toBe('g1')
+    expect(items[0].detail).toBe(
+      'Opened by claude-code · resolves with bd gate resolve',
+    )
   })
 
   it('does not flag a gate that is already closed', () => {

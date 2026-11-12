@@ -31,8 +31,8 @@ export interface BdAdapter {
   listGates: (projectId: string) => Promise<Bead[]>
   /** `bd gate resolve`: closes the gate, unblocking what waits on it. */
   resolveGate: (projectId: string, id: string) => Promise<void>
-  /** `bd reclaim --id`: only leases already expired. */
-  reclaimBead: (projectId: string, id: string) => Promise<void>
+  /** `bd reclaim --id`: only leases already expired. Resolves to the reclaimed count. */
+  reclaimBead: (projectId: string, id: string) => Promise<number>
   /** `bd unclaim`; `force` releases another actor's claim. */
   unclaimBead: (
     projectId: string,

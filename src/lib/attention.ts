@@ -44,11 +44,31 @@ function timeOf(value?: string): number {
   return Number.isNaN(t) ? 0 : t
 }
 
+function minutesAgo(since: number, now: number): string {
+  return `${Math.max(0, Math.floor((now - since) / 60_000))}m ago`
+}
+
+/** `<agent> stopped responding 18m ago · lease expired 6m ago`. */
+export function leaseExpiredDetail(bead: Bead, now: number): string {
+  const expired = `lease expired ${minutesAgo(timeOf(bead.lease_expires_at), now)}`
+  const beat = timeOf(bead.heartbeat_at)
+  if (!bead.assignee || beat === 0) return expired
+  return `${bead.assignee} stopped responding ${minutesAgo(beat, now)} · ${expired}`
+}
+
+/** `Opened by <creator> · resolves with bd gate resolve`. */
+export function gateDetail(gate: Bead): string {
+  const opened = gate.created_by
+    ? `Opened by ${gate.created_by}`
+    : `Waiting on gate ${gate.id}`
+  return `${opened} · resolves with bd gate resolve`
+}
+
 /** Why a bead needs someone now, or null. Closed beads never do. */
 export function beadAttention(
   bead: Bead,
   now: number,
-  gateId?: string,
+  gate?: Bead,
 ): Omit<Attention, 'bead'> | null {
   const status = mapStatus(bead)
   if (status.column === 'closed') return null
@@ -63,11 +83,11 @@ export function beadAttention(
   }
   const lease = leaseState(bead, new Date(now))
   if (lease.kind === 'expired') {
-    const mins = Math.floor(-lease.remainingMs / 60_000)
-    return { kind: 'lease-expired', detail: `lease expired ${mins}m ago` }
+    return { kind: 'lease-expired', detail: leaseExpiredDetail(bead, now) }
   }
-  if (gateId)
-    return { kind: 'gate', detail: `waiting on gate ${gateId}`, gateId }
+  if (gate) {
+    return { kind: 'gate', detail: gateDetail(gate), gateId: gate.id }
+  }
   if (status.column === 'blocked') {
     return { kind: 'blocked', detail: 'blocked' }
   }
@@ -86,9 +106,11 @@ export function attentionList(beads: Bead[], now: number): Attention[] {
   const openGates = beads.filter(
     (b) => b.issue_type === 'gate' && mapStatus(b).column !== 'closed',
   )
-  const waitingOn = new Map<string, string>()
+  const gatesById = new Map(openGates.map((g) => [g.id, g]))
+  const waitingOn = new Map<string, Bead>()
   for (const [gateId, beadId] of gateBlocks(openGates, beads)) {
-    waitingOn.set(beadId, gateId)
+    const gate = gatesById.get(gateId)
+    if (gate) waitingOn.set(beadId, gate)
   }
   const items: Attention[] = []
   for (const bead of beads) {

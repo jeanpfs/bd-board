@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bot, Hand, RotateCcw, TriangleAlert } from 'lucide-react'
+import { Bot, Hand, RotateCcw, Unplug } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { PriorityBadge } from '@/components/priority-badge'
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { InteractiveRow } from '@/components/ui/interactive-row'
 import { getStoredIdentity } from '@/lib/identity'
+import { gateDetail, leaseExpiredDetail } from '@/lib/attention'
 import { agentRows, gateBlocks, leaseState } from '@/lib/lease'
 import type { LeaseState } from '@/lib/lease'
 import {
@@ -34,7 +35,6 @@ const LEASE_TTL_MS = 5 * 60_000
 interface AgentsViewProps {
   project: string
   beads: Bead[]
-  now: Date
   onOpen: (id: string) => void
 }
 
@@ -69,6 +69,16 @@ const LEASE_BAR_CLASS = {
   expired: 'bg-status-blocked',
 } as const
 
+/** `maya` -> `MA`, `night-crew-2` -> `NC`. */
+function initials(name: string): string {
+  const parts = name.split(/[^a-z0-9]+/i).filter(Boolean)
+  const letters =
+    parts.length > 1
+      ? parts[0][0] + parts[1][0]
+      : (parts[0] ?? name).slice(0, 2)
+  return letters.toUpperCase()
+}
+
 function ageSince(value: string | undefined, now: Date): string {
   if (!value) return '—'
   const ms = now.getTime() - Date.parse(value)
@@ -76,8 +86,16 @@ function ageSince(value: string | undefined, now: Date): string {
   return formatSpan(ms)
 }
 
-export function AgentsView({ project, beads, now, onOpen }: AgentsViewProps) {
+/** The lease countdowns re-render on this cadence, not only on refetch. */
+const TICK_MS = 30_000
+
+export function AgentsView({ project, beads, onOpen }: AgentsViewProps) {
   const queryClient = useQueryClient()
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), TICK_MS)
+    return () => clearInterval(id)
+  }, [])
   const me = getStoredIdentity()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [confirming, setConfirming] = useState<Bead | null>(null)
@@ -99,47 +117,67 @@ export function AgentsView({ project, beads, now, onOpen }: AgentsViewProps) {
   )
   const expiredRows = rows.filter((row) => row.lease.kind === 'expired')
   const counts = {
-    live: rows.filter((row) => row.lease.kind === 'live').length,
+    working: rows.length - expiredRows.length,
     expiring: rows.filter((row) => row.lease.kind === 'expiring').length,
-    expired: expiredRows.length,
+    stale: expiredRows.length,
   }
 
   const gates = beads.filter(
     (bead) => bead.issue_type === 'gate' && mapStatus(bead).column !== 'closed',
   )
+  const gatesById = new Map(gates.map((gate) => [gate.id, gate]))
   const gateItems = [...gateBlocks(gates, beads)].flatMap(
     ([gateId, beadId]) => {
       const bead = beadsById.get(beadId)
-      return bead && mapStatus(bead).column !== 'closed'
-        ? [{ gateId, bead }]
+      const gate = gatesById.get(gateId)
+      return bead && gate && mapStatus(bead).column !== 'closed'
+        ? [{ gateId, gate, bead }]
         : []
     },
   )
   const readyBeads = beads.filter(isReady)
+  const poolSections = (poolQuery.data ?? '')
+    .split(',')
+    .map((alias) => alias.trim())
+    .filter((alias, index, all) => alias && all.indexOf(alias) === index)
+    .map((alias) => ({
+      alias,
+      ready: readyBeads.filter((bead) => bead.assignee === alias),
+    }))
+  const queued = poolSections.reduce((sum, pool) => sum + pool.ready.length, 0)
   const needsCount = expiredRows.length + gateItems.length
 
   async function run(
     id: string,
-    action: () => Promise<unknown>,
+    action: () => Promise<string | undefined>,
     success: string,
     failure: string,
   ) {
     setBusyId(id)
     try {
-      await action()
-      toast.success(success)
+      const notice = await action()
+      if (notice) toast.info(notice)
+      else toast.success(success)
     } catch (error) {
       toast.error(toErrorMessage(error, failure))
     } finally {
       setBusyId(null)
       queryClient.invalidateQueries({ queryKey: ['beads', project] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
     }
   }
 
   function reclaim(bead: Bead) {
     return run(
       bead.id,
-      () => reclaimBeadFn({ data: { project, id: bead.id } }),
+      async () => {
+        const { count } = await reclaimBeadFn({
+          data: { project, id: bead.id },
+        })
+        return count === 0
+          ? 'Nothing to reclaim: the lease was renewed'
+          : undefined
+      },
       `Reclaimed ${bead.id}`,
       'Failed to reclaim bead',
     )
@@ -148,10 +186,12 @@ export function AgentsView({ project, beads, now, onOpen }: AgentsViewProps) {
   function unclaim(bead: Bead, force: boolean) {
     return run(
       bead.id,
-      () =>
-        unclaimBeadFn({
+      async () => {
+        await unclaimBeadFn({
           data: { project, id: bead.id, force, actor: me ?? undefined },
-        }),
+        })
+        return undefined
+      },
       `Released ${bead.id}`,
       'Failed to unclaim bead',
     )
@@ -166,13 +206,14 @@ export function AgentsView({ project, beads, now, onOpen }: AgentsViewProps) {
   function resolveGate(gateId: string) {
     return run(
       gateId,
-      () => resolveGateFn({ data: { project, id: gateId } }),
+      async () => {
+        await resolveGateFn({ data: { project, id: gateId } })
+        return undefined
+      },
       `Resolved gate ${gateId}`,
       'Failed to resolve gate',
     )
   }
-
-  const pools = poolQuery.data?.trim() ?? ''
 
   return (
     <div className="flex flex-col gap-section p-6">
@@ -183,14 +224,13 @@ export function AgentsView({ project, beads, now, onOpen }: AgentsViewProps) {
           <code className="font-mono text-xs text-foreground">
             bd ready --claim
           </code>
-          . <span className="font-mono text-foreground">{counts.live}</span>{' '}
+          . <span className="font-mono text-foreground">{counts.working}</span>{' '}
           working ·{' '}
           <span className="font-mono text-foreground">{counts.expiring}</span>{' '}
           lease expiring ·{' '}
-          <span className="font-mono text-foreground">{counts.expired}</span>{' '}
-          expired ·{' '}
-          <span className="font-mono text-foreground">{readyBeads.length}</span>{' '}
-          ready to claim.
+          <span className="font-mono text-foreground">{counts.stale}</span>{' '}
+          stale · <span className="font-mono text-foreground">{queued}</span>{' '}
+          queued in pools.
         </p>
       </header>
 
@@ -213,10 +253,7 @@ export function AgentsView({ project, beads, now, onOpen }: AgentsViewProps) {
               key={row.bead.id}
               className="flex min-h-14 items-center gap-3 border-t border-border px-2 py-2.5"
             >
-              <TriangleAlert
-                aria-hidden
-                className="size-4 shrink-0 text-status-blocked"
-              />
+              <Unplug aria-hidden className="size-4 shrink-0 text-warn" />
               <div className="min-w-0 flex-1">
                 <InteractiveRow
                   variant="plain"
@@ -230,9 +267,7 @@ export function AgentsView({ project, beads, now, onOpen }: AgentsViewProps) {
                   <span className="truncate text-body">{row.bead.title}</span>
                 </InteractiveRow>
                 <p className="text-xs text-muted-foreground">
-                  {row.agent} stopped responding{' '}
-                  {ageSince(row.bead.heartbeat_at, now)} ago · lease{' '}
-                  {leaseLabel(row.lease)}
+                  {leaseExpiredDetail(row.bead, now.getTime())}
                 </p>
               </div>
               <Button
@@ -254,7 +289,7 @@ export function AgentsView({ project, beads, now, onOpen }: AgentsViewProps) {
               </Button>
             </div>
           ))}
-          {gateItems.map(({ gateId, bead }) => (
+          {gateItems.map(({ gateId, gate, bead }) => (
             <div
               key={gateId}
               className="flex min-h-14 items-center gap-3 border-t border-border px-2 py-2.5"
@@ -273,9 +308,7 @@ export function AgentsView({ project, beads, now, onOpen }: AgentsViewProps) {
                   <span className="truncate text-body">{bead.title}</span>
                 </InteractiveRow>
                 <p className="text-xs text-muted-foreground">
-                  Waiting on gate <span className="font-mono">{gateId}</span> ·
-                  resolves with{' '}
-                  <span className="font-mono">bd gate resolve</span>
+                  {gateDetail(gate)}
                 </p>
               </div>
               <Button
@@ -325,18 +358,26 @@ export function AgentsView({ project, beads, now, onOpen }: AgentsViewProps) {
                   className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.6fr)_72px_80px_minmax(0,1.3fr)_auto] items-center gap-4 border-t border-border px-2 py-2.5 text-body"
                 >
                   <div className="flex min-w-0 items-center gap-2">
-                    <span
-                      aria-hidden
-                      className="flex size-5 shrink-0 items-center justify-center rounded-sm bg-project-1"
-                    >
-                      <Bot className="size-3" />
-                    </span>
-                    <span className="flex min-w-0 items-baseline">
+                    {human ? (
+                      <span
+                        aria-hidden
+                        className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-badge font-medium"
+                      >
+                        {initials(agent)}
+                      </span>
+                    ) : (
+                      <span
+                        aria-hidden
+                        className="flex size-5 shrink-0 items-center justify-center rounded-sm bg-project-1"
+                      >
+                        <Bot className="size-3" />
+                      </span>
+                    )}
+                    <span className="flex min-w-0 flex-col">
                       <span className="truncate">{agent}</span>
                       {human ? (
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          {' '}
-                          · {human}
+                        <span className="truncate text-xs text-muted-foreground">
+                          human
                         </span>
                       ) : null}
                     </span>
@@ -384,7 +425,7 @@ export function AgentsView({ project, beads, now, onOpen }: AgentsViewProps) {
                       {leaseLabel(lease)}
                     </span>
                     {lease.kind === 'none' ? null : (
-                      <div className="h-1 overflow-hidden rounded-full bg-white/8">
+                      <div className="h-1 overflow-hidden rounded-full bg-muted">
                         <div
                           className={cn('h-full', LEASE_BAR_CLASS[lease.kind])}
                           style={{ width: `${leaseBarPercent(lease)}%` }}
@@ -395,10 +436,9 @@ export function AgentsView({ project, beads, now, onOpen }: AgentsViewProps) {
                   <Button
                     variant="outline"
                     size="sm"
-                    disabled={busyId === bead.id}
-                    onClick={() => requestUnclaim(bead)}
+                    onClick={() => onOpen(bead.id)}
                   >
-                    Unclaim
+                    Open
                   </Button>
                 </div>
               )
@@ -407,46 +447,47 @@ export function AgentsView({ project, beads, now, onOpen }: AgentsViewProps) {
         )}
       </section>
 
-      <section aria-labelledby="agents-ready" className="flex flex-col">
-        <h2
-          id="agents-ready"
-          className="flex items-baseline gap-2 pb-2 text-body font-semibold"
+      {poolSections.map(({ alias, ready }) => (
+        <section
+          key={alias}
+          aria-labelledby={`agents-pool-${alias}`}
+          className="flex flex-col"
         >
-          Ready to claim
-          <span className="font-mono text-xs font-normal text-faint">
-            {readyBeads.length}
-          </span>
-        </h2>
-        {pools ? (
-          <p className="pb-2 text-xs text-muted-foreground">
-            claim.pools = <span className="font-mono">{pools}</span>
-          </p>
-        ) : null}
-        {readyBeads.length === 0 ? (
-          <p className="border-t border-border py-4 text-body text-muted-foreground">
-            Nothing is ready to claim.
-          </p>
-        ) : (
-          readyBeads.slice(0, 10).map((bead) => (
-            <InteractiveRow
-              key={bead.id}
-              variant="plain"
-              size="flush"
-              onClick={() => onOpen(bead.id)}
-              className="flex min-h-row items-center gap-3 border-t border-border px-2 py-2.5"
-            >
-              <PriorityBadge priority={bead.priority} />
-              <span className="font-mono text-xs text-muted-foreground">
-                {bead.id}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-body">
-                {bead.title}
-              </span>
-              <span className="text-xs text-muted-foreground">ready</span>
-            </InteractiveRow>
-          ))
-        )}
-      </section>
+          <h2
+            id={`agents-pool-${alias}`}
+            className="flex items-baseline gap-2 pb-2 text-body font-semibold"
+          >
+            Pool {alias}
+            <span className="text-xs font-normal text-muted-foreground">
+              <span className="font-mono">{ready.length}</span> ready to claim
+            </span>
+          </h2>
+          {ready.length === 0 ? (
+            <p className="border-t border-border py-4 text-body text-muted-foreground">
+              Nothing is queued in this pool.
+            </p>
+          ) : (
+            ready.map((bead) => (
+              <InteractiveRow
+                key={bead.id}
+                variant="plain"
+                size="flush"
+                onClick={() => onOpen(bead.id)}
+                className="flex min-h-row items-center gap-3 border-t border-border px-2 py-2.5"
+              >
+                <PriorityBadge priority={bead.priority} />
+                <span className="font-mono text-xs text-muted-foreground">
+                  {bead.id}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-body">
+                  {bead.title}
+                </span>
+                <span className="text-xs text-muted-foreground">ready</span>
+              </InteractiveRow>
+            ))
+          )}
+        </section>
+      ))}
 
       <Dialog
         open={confirming !== null}

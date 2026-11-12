@@ -24,14 +24,19 @@ export function AttentionAction({
   const mutation = useMutation({
     mutationFn: async () => {
       if (item.kind === 'lease-expired') {
-        await reclaimBeadFn({ data: { project, id: item.bead.id } })
-        return `Reclaimed ${item.bead.id}`
+        const { count } = await reclaimBeadFn({
+          data: { project, id: item.bead.id },
+        })
+        return count === 0
+          ? { notice: 'Nothing to reclaim: the lease was renewed' }
+          : { message: `Reclaimed ${item.bead.id}` }
       }
       await resolveGateFn({ data: { project, id: item.gateId ?? '' } })
-      return `Resolved gate ${item.gateId}`
+      return { message: `Resolved gate ${item.gateId}` }
     },
-    onSuccess: (message) => {
-      toast.success(message)
+    onSuccess: (result) => {
+      if ('notice' in result) toast.info(result.notice)
+      else toast.success(result.message)
     },
     onError: (error) => {
       toast.error(

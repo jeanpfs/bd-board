@@ -91,8 +91,7 @@ const webResolveGate = createServerFn({ method: 'POST' })
 const webReclaimBead = createServerFn({ method: 'POST' })
   .validator(parseBeadInput)
   .handler(async ({ data }) => {
-    await bdAdapter.reclaimBead(data.project, data.id)
-    return { ok: true as const }
+    return { count: await bdAdapter.reclaimBead(data.project, data.id) }
   })
 
 const webUnclaimBead = createServerFn({ method: 'POST' })
@@ -304,10 +303,13 @@ export async function reclaimBeadFn({
   data,
 }: {
   data: { project: string; id: string }
-}): Promise<{ ok: true }> {
+}): Promise<{ count: number }> {
   if (isDesktopApp()) {
-    await invoke('reclaim_bead', { projectId: data.project, id: data.id })
-    return { ok: true }
+    const count = await invoke<number>('reclaim_bead', {
+      projectId: data.project,
+      id: data.id,
+    })
+    return { count }
   }
   return webReclaimBead({ data })
 }

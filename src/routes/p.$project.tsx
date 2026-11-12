@@ -601,7 +601,6 @@ function BoardPage() {
         <AgentsView
           project={project}
           beads={allBeads}
-          now={new Date()}
           onOpen={(id) => {
             const bead = beadsById.get(id)
             if (bead) openBead(bead)

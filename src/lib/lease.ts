@@ -30,7 +30,7 @@ export function leaseState(bead: Bead, now: Date): LeaseState {
 
 export interface AgentRow {
   agent: string
-  /** True when the claim carries no lease: a person, not a running agent. */
+  /** True when none of the assignee's claims carries a lease: a person, not a running agent. */
   human: boolean
   beads: Bead[]
 }
@@ -44,11 +44,12 @@ export function agentRows(beads: Bead[]): AgentRow[] {
     if (!row) {
       row = {
         agent: bead.assignee,
-        human: !bead.lease_expires_at,
+        human: true,
         beads: [],
       }
       rows.set(bead.assignee, row)
     }
+    if (bead.lease_expires_at) row.human = false
     row.beads.push(bead)
   }
   return [...rows.values()]
@@ -62,7 +63,11 @@ export function gateBlocks(gates: Bead[], beads: Bead[]): Map<string, string> {
   const map = new Map<string, string>()
   for (const bead of beads) {
     for (const link of bead.links ?? []) {
-      if (link.type === 'blocks' && gateIds.has(link.id)) {
+      if (
+        link.type === 'blocks' &&
+        link.direction === 'outgoing' &&
+        gateIds.has(link.id)
+      ) {
         map.set(link.id, bead.id)
       }
     }

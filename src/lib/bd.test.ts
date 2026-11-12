@@ -8,6 +8,8 @@ import {
   buildGetConfigArgs,
   buildListGatesArgs,
   buildReclaimBeadArgs,
+  mergeGateRows,
+  parseReclaimCount,
   buildResolveGateArgs,
   buildUnclaimBeadArgs,
   buildBeadGraph,
@@ -606,6 +608,28 @@ describe('lease and gate command builders', () => {
       '0s',
       '--json',
     ])
+  })
+
+  it('adds gates that bd list hid, without duplicating ones it listed', () => {
+    const merged = mergeGateRows(
+      [{ id: 'a' }, { id: 'g1', issue_type: 'gate' }],
+      [{ id: 'g1' }, { id: 'g2' }],
+    )
+    expect(merged.map((row) => row['id'])).toEqual(['a', 'g1', 'g2'])
+  })
+
+  it('reads the reclaimed count, including zero when the lease was renewed', () => {
+    expect(
+      parseReclaimCount('{"count":0,"reclaimed":null,"schema_version":1}'),
+    ).toBe(0)
+    expect(parseReclaimCount('{"count":1,"reclaimed":["a"]}')).toBe(1)
+  })
+
+  it('rejects reclaim output that is not the JSON count', () => {
+    expect(() => parseReclaimCount('✓ reclaimed')).toThrow(
+      'Unexpected output from bd reclaim',
+    )
+    expect(() => parseReclaimCount('{"reclaimed":[]}')).toThrow()
   })
 
   it('adds --force to unclaim only when asked', () => {
