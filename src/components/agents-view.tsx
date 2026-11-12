@@ -107,7 +107,7 @@ export function AgentsView({ project, beads, onOpen }: AgentsViewProps) {
   })
 
   const beadsById = new Map(beads.map((bead) => [bead.id, bead]))
-  const rows = agentRows(beads).flatMap((row) =>
+  const rows = agentRows(beads, me).flatMap((row) =>
     row.beads.map((bead) => ({
       agent: row.agent,
       human: row.human,

@@ -30,13 +30,33 @@ export function leaseState(bead: Bead, now: Date): LeaseState {
 
 export interface AgentRow {
   agent: string
-  /** True when none of the assignee's claims carries a lease: a person, not a running agent. */
+  /** True when the actor is not an agent: see isAgentActor. */
   human: boolean
   beads: Bead[]
 }
 
+/**
+ * An actor is an agent when it holds or held a bead with a lease whose
+ * heartbeat is later than the claim start. The app's own identity is never an agent.
+ */
+export function isAgentActor(
+  actor: string,
+  beads: Bead[],
+  identity: string | null,
+): boolean {
+  if (actor === identity) return false
+  return beads.some(
+    (b) =>
+      b.assignee === actor &&
+      b.lease_expires_at !== undefined &&
+      b.heartbeat_at !== undefined &&
+      b.started_at !== undefined &&
+      Date.parse(b.heartbeat_at) > Date.parse(b.started_at),
+  )
+}
+
 /** In-progress beads grouped by assignee, in first-seen order. */
-export function agentRows(beads: Bead[]): AgentRow[] {
+export function agentRows(beads: Bead[], identity: string | null): AgentRow[] {
   const rows = new Map<string, AgentRow>()
   for (const bead of beads) {
     if (bead.status !== 'in_progress' || !bead.assignee) continue
@@ -44,12 +64,11 @@ export function agentRows(beads: Bead[]): AgentRow[] {
     if (!row) {
       row = {
         agent: bead.assignee,
-        human: true,
+        human: !isAgentActor(bead.assignee, beads, identity),
         beads: [],
       }
       rows.set(bead.assignee, row)
     }
-    if (bead.lease_expires_at) row.human = false
     row.beads.push(bead)
   }
   return [...rows.values()]

@@ -92,43 +92,83 @@ describe('leaseState', () => {
 
 describe('agentRows', () => {
   it('groups in-progress beads by assignee, ignoring other statuses', () => {
-    const rows = agentRows([
-      bead({
-        id: 'a',
-        assignee: 'claude-code',
-        lease_expires_at: at(MIN * 10),
-      }),
-      bead({ id: 'b', assignee: 'claude-code', lease_expires_at: at(MIN * 9) }),
-      bead({ id: 'c', assignee: 'codex-ci', lease_expires_at: at(MIN) }),
-      bead({ id: 'd', assignee: 'claude-code', status: 'open' }),
-    ])
+    const rows = agentRows(
+      [
+        bead({
+          id: 'a',
+          assignee: 'claude-code',
+          lease_expires_at: at(MIN * 10),
+        }),
+        bead({
+          id: 'b',
+          assignee: 'claude-code',
+          lease_expires_at: at(MIN * 9),
+        }),
+        bead({ id: 'c', assignee: 'codex-ci', lease_expires_at: at(MIN) }),
+        bead({ id: 'd', assignee: 'claude-code', status: 'open' }),
+      ],
+      null,
+    )
     expect(rows.map((r) => r.agent)).toEqual(['claude-code', 'codex-ci'])
     expect(rows[0].beads.map((b) => b.id)).toEqual(['a', 'b'])
   })
 
-  it('marks an unleased claimed bead as a human row', () => {
-    const rows = agentRows([bead({ id: 'x', assignee: 'dev' })])
+  it('marks a claim with no heartbeat as a human row', () => {
+    const rows = agentRows([bead({ id: 'x', assignee: 'dev' })], null)
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({ agent: 'dev', human: true })
   })
 
-  it('treats a leased assignee as an agent, not a human', () => {
-    const rows = agentRows([
-      bead({ id: 'x', assignee: 'codex-ci', lease_expires_at: at(MIN) }),
-    ])
+  it('marks an assignee with a lease and a heartbeat after the start as an agent', () => {
+    const rows = agentRows(
+      [
+        bead({
+          id: 'x',
+          assignee: 'codex-ci',
+          started_at: at(0),
+          heartbeat_at: at(MIN),
+          lease_expires_at: at(MIN * 2),
+        }),
+      ],
+      null,
+    )
     expect(rows[0].human).toBe(false)
   })
 
-  it('treats an assignee as an agent when any of their claims has a lease', () => {
-    const rows = agentRows([
-      bead({ id: 'x', assignee: 'dev' }),
-      bead({ id: 'y', assignee: 'dev', lease_expires_at: at(MIN) }),
-    ])
-    expect(rows[0].human).toBe(false)
+  it('does not count a heartbeat that predates the start as an agent', () => {
+    const rows = agentRows(
+      [
+        bead({
+          id: 'x',
+          assignee: 'codex-ci',
+          started_at: at(MIN),
+          heartbeat_at: at(0),
+          lease_expires_at: at(MIN * 2),
+        }),
+      ],
+      null,
+    )
+    expect(rows[0].human).toBe(true)
+  })
+
+  it('never treats the app identity as an agent, even with a live heartbeat', () => {
+    const rows = agentRows(
+      [
+        bead({
+          id: 'x',
+          assignee: 'maya',
+          started_at: at(0),
+          heartbeat_at: at(MIN),
+          lease_expires_at: at(MIN * 2),
+        }),
+      ],
+      'maya',
+    )
+    expect(rows[0].human).toBe(true)
   })
 
   it('skips in-progress beads with no assignee', () => {
-    expect(agentRows([bead({ id: 'x' })])).toEqual([])
+    expect(agentRows([bead({ id: 'x' })], null)).toEqual([])
   })
 })
 

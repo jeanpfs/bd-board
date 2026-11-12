@@ -33,6 +33,8 @@ export interface TailEventsResult {
   events: BdEvent[]
   /** Set when the cursor fell behind the journal's oldest kept record. */
   truncated?: { floor: number; head: number }
+  /** The journal is off for this project (bd printed its note on stderr). */
+  disabled?: true
 }
 
 /** One line of the inbox: a readable sentence about a bead, plus who it involves. */
@@ -50,18 +52,31 @@ export interface InboxItem {
   involves: string[]
 }
 
-/** Parses JSONL from `bd events tail`; blank lines are skipped and malformed lines throw. */
+/** Parses JSONL from `bd events tail`; blank, non-JSON and non-numeric-seq lines are skipped. */
 export function parseEventLines(text: string): TailEventsResult {
   const events: BdEvent[] = []
   let truncated: TailEventsResult['truncated']
   for (const raw of text.split('\n')) {
     const line = raw.trim()
     if (!line) continue
-    const value = JSON.parse(line) as Record<string, unknown>
-    if (value['code'] === 'events_journal_truncated') {
-      truncated = { floor: Number(value['floor']), head: Number(value['head']) }
-    } else {
-      events.push(value as unknown as BdEvent)
+    let value: unknown
+    try {
+      value = JSON.parse(line)
+    } catch {
+      continue
+    }
+    if (typeof value !== 'object' || value === null) continue
+    const record = value as Record<string, unknown>
+    if (record['code'] === 'events_journal_truncated') {
+      truncated = {
+        floor: Number(record['floor']),
+        head: Number(record['head']),
+      }
+    } else if (
+      typeof record['seq'] === 'number' &&
+      Number.isFinite(record['seq'])
+    ) {
+      events.push(record as unknown as BdEvent)
     }
   }
   return truncated ? { events, truncated } : { events }
@@ -71,6 +86,9 @@ interface Described {
   verb: string
   detail?: string
 }
+
+/** An update only counts as a claim when we saw the bead before it, or it started right at the event. */
+const CLAIM_START_WINDOW_MS = 5000
 
 function describeUpdate(
   event: BdEvent,
@@ -82,7 +100,12 @@ function describeUpdate(
   if (!issue) return { verb: 'updated' }
 
   const statusChanged = prev !== undefined && prev.status !== issue.status
+  const startedAt = issue.started_at ? Date.parse(issue.started_at) : NaN
+  const startedNow =
+    Number.isFinite(startedAt) &&
+    Math.abs(Date.parse(event.ts) - startedAt) <= CLAIM_START_WINDOW_MS
   const claimed =
+    (prev !== undefined || startedNow) &&
     !prev?.assignee &&
     issue.assignee !== undefined &&
     issue.assignee === event.actor
@@ -93,7 +116,7 @@ function describeUpdate(
   }
   if (prev && prev.status !== issue.status) {
     return {
-      verb: 'updated',
+      verb: 'moved',
       detail: `${statusLabel(prev.status)} → ${statusLabel(issue.status)}`,
     }
   }
@@ -140,8 +163,13 @@ function describeOne(
       return { verb: 'created' }
     case 'update':
       return describeUpdate(event, prev)
-    case 'close':
-      return { verb: 'closed', detail: event.issue?.close_reason }
+    case 'close': {
+      const reason = event.issue?.close_reason
+      return {
+        verb: 'closed',
+        detail: reason ? `closed · reason “${reason}”` : undefined,
+      }
+    }
     case 'delete':
       return { verb: 'deleted' }
     case 'dep_add':
@@ -193,13 +221,62 @@ export function isForMe(item: InboxItem, identity: string): boolean {
   return item.actor !== identity && item.involves.includes(identity)
 }
 
-/** Items newer than the read cursor (a journal seq). */
-export function unreadCount(items: InboxItem[], cursor: number): number {
-  return items.filter((item) => item.seq > cursor).length
+/** Unread entries: addressed to `identity` and newer than the project's read cursor. */
+export function unreadCount(
+  items: InboxItem[],
+  cursor: number,
+  identity: string | null,
+): number {
+  if (identity === null) return 0
+  return items.filter((item) => item.seq > cursor && isForMe(item, identity))
+    .length
 }
 
 /** stderr text bd prints when the events journal is off for a project. */
-export const JOURNAL_DISABLED_TEXT = 'events journal is disabled'
+export const JOURNAL_DISABLED_MARKER = 'events journal is disabled'
+
+/** `bd events tail` arguments shared by the journal feed and the inbox page reads. */
+export function tailArgs(
+  since: number,
+  opts: { limit?: number; follow?: boolean },
+): string[] {
+  const args = ['events', 'tail', '--json', '--since', String(since)]
+  if (opts.limit) {
+    args.push('--limit', String(opts.limit))
+  }
+  if (opts.follow) {
+    args.push('--follow')
+  }
+  return args
+}
+
+/**
+ * Result of one `events tail` run. bd exits 0 with an empty stdout and a note
+ * on stderr when the journal is off, so the caller passes `disabled` from that
+ * stderr; records are still parsed if any were printed.
+ */
+export function tailResult(
+  stdout: string,
+  disabled: boolean,
+): TailEventsResult {
+  const parsed = parseEventLines(stdout)
+  return disabled ? { ...parsed, disabled: true } : parsed
+}
+
+/** `HH:MM` in 24 hours, no AM/PM, local time. */
+export function formatClock(ts: string): string {
+  const date = new Date(ts)
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${date.getHours()}:${minutes}`
+}
+
+/** `Nov 9` style day label. */
+export function formatDay(ts: string): string {
+  return new Date(ts).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })
+}
 
 export interface DayGroups<T> {
   today: T[]

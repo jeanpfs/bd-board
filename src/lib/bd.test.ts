@@ -16,7 +16,6 @@ import {
   buildBeadGraph,
   buildClaimArgs,
   buildCloseBeadArgs,
-  buildTailEventsArgs,
   buildReadyExplainArgs,
   buildCountsFromGroups,
   buildDeferBeadArgs,
@@ -204,19 +203,6 @@ describe('closeBead arguments', () => {
       '--reason',
       'dup',
       '--force',
-    ])
-  })
-})
-
-describe('events tail arguments', () => {
-  it('reads the journal after a cursor with a page limit', () => {
-    expect(buildTailEventsArgs(7, 50)).toEqual([
-      'events',
-      'tail',
-      '--since',
-      '7',
-      '--limit',
-      '50',
     ])
   })
 })

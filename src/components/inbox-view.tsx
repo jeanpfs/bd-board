@@ -1,11 +1,20 @@
 import { Link } from '@tanstack/react-router'
-import { Bot } from 'lucide-react'
+import {
+  ArrowRightLeft,
+  Ban,
+  Bookmark,
+  Bot,
+  CircleCheck,
+  Hand,
+  Minus,
+  MessageSquare,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
 import { LIST_ROW } from '@/components/home-sections'
 import { ProjectChip } from '@/components/project-chip'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
@@ -17,9 +26,11 @@ import {
 } from '@/components/ui/select'
 import { useInbox } from '@/hooks/use-inbox'
 import type { InboxEntry, ProjectInboxState } from '@/hooks/use-inbox'
-import { groupByDay, isForMe, JOURNAL_DISABLED_TEXT } from '@/lib/events'
+import { formatClock, groupByDay, isForMe } from '@/lib/events'
 import { getStoredIdentity } from '@/lib/identity'
+import { isAgentActor } from '@/lib/lease'
 import { enableEventsJournalFn } from '@/lib/server'
+import { initials, toErrorMessage } from '@/lib/utils'
 
 import type { Bead, Project } from '@/lib/types'
 
@@ -30,11 +41,6 @@ const SCOPES: { key: Scope; label: string }[] = [
   { key: 'all', label: 'All activity' },
   { key: 'agents', label: 'Agents only' },
 ]
-
-const TIME_FORMAT: Intl.DateTimeFormatOptions = {
-  hour: 'numeric',
-  minute: '2-digit',
-}
 
 export function InboxView({
   projects,
@@ -52,18 +58,10 @@ export function InboxView({
     setIdentity(getStoredIdentity())
   }, [])
 
-  // An actor is an agent when it holds (or held) a lease on a bead it's assigned.
-  const agents = useMemo(() => {
-    const names = new Set<string>()
-    for (const beads of beadsByProject.values()) {
-      for (const bead of beads) {
-        if (bead.assignee && (bead.lease_expires_at || bead.heartbeat_at)) {
-          names.add(bead.assignee)
-        }
-      }
-    }
-    return names
-  }, [beadsByProject])
+  const allBeads = useMemo(
+    () => [...beadsByProject.values()].flat(),
+    [beadsByProject],
+  )
 
   const entries = useMemo(() => {
     const all: InboxEntry[] = []
@@ -73,20 +71,31 @@ export function InboxView({
     return all.sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts))
   }, [states])
 
+  // Agents among the actors in view: a leased heartbeat, never the app identity.
+  const agentActors = useMemo(() => {
+    const names = new Set<string>()
+    for (const entry of entries) {
+      const actor = entry.actor
+      if (actor && isAgentActor(actor, allBeads, identity)) names.add(actor)
+    }
+    return names
+  }, [entries, allBeads, identity])
+
   const visible = entries.filter((entry) => {
     if (projectFilter !== 'all' && entry.projectId !== projectFilter) {
       return false
     }
     if (scope === 'mine') return identity !== null && isForMe(entry, identity)
-    if (scope === 'agents') return agents.has(entry.actor ?? '')
+    if (scope === 'agents') return agentActors.has(entry.actor ?? '')
     return true
   })
   const groups = groupByDay(visible, new Date())
   const mineCount =
     identity === null ? 0 : entries.filter((e) => isForMe(e, identity)).length
   const indexById = new Map(projects.map((p, i) => [p.id, i]))
-  const live = [...states.values()].some((s) => s.data)
+  const live = [...states.values()].some((s) => s.data && !s.data.disabled)
   const pruned = [...states.values()].some((s) => s.data?.pruned)
+  const off = projects.filter((p) => states.get(p.id)?.disabled)
 
   async function enable(project: Project, state: ProjectInboxState) {
     setEnabling(project.id)
@@ -94,7 +103,7 @@ export function InboxView({
       await enableEventsJournalFn({ data: { project: project.id } })
       state.refetch()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err))
+      toast.error(toErrorMessage(err, 'Could not turn on live updates'))
     } finally {
       setEnabling(null)
     }
@@ -160,30 +169,45 @@ export function InboxView({
         </Button>
       </div>
 
+      {off.length > 0 ? (
+        <Card className="flex flex-col gap-3 p-4">
+          <p className="text-body">
+            Live updates are off for{' '}
+            {off.length === 1 ? 'this project' : 'these projects'}. Turn them on
+            to see their activity here.
+          </p>
+          <ul className="flex flex-col gap-2">
+            {off.map((project) => {
+              const state = states.get(project.id)
+              if (!state) return null
+              return (
+                <li
+                  key={project.id}
+                  className="flex items-center justify-between gap-4"
+                >
+                  <span className="text-body font-medium">{project.name}</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={enabling === project.id}
+                    onClick={() => enable(project, state)}
+                  >
+                    Enable
+                  </Button>
+                </li>
+              )
+            })}
+          </ul>
+        </Card>
+      ) : null}
+
       {projects.map((project) => {
         const state = states.get(project.id)
         if (!state?.error) return null
-        const journalOff = state.error.message.includes(JOURNAL_DISABLED_TEXT)
-        return journalOff ? (
-          <Card
-            key={project.id}
-            className="flex flex-row items-center justify-between gap-4 p-4"
-          >
-            <p className="text-body">
-              Live updates are off for {project.name}. Turn them on to see its
-              activity here.
-            </p>
-            <Button
-              size="sm"
-              disabled={enabling === project.id}
-              onClick={() => enable(project, state)}
-            >
-              Enable live updates
-            </Button>
-          </Card>
-        ) : (
+        return (
           <p key={project.id} className="text-body text-destructive">
-            {project.name}: {state.error.message}
+            {project.name}:{' '}
+            {toErrorMessage(state.error, 'Could not load activity')}
           </p>
         )
       })}
@@ -206,22 +230,25 @@ export function InboxView({
             title="Today"
             items={groups.today}
             cursors={cursors}
+            identity={identity}
             indexById={indexById}
-            agents={agents}
+            agents={agentActors}
           />
           <InboxGroup
             title="Yesterday"
             items={groups.yesterday}
             cursors={cursors}
+            identity={identity}
             indexById={indexById}
-            agents={agents}
+            agents={agentActors}
           />
           <InboxGroup
             title="Earlier"
             items={groups.earlier}
             cursors={cursors}
+            identity={identity}
             indexById={indexById}
-            agents={agents}
+            agents={agentActors}
           />
         </>
       )}
@@ -233,12 +260,14 @@ function InboxGroup({
   title,
   items,
   cursors,
+  identity,
   indexById,
   agents,
 }: {
   title: string
   items: InboxEntry[]
-  cursors: Record<string, number>
+  cursors: Partial<Record<string, number>>
+  identity: string | null
   indexById: Map<string, number>
   agents: Set<string>
 }) {
@@ -249,18 +278,45 @@ function InboxGroup({
         {title} <span className="font-mono text-xs">{items.length}</span>
       </h2>
       <ul className="flex flex-col">
-        {items.map((entry) => (
-          <InboxRow
-            key={`${entry.projectId}:${entry.seq}`}
-            entry={entry}
-            unread={entry.seq > (cursors[entry.projectId] ?? 0)}
-            index={indexById.get(entry.projectId) ?? 0}
-            agent={agents.has(entry.actor ?? '')}
-          />
-        ))}
+        {items.map((entry) => {
+          const cursor = cursors[entry.projectId]
+          const unread =
+            identity !== null &&
+            cursor !== undefined &&
+            entry.seq > cursor &&
+            isForMe(entry, identity)
+          return (
+            <InboxRow
+              key={`${entry.projectId}:${entry.seq}`}
+              entry={entry}
+              unread={unread}
+              index={indexById.get(entry.projectId) ?? 0}
+              agent={agents.has(entry.actor ?? '')}
+            />
+          )
+        })}
       </ul>
     </section>
   )
+}
+
+/** The icon names what kind of change the entry is, so the verb is not the only cue. */
+function entryIcon(entry: InboxEntry): LucideIcon {
+  if (entry.verb === 'claimed') return Hand
+  switch (entry.op) {
+    case 'update':
+      return ArrowRightLeft
+    case 'close':
+      return CircleCheck
+    case 'comment':
+      return MessageSquare
+    case 'dep_add':
+      return Ban
+    case 'create':
+      return Bookmark
+    default:
+      return Minus
+  }
 }
 
 function InboxRow({
@@ -275,6 +331,7 @@ function InboxRow({
   agent: boolean
 }) {
   const actor = entry.actor ?? ''
+  const Icon = entryIcon(entry)
   return (
     <li className="border-b border-border/60 last:border-0">
       <Link
@@ -288,16 +345,28 @@ function InboxRow({
           aria-label={unread ? 'Unread' : undefined}
           role={unread ? 'img' : undefined}
         />
+        {agent ? (
+          <span
+            aria-hidden="true"
+            className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-project-1"
+          >
+            <Bot className="size-3.5" />
+          </span>
+        ) : (
+          <span
+            aria-hidden="true"
+            className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-badge font-medium"
+          >
+            {initials(actor)}
+          </span>
+        )}
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-body">
             <span className="font-medium text-foreground">{actor}</span>
-            {agent ? (
-              <Badge className="gap-1">
-                <Bot className="size-3" aria-hidden="true" />
-                Bot
-              </Badge>
-            ) : null}
-            <span className="text-muted-foreground">{entry.verb}</span>
+            <span className="flex items-center gap-1 text-muted-foreground">
+              <Icon className="size-3.5 shrink-0" aria-hidden="true" />
+              {entry.verb}
+            </span>
             <span className="font-mono text-xs text-muted-foreground">
               {entry.issueId}
             </span>
@@ -315,9 +384,7 @@ function InboxRow({
           ) : null}
         </span>
         <span className="flex shrink-0 flex-col items-end gap-1 text-xs text-muted-foreground">
-          <time dateTime={entry.ts}>
-            {new Date(entry.ts).toLocaleTimeString([], TIME_FORMAT)}
-          </time>
+          <time dateTime={entry.ts}>{formatClock(entry.ts)}</time>
           <ProjectChip name={entry.projectName} index={index} />
         </span>
       </Link>

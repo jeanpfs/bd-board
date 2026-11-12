@@ -20,7 +20,7 @@ import {
   parseUpdateBeadInput,
 } from './server-validation.ts'
 import { parseReadyExplain } from './ready.ts'
-import { parseEventLines } from './events.ts'
+import { tailResult } from './events.ts'
 import type { TailEventsResult } from './events.ts'
 import { toErrorMessage } from './utils.ts'
 
@@ -536,12 +536,11 @@ export async function tailEventsFn({
   data: { project: string; since: number; limit: number }
 }): Promise<TailEventsResult> {
   if (isDesktopApp()) {
-    const stdout = await invoke<string>('tail_events', {
-      projectId: data.project,
-      since: data.since,
-      limit: data.limit,
-    })
-    return parseEventLines(stdout)
+    const page = await invoke<{ stdout: string; disabled: boolean }>(
+      'tail_events',
+      { projectId: data.project, since: data.since, limit: data.limit },
+    )
+    return tailResult(page.stdout, page.disabled)
   }
   return webTailEvents({ data })
 }

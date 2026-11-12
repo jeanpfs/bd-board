@@ -3,9 +3,12 @@ import { describe, expect, it } from 'vitest'
 import type { Bead } from './types'
 import {
   describeEvents,
+  formatClock,
   groupByDay,
   isForMe,
   parseEventLines,
+  tailArgs,
+  tailResult,
   unreadCount,
 } from './events'
 import type { BdEvent } from './events'
@@ -72,8 +75,14 @@ describe('parseEventLines', () => {
     })
   })
 
-  it('throws on a line that is not JSON instead of dropping it', () => {
-    expect(() => parseEventLines('{"seq":1}\nnot json')).toThrow()
+  it('skips lines that are not JSON or carry no numeric seq', () => {
+    const text = [
+      '{"seq":1,"ts":"t","op":"delete","issue_id":"a"}',
+      'not json',
+      '[1,2]',
+      '{"seq":"2"}',
+    ].join('\n')
+    expect(parseEventLines(text).events.map((e) => e.seq)).toEqual([1])
   })
 })
 
@@ -102,7 +111,7 @@ describe('describeEvents', () => {
       actor: 'dev',
       issueId: 'ldg-8e7',
       title: 'PDF export drops footer',
-      verb: 'updated',
+      verb: 'moved',
       detail: 'Open → In progress',
     })
   })
@@ -188,7 +197,7 @@ describe('describeEvents', () => {
 
     expect(item).toMatchObject({
       verb: 'closed',
-      detail: 'Shipped in v2.14, migration ran in prod.',
+      detail: 'closed · reason “Shipped in v2.14, migration ran in prod.”',
     })
   })
 
@@ -323,19 +332,27 @@ describe('isForMe', () => {
 })
 
 describe('unreadCount', () => {
-  it('counts only items newer than the read cursor', () => {
-    const items = describeEvents(
-      [
-        { seq: 3, ts: 't', op: 'delete', issue_id: 'a', actor: 'x' },
-        { seq: 4, ts: 't', op: 'delete', issue_id: 'b', actor: 'x' },
-        { seq: 5, ts: 't', op: 'delete', issue_id: 'c', actor: 'x' },
-      ],
-      new Map(),
-    )
+  const mine = (seq: number, actor: string) => ({
+    seq,
+    ts: 't',
+    op: 'update' as const,
+    issue_id: `b${seq}`,
+    actor,
+    issue: { id: `b${seq}`, assignee: 'maya' } as Bead,
+  })
+  const items = describeEvents(
+    [mine(3, 'x'), mine(4, 'x'), mine(5, 'x')],
+    new Map(),
+  )
 
-    expect(unreadCount(items, 0)).toBe(3)
-    expect(unreadCount(items, 4)).toBe(1)
-    expect(unreadCount(items, 5)).toBe(0)
+  it('counts only items for me newer than the read cursor', () => {
+    expect(unreadCount(items, 0, 'maya')).toBe(3)
+    expect(unreadCount(items, 4, 'maya')).toBe(1)
+    expect(unreadCount(items, 5, 'maya')).toBe(0)
+  })
+
+  it('is zero without an identity, since nothing is for nobody', () => {
+    expect(unreadCount(items, 0, null)).toBe(0)
   })
 })
 
@@ -359,5 +376,57 @@ describe('groupByDay', () => {
   it('treats the midnight boundary as the start of today', () => {
     const groups = groupByDay([at(12, 0, 0)], now)
     expect(groups.today).toHaveLength(1)
+  })
+})
+
+describe('tailArgs', () => {
+  it('reads JSON after a cursor with a page limit', () => {
+    expect(tailArgs(7, { limit: 50 })).toEqual([
+      'events',
+      'tail',
+      '--json',
+      '--since',
+      '7',
+      '--limit',
+      '50',
+    ])
+  })
+
+  it('adds --follow for the live feed', () => {
+    expect(tailArgs(0, { follow: true })).toEqual([
+      'events',
+      'tail',
+      '--json',
+      '--since',
+      '0',
+      '--follow',
+    ])
+  })
+})
+
+describe('tailResult', () => {
+  const record = '{"seq":1,"ts":"t","op":"delete","issue_id":"a"}'
+
+  it('returns the parsed page with no disabled flag when the journal is on', () => {
+    expect(tailResult(record, false).events).toHaveLength(1)
+    expect(tailResult(record, false)).not.toHaveProperty('disabled')
+  })
+
+  it('flags a disabled journal and keeps records printed with the note', () => {
+    expect(tailResult(record, true)).toMatchObject({ disabled: true })
+    expect(tailResult(record, true).events).toHaveLength(1)
+  })
+
+  it('is an empty page for empty output', () => {
+    expect(tailResult('', false)).toEqual({ events: [] })
+  })
+})
+
+describe('formatClock', () => {
+  it('prints 24-hour local time with no leading zero on the hour', () => {
+    expect(formatClock(new Date(2026, 10, 12, 9, 5).toISOString())).toBe('9:05')
+    expect(formatClock(new Date(2026, 10, 12, 14, 42).toISOString())).toBe(
+      '14:42',
+    )
   })
 })

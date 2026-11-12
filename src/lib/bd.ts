@@ -29,7 +29,7 @@ import { loadRegistry } from './registry.ts'
 import type { RegistryEntry } from './registry.ts'
 import { migrationGateError, parseMigrationGate } from './migration-gate.ts'
 import type { MigrationGate } from './migration-gate.ts'
-import { parseEventLines } from './events.ts'
+import { JOURNAL_DISABLED_MARKER, tailArgs, tailResult } from './events.ts'
 import type { TailEventsResult } from './events.ts'
 
 const execFileAsync = promisify(execFile)
@@ -1126,21 +1126,18 @@ async function enableEventsJournal(projectId: string): Promise<void> {
   await bdRaw(dir, ['config', 'set', 'events-journal', 'true'])
 }
 
-function buildTailEventsArgs(since: number, limit: number): string[] {
-  return ['events', 'tail', '--since', String(since), '--limit', String(limit)]
-}
-
-/** One page of the events journal after `since`. Truncation can come with a non-zero exit, so stdout decides first. */
+/** One page of the events journal after `since`. Truncation can come with a non-zero exit, and a disabled journal exits 0 with a note on stderr. */
 async function tailEvents(
   projectId: string,
   since: number,
   limit: number,
 ): Promise<TailEventsResult> {
   const dir = await resolveDir(projectId)
-  const result = await bdExec(dir, buildTailEventsArgs(since, limit))
-  const parsed = parseEventLines(result.stdout)
-  if (result.code !== 0 && !parsed.truncated) throw bdFailure(result)
-  return parsed
+  const run = await bdExec(dir, tailArgs(since, { limit }))
+  const disabled = run.stderr.includes(JOURNAL_DISABLED_MARKER)
+  const result = tailResult(run.stdout, disabled)
+  if (run.code !== 0 && !result.truncated && !disabled) throw bdFailure(run)
+  return result
 }
 
 export const bdAdapter: BdAdapter = {
@@ -1182,7 +1179,6 @@ export {
   addRelation,
   removeRelation,
   buildCloseBeadArgs,
-  buildTailEventsArgs,
   updateBead,
   buildUpdateBeadArgs,
   buildListBeadsArgs,

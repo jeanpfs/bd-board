@@ -1471,17 +1471,6 @@ fn build_close_bead_args(id: &str, reason: Option<&str>, force: bool) -> Vec<Str
     args
 }
 
-fn build_tail_events_args(since: i64, limit: i64) -> Vec<String> {
-    vec![
-        "events".to_string(),
-        "tail".to_string(),
-        "--since".to_string(),
-        since.to_string(),
-        "--limit".to_string(),
-        limit.to_string(),
-    ]
-}
-
 fn build_claim_args(id: &str, actor: Option<&str>) -> Result<Vec<String>, String> {
     let mut args = vec!["update".to_string(), id.to_string(), "--claim".to_string()];
     if let Some(actor) = actor.map(str::trim).filter(|a| !a.is_empty()) {
@@ -1755,16 +1744,34 @@ fn close_bead_inner(
     run_bd_mut(&dir, &build_close_bead_args(id, reason, force)).map(|_| ())
 }
 
-fn tail_events_inner(project_id: &str, since: i64, limit: i64) -> Result<String, String> {
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TailEventsPage {
+    stdout: String,
+    disabled: bool,
+}
+
+/// One `events tail` run. A disabled journal exits 0 with a note on stderr.
+/// Truncation can come with a non-zero exit, so the JSON error line in stdout
+/// is accepted before the exit status.
+fn tail_events_page(cap: &BdCapture) -> Result<TailEventsPage, String> {
+    let disabled = cap.stderr.contains(JOURNAL_DISABLED_MARKER);
+    if !cap.status.success() && !disabled && !cap.stdout.contains(TRUNCATED_CODE) {
+        return Err(bd_failure(cap));
+    }
+    Ok(TailEventsPage {
+        stdout: cap.stdout.clone(),
+        disabled,
+    })
+}
+
+fn tail_events_inner(project_id: &str, since: i64, limit: i64) -> Result<TailEventsPage, String> {
     let dir = resolve_dir(project_id)?;
-    let args = build_tail_events_args(since, limit);
+    let limit = usize::try_from(limit).map_err(|_| "limit is invalid".to_string())?;
+    let args = tail_args(since, Some(limit), false);
     let refs: Vec<&str> = args.iter().map(String::as_str).collect();
     let cap = exec_bd(&dir, &refs)?;
-    // Truncation arrives as a JSON error line, possibly with a non-zero exit; the TS side parses stdout.
-    if !cap.status.success() && !cap.stdout.contains("events_journal_truncated") {
-        return Err(bd_failure(&cap));
-    }
-    Ok(cap.stdout)
+    tail_events_page(&cap)
 }
 
 fn claim_bead_inner(project_id: &str, id: &str, actor: Option<&str>) -> Result<(), String> {
@@ -1945,7 +1952,7 @@ pub fn close_bead(
 }
 
 #[tauri::command]
-pub fn tail_events(project_id: String, since: i64, limit: i64) -> Result<String, String> {
+pub fn tail_events(project_id: String, since: i64, limit: i64) -> Result<TailEventsPage, String> {
     tail_events_inner(&project_id, since, limit)
 }
 
@@ -2263,11 +2270,69 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn build_tail_events_args_reads_from_cursor_with_limit() {
+    fn tail_args_reads_json_from_cursor_with_limit() {
         assert_eq!(
-            build_tail_events_args(7, 50),
-            ["events", "tail", "--since", "7", "--limit", "50"]
+            tail_args(7, Some(50), false),
+            ["events", "tail", "--json", "--since", "7", "--limit", "50"]
         );
+    }
+
+    fn tail_capture(exit_ok: bool, stdout: &str, stderr: &str) -> BdCapture {
+        let program = if exit_ok { "true" } else { "false" };
+        BdCapture {
+            bin: "bd".to_string(),
+            stdout: stdout.to_string(),
+            stderr: stderr.to_string(),
+            status: std::process::Command::new(program).output().unwrap().status,
+        }
+    }
+
+    #[test]
+    fn tail_events_page_disabled_note_with_exit_zero_and_empty_stdout() {
+        let cap = tail_capture(
+            true,
+            "",
+            "note: the events journal is disabled for this workspace",
+        );
+        assert_eq!(
+            tail_events_page(&cap),
+            Ok(TailEventsPage {
+                stdout: String::new(),
+                disabled: true,
+            })
+        );
+    }
+
+    #[test]
+    fn tail_events_page_disabled_keeps_records_printed_with_the_note() {
+        let record = r#"{"seq":3,"ts":"2026-11-10T09:00:00Z","op":"create","issue_id":"x-1"}"#;
+        let cap = tail_capture(true, record, "note: the events journal is disabled");
+        assert_eq!(
+            tail_events_page(&cap),
+            Ok(TailEventsPage {
+                stdout: record.to_string(),
+                disabled: true,
+            })
+        );
+    }
+
+    #[test]
+    fn tail_events_page_truncation_with_nonzero_exit_is_a_page() {
+        let line = r#"{"code":"events_journal_truncated","error":"journal truncated","floor":10,"head":100,"since":5}"#;
+        let cap = tail_capture(false, line, "");
+        assert_eq!(
+            tail_events_page(&cap),
+            Ok(TailEventsPage {
+                stdout: line.to_string(),
+                disabled: false,
+            })
+        );
+    }
+
+    #[test]
+    fn tail_events_page_failure_without_marker_is_an_error() {
+        let cap = tail_capture(false, "", "boom");
+        assert!(tail_events_page(&cap).is_err());
     }
 
     #[test]
@@ -3126,7 +3191,11 @@ mod tests {
     fn graph_reads_blocks_edges_in_both_directions() {
         let beads = build_bead_graph(
             &[
-                graph_issue("ravo-fvs", Some(vec![graph_edge("ravo-fvs", "ravo-nyu", "blocks")]), json!({})),
+                graph_issue(
+                    "ravo-fvs",
+                    Some(vec![graph_edge("ravo-fvs", "ravo-nyu", "blocks")]),
+                    json!({}),
+                ),
                 graph_issue("ravo-nyu", None, json!({})),
             ],
             &HashMap::new(),
@@ -3146,7 +3215,11 @@ mod tests {
         let beads = build_bead_graph(
             &[
                 graph_issue("ravo-epic", None, json!({"issue_type": "epic"})),
-                graph_issue("ravo-sub", Some(vec![graph_edge("ravo-sub", "ravo-epic", "parent-child")]), json!({})),
+                graph_issue(
+                    "ravo-sub",
+                    Some(vec![graph_edge("ravo-sub", "ravo-epic", "parent-child")]),
+                    json!({}),
+                ),
             ],
             &HashMap::new(),
         );
@@ -3158,7 +3231,11 @@ mod tests {
     fn graph_keeps_non_blocking_edge_types_with_their_own_type() {
         let beads = build_bead_graph(
             &[
-                graph_issue("ravo-14f", Some(vec![graph_edge("ravo-14f", "ravo-c4d", "discovered-from")]), json!({})),
+                graph_issue(
+                    "ravo-14f",
+                    Some(vec![graph_edge("ravo-14f", "ravo-c4d", "discovered-from")]),
+                    json!({}),
+                ),
                 graph_issue("ravo-c4d", None, json!({})),
             ],
             &HashMap::new(),
@@ -3178,12 +3255,17 @@ mod tests {
         let beads = build_bead_graph(
             &[graph_issue(
                 "ravo-fvs",
-                Some(vec![json!({"id": "ravo-nyu", "title": "Expanded", "dependency_type": "blocks"})]),
+                Some(vec![
+                    json!({"id": "ravo-nyu", "title": "Expanded", "dependency_type": "blocks"}),
+                ]),
                 json!({}),
             )],
             &HashMap::new(),
         );
-        assert!(serde_json::to_value(&beads[0]).unwrap().get("links").is_none());
+        assert!(serde_json::to_value(&beads[0])
+            .unwrap()
+            .get("links")
+            .is_none());
     }
 
     #[test]
