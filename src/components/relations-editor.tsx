@@ -24,6 +24,7 @@ import type {
   RelationKind,
   RemovableRelationKind,
 } from '@/lib/relations'
+import { statusText } from '@/lib/types'
 import type { Bead, RelatedBead } from '@/lib/types'
 import { toErrorMessage } from '@/lib/utils'
 
@@ -116,6 +117,9 @@ export function RelationsEditor({
       setSelectedId(null)
       setQuery('')
       invalidate(target)
+      if (kind === 'duplicate-of' || kind === 'supersedes') {
+        queryClient.invalidateQueries({ queryKey: ['projects'] })
+      }
     },
     onError: (error) => {
       toast.error(toErrorMessage(error, 'Failed to add relation'))
@@ -193,7 +197,7 @@ export function RelationsEditor({
                           item.dependency_type !== 'blocks' ? (
                             <span>{item.dependency_type}</span>
                           ) : null}
-                          <span>{item.status}</span>
+                          <span>{statusText(item)}</span>
                         </span>
                       </InteractiveRow>
                       {removable ? (
@@ -228,7 +232,10 @@ export function RelationsEditor({
           <Select
             value={kind}
             onValueChange={(value) => {
-              if (isRelationKind(value)) setKind(value)
+              if (isRelationKind(value)) {
+                setKind(value)
+                setSelectedId(null)
+              }
             }}
           >
             <SelectTrigger className="w-36" aria-label="Relation type">
@@ -244,7 +251,10 @@ export function RelationsEditor({
           </Select>
           <Input
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value)
+              setSelectedId(null)
+            }}
             placeholder="Search bead id or title"
             aria-label="Search beads"
           />
