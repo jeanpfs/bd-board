@@ -80,7 +80,7 @@ export function BulkActionBar({
     <div
       role="toolbar"
       aria-label="Bulk actions"
-      className="absolute bottom-4 left-1/2 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 flex-wrap items-center gap-2 rounded-lg bg-card px-3 py-2 shadow-lg ring-1 ring-border"
+      className="absolute bottom-4 left-1/2 z-20 flex w-max max-w-[calc(100%-2rem)] -translate-x-1/2 flex-wrap items-center gap-2 rounded-lg bg-card px-3 py-2 shadow-lg ring-1 ring-border"
     >
       <span className="text-sm font-medium tabular-nums">
         {ids.length} selected
