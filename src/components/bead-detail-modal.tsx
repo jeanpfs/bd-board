@@ -81,6 +81,8 @@ import type { Bead, BeadColumn, BeadDetail } from '@/lib/types'
 export interface BeadAction {
   id: string
   nonce: number
+  /** Bead the action targets; the route drops it when a different bead opens. */
+  beadId: string
 }
 
 /** Edit-dialog control a shortcut focuses; its value is the element id suffix. */
@@ -734,12 +736,22 @@ export function BeadDetailModal({
   const [subtaskOpen, setSubtaskOpen] = useState(false)
   const [statusOpen, setStatusOpen] = useState(false)
   const [editField, setEditField] = useState<EditField>()
+  // Kept in state (not read from `action`) because the action is cleared right
+  // away, usually before the picker has mounted inside the freshly opened dialog.
+  const [dueRequest, setDueRequest] = useState<number>()
 
   // Keyboard shortcuts open the existing controls for the open bead, then
   // report the request handled so a remount does not replay it.
   useEffect(() => {
-    if (!open || !action) return
+    if (!open) {
+      setDueRequest(undefined)
+      return
+    }
+    if (!action) return
     switch (action.id) {
+      case 'due':
+        setDueRequest(action.nonce)
+        break
       case 'status':
         setStatusOpen(true)
         break
@@ -1223,9 +1235,7 @@ export function BeadDetailModal({
                   <DueDatePicker
                     project={project}
                     bead={bead}
-                    openRequest={
-                      action?.id === 'due' ? action.nonce : undefined
-                    }
+                    openRequest={dueRequest}
                   />
                 </MetaField>
 

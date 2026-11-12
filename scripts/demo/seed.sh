@@ -82,8 +82,8 @@ c "Versioned docs" -t feature -p 3 >/dev/null
 # ---------------------------------------------------------------- bd-board registry
 cat > "$HOME/.config/bd-board/projects.json" <<JSON
 {"version":1,"projects":[
-{"id":"ledger","path":"$BEADS_WORKSPACE_ROOT/ledger/.beads","label":"ledger"},
-{"id":"orbit","path":"$BEADS_WORKSPACE_ROOT/orbit/.beads","label":"orbit"},
-{"id":"atlas","path":"$BEADS_WORKSPACE_ROOT/atlas/.beads","label":"atlas"}]}
+{"id":"ledger","path":"$ROOT/ledger/.beads","label":"ledger"},
+{"id":"orbit","path":"$ROOT/orbit/.beads","label":"orbit"},
+{"id":"atlas","path":"$ROOT/atlas/.beads","label":"atlas"}]}
 JSON
 echo seeded

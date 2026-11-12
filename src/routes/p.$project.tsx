@@ -467,9 +467,10 @@ function BoardPage() {
   }, [view, listOrder])
   const [claimingId, setClaimingId] = useState<string | null>(null)
 
-  // A different bead (or closing the modal) drops any pending bead action.
+  // Closing the modal or opening a different bead than the one the action
+  // targets drops it; an action raised from a focused card survives the open.
   useEffect(() => {
-    setPendingAction(null)
+    setPendingAction((prev) => (prev?.beadId === beadParam ? prev : null))
   }, [beadParam])
 
   function focusedCard(): HTMLElement | null {
@@ -520,7 +521,7 @@ function BoardPage() {
     if (!targetId) return
     const bead = beadsById.get(targetId)
     if (targetId !== beadParam && bead) openBead(bead)
-    setPendingAction({ id, nonce: Date.now() })
+    setPendingAction({ id, nonce: Date.now(), beadId: targetId })
   }
 
   useShortcuts({
