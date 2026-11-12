@@ -19,6 +19,7 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { toast } from 'sonner'
 
 import { BoardHeader } from '@/components/board-header'
+import { TimelineView } from '@/components/timeline-view'
 import { BoardSwimlanes } from '@/components/board-swimlanes'
 import { ListView, flattenOrder, listGroups } from '@/components/list-view'
 import type { ListGroupBy } from '@/components/list-view'
@@ -87,7 +88,7 @@ interface BoardSearch {
   group?: ListGroupBy
 }
 
-const BOARD_VIEWS = new Set(['status', 'epic', 'priority', 'list'])
+const BOARD_VIEWS = new Set(['status', 'epic', 'priority', 'list', 'timeline'])
 const PROJECT_TABS = new Set([
   'overview',
   'board',
@@ -737,6 +738,13 @@ function BoardPage() {
         />
       ) : tab === 'hierarchy' ? (
         <HierarchyView beads={beads} onOpen={openBead} />
+      ) : view === 'timeline' ? (
+        <TimelineView
+          project={project}
+          beads={beads}
+          now={new Date()}
+          onOpen={openBead}
+        />
       ) : view === 'list' ? (
         <div className="flex min-h-0 flex-1 flex-col">
           {selection.selected.length > 0 ? (

@@ -1,5 +1,6 @@
 import {
   ArrowUpDown,
+  CalendarRange,
   Columns3,
   Layers,
   ListTree,
@@ -30,7 +31,7 @@ import { PRIORITIES, SORT_OPTIONS } from '@/lib/sort'
 import type { LucideIcon } from 'lucide-react'
 import type { SortKey } from '@/lib/sort'
 
-export type BoardView = 'status' | 'epic' | 'priority' | 'list'
+export type BoardView = 'status' | 'epic' | 'priority' | 'list' | 'timeline'
 export type ProjectTab =
   | 'overview'
   | 'board'
@@ -71,7 +72,35 @@ const VIEWS: { key: BoardView; label: string; icon: LucideIcon }[] = [
   { key: 'priority', label: 'Priority', icon: SlidersHorizontal },
   { key: 'status', label: 'Status', icon: Columns3 },
   { key: 'list', label: 'List', icon: List },
+  { key: 'timeline', label: 'Timeline', icon: CalendarRange },
 ]
+
+function ViewToggle({
+  view,
+  onChange,
+}: {
+  view: BoardView
+  onChange: (value: BoardView) => void
+}) {
+  return (
+    <ToggleGroup
+      type="single"
+      value={view}
+      onValueChange={(value) => value && onChange(value as BoardView)}
+      aria-label="Group by"
+    >
+      {VIEWS.map((v) => {
+        const Icon = v.icon
+        return (
+          <ToggleGroupItem key={v.key} value={v.key} aria-label={v.label}>
+            <Icon className="size-3.5" aria-hidden="true" />
+            {v.label}
+          </ToggleGroupItem>
+        )
+      })}
+    </ToggleGroup>
+  )
+}
 
 const PRIORITY_HINT: Record<number, string> = {
   0: 'highest',
@@ -111,25 +140,21 @@ export function BoardHeader({
     )
   }
 
+  if (view === 'timeline') {
+    return (
+      <header className="flex flex-col gap-3 pb-4">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <ViewToggle view={view} onChange={setView} />
+          <div className="ml-auto">{liveIndicator}</div>
+        </div>
+      </header>
+    )
+  }
+
   return (
     <header className="flex flex-col gap-3 pb-4">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <ToggleGroup
-          type="single"
-          value={view}
-          onValueChange={(value) => value && setView(value as BoardView)}
-          aria-label="Group by"
-        >
-          {VIEWS.map((v) => {
-            const Icon = v.icon
-            return (
-              <ToggleGroupItem key={v.key} value={v.key} aria-label={v.label}>
-                <Icon className="size-3.5" aria-hidden="true" />
-                {v.label}
-              </ToggleGroupItem>
-            )
-          })}
-        </ToggleGroup>
+        <ViewToggle view={view} onChange={setView} />
 
         <Toggle
           pressed={due === 'week'}

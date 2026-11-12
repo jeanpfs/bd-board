@@ -100,7 +100,11 @@ export function ProjectTopbar() {
           </>
         ) : (
           <span aria-current="page" className="font-semibold text-foreground">
-            {onSettings ? 'Settings' : TAB_LABEL[tab]}
+            {onSettings
+              ? 'Settings'
+              : tab === 'board' && search.view === 'timeline'
+                ? 'Timeline'
+                : TAB_LABEL[tab]}
           </span>
         )}
       </nav>

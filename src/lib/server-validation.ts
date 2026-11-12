@@ -552,7 +552,9 @@ export function parseUpdateBeadInput(input: unknown): {
   id: string
   update: BeadUpdate
 } {
-  const data = record(input)
+  const raw = record(input)
+  const data =
+    raw['update'] === undefined ? raw : { ...raw, ...record(raw['update']) }
   const update: BeadUpdate = {}
 
   if ('title' in data) {
