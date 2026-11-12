@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { kvGetFn, kvSetFn, queryBeadsFn } from '@/lib/server'
+import { getBeads, kvGetFn, kvSetFn, queryBeadsFn } from '@/lib/server'
 import {
   VIEWS_KV_KEY,
   VIEW_NAME_MAX_LENGTH,
@@ -254,8 +254,16 @@ export function ViewPage({ project, viewId, onOpen, onCreated }: ViewPageProps) 
   const [draft, setDraft] = useState<string | null>(null)
   const [duplicating, setDuplicating] = useState(false)
 
+  // Shares the board's beads cache; a refetch there re-runs the view's query.
+  const liveBeads = useQuery({
+    queryKey: ['beads', project],
+    queryFn: () => getBeads({ data: { project } }),
+    enabled: Boolean(project),
+    staleTime: 3000,
+    retry: false,
+  })
   const beadsQuery = useQuery({
-    queryKey: ['view-beads', project, view?.query],
+    queryKey: ['view-beads', project, view?.query, liveBeads.dataUpdatedAt],
     queryFn: () => queryBeadsFn({ data: { project, query: view!.query } }),
     enabled: Boolean(view) && queryTextError(view?.query ?? '') === null,
     retry: false,
