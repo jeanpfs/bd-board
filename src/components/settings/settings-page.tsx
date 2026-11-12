@@ -8,6 +8,7 @@ import { SettingsNav } from '@/components/settings/settings-nav'
 import type { SettingsSection } from '@/components/settings/settings-nav'
 import { StatusesSection } from '@/components/settings/statuses-section'
 import { getProjects, isDesktopApp } from '@/lib/server'
+import { PROJECTS_REFETCH_MS } from '@/lib/polling'
 
 interface SettingsPageProps {
   project: string
@@ -19,7 +20,7 @@ export function SettingsPage({ project, section }: SettingsPageProps) {
   const projectsQuery = useQuery({
     queryKey: ['projects'],
     queryFn: () => getProjects(),
-    refetchInterval: 15000,
+    refetchInterval: PROJECTS_REFETCH_MS,
     staleTime: 5000,
   })
 

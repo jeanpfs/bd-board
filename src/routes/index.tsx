@@ -28,6 +28,7 @@ import {
 import { getStoredIdentity } from '@/lib/identity'
 import { isGate } from '@/lib/lease'
 import { getProjects } from '@/lib/server'
+import { PROJECTS_REFETCH_MS } from '@/lib/polling'
 import { relativeDate } from '@/lib/time'
 import { statusText } from '@/lib/types'
 import { useValidateProjectsOnMount } from '@/lib/useValidateProjectsOnMount'
@@ -44,7 +45,7 @@ function Home() {
   const { data, isPending, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['projects'],
     queryFn: () => getProjects(),
-    refetchInterval: 15000,
+    refetchInterval: PROJECTS_REFETCH_MS,
     staleTime: 5000,
   })
 
@@ -360,14 +361,20 @@ function StartScreen() {
   const { handleOpenProject, handleInitProject } = useProjectActions()
 
   return (
-    <div className="mx-auto flex min-h-[70dvh] max-w-md flex-col justify-center gap-6">
+    <section
+      aria-labelledby="start-screen-title"
+      className="mx-auto flex min-h-[70dvh] max-w-md flex-col justify-center gap-6"
+    >
       <DesktopProbeCard />
       <div className="flex flex-col items-center gap-4 text-center">
         <span className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
           <FolderOpen className="size-5" aria-hidden="true" />
         </span>
         <div className="flex flex-col gap-1.5">
-          <h1 className="text-title font-semibold tracking-[-0.01em]">
+          <h1
+            id="start-screen-title"
+            className="text-title font-semibold tracking-[-0.01em]"
+          >
             Start with a project
           </h1>
           <p className="text-body text-muted-foreground">
@@ -386,6 +393,6 @@ function StartScreen() {
           </Button>
         </div>
       </div>
-    </div>
+    </section>
   )
 }

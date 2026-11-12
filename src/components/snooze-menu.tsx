@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/popover'
 import { localDateParam } from '@/lib/schedule'
 import { deferBeadFn, undeferBeadFn } from '@/lib/server'
+import { patchCachedBead } from '@/lib/optimistic'
 import { toErrorMessage } from '@/lib/utils'
 
 import type { Bead } from '@/lib/types'
@@ -35,14 +36,26 @@ export function SnoozeMenu({ project, bead }: { project: string; bead: Bead }) {
       until === undefined
         ? undeferBeadFn({ data: { project, id: bead.id } })
         : deferBeadFn({ data: { project, id: bead.id, until } }),
+    onMutate: (until) =>
+      patchCachedBead(
+        queryClient,
+        project,
+        bead.id,
+        until === undefined
+          ? { status: 'open', defer_until: undefined }
+          : { status: 'deferred' },
+      ),
     onSuccess: () => {
       setOpen(false)
       setPicking(false)
+    },
+    onError: (error, _until, undo) => {
+      undo?.()
+      toast.error(toErrorMessage(error, 'Failed to update snooze'))
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['beads', project] })
       queryClient.invalidateQueries({ queryKey: ['bead', project, bead.id] })
-    },
-    onError: (error) => {
-      toast.error(toErrorMessage(error, 'Failed to update snooze'))
     },
   })
 

@@ -51,6 +51,7 @@ import {
   updateBeadStatusFn,
 } from '@/lib/server'
 import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
+import { boardRefetchMs, knowledgeRefetchMs } from '@/lib/polling'
 import { beadMatches, compareBeads } from '@/lib/sort'
 import { toErrorMessage } from '@/lib/utils'
 import { claimErrorMessage } from '@/lib/ready'
@@ -257,7 +258,7 @@ function BoardPage() {
   const beadsQuery = useQuery({
     queryKey: ['beads', project],
     queryFn: () => getBeads({ data: { project } }),
-    refetchInterval: feed.status === 'live' ? 60_000 : 8_000,
+    refetchInterval: boardRefetchMs(feed.status === 'live'),
     staleTime: 3000,
     retry: false,
   })
@@ -786,7 +787,7 @@ function BoardPage() {
           beadsById={beadsById}
           onOpenBead={openBead}
           onOpenKnowledge={openKnowledge}
-          refetchInterval={feed.status === 'live' ? 60_000 : 12_000}
+          refetchInterval={knowledgeRefetchMs(feed.status === 'live')}
         />
       ) : tab === 'hierarchy' ? (
         <HierarchyView beads={beads} onOpen={openBead} />

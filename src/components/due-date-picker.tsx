@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/popover'
 import { localDateParam, quickDue } from '@/lib/schedule'
 import { updateBeadFn } from '@/lib/server'
+import { beadPatchFromUpdate, patchCachedBead } from '@/lib/optimistic'
 import { cn, toErrorMessage } from '@/lib/utils'
 
 import type { Bead } from '@/lib/types'
@@ -71,14 +72,24 @@ export function DueDatePicker({
   const mutation = useMutation({
     mutationFn: (value: string) =>
       updateBeadFn({ data: { project, id: bead.id, update: { due: value } } }),
+    onMutate: (value) =>
+      patchCachedBead(
+        queryClient,
+        project,
+        bead.id,
+        beadPatchFromUpdate({ due: value }),
+      ),
     onSuccess: () => {
       setOpen(false)
       reset()
+    },
+    onError: (error, _value, undo) => {
+      undo?.()
+      toast.error(toErrorMessage(error, 'Failed to set due date'))
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['beads', project] })
       queryClient.invalidateQueries({ queryKey: ['bead', project, bead.id] })
-    },
-    onError: (error) => {
-      toast.error(toErrorMessage(error, 'Failed to set due date'))
     },
   })
 

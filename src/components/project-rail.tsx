@@ -35,6 +35,7 @@ import { projectProblem } from '@/lib/attention'
 import { useInbox } from '@/hooks/use-inbox'
 import { cn, initials } from '@/lib/utils'
 import { getBeads, getProjects } from '@/lib/server'
+import { PROJECTS_REFETCH_MS } from '@/lib/polling'
 
 import { getStoredIdentity, setStoredIdentity } from '@/lib/identity'
 import {
@@ -216,7 +217,7 @@ export function ProjectRail() {
   const projectsQuery = useQuery({
     queryKey: ['projects'],
     queryFn: () => getProjects(),
-    refetchInterval: 15000,
+    refetchInterval: PROJECTS_REFETCH_MS,
     staleTime: 5000,
   })
   const projects = projectsQuery.data ?? []

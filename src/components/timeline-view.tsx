@@ -16,6 +16,7 @@ import { Toggle } from '@/components/ui/toggle'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { localDateParam } from '@/lib/schedule'
 import { updateBeadFn } from '@/lib/server'
+import { beadPatchFromUpdate, patchCachedBead } from '@/lib/optimistic'
 import { childDueLabel, epicSpans, scaleTicks } from '@/lib/timeline'
 import { cn, toErrorMessage } from '@/lib/utils'
 
@@ -104,11 +105,19 @@ export function TimelineView({
       updateBeadFn({
         data: { project, id, update: { due: localDateParam(date) } },
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['beads', project] })
-    },
-    onError: (error) => {
+    onMutate: ({ id, date }) =>
+      patchCachedBead(
+        queryClient,
+        project,
+        id,
+        beadPatchFromUpdate({ due: localDateParam(date) }),
+      ),
+    onError: (error, _vars, undo) => {
+      undo?.()
       toast.error(toErrorMessage(error, 'Failed to move due date'))
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['beads', project] })
     },
   })
 

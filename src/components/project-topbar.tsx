@@ -5,6 +5,7 @@ import { ChevronRight } from 'lucide-react'
 import { ProjectChip } from '@/components/project-chip'
 import { useSavedViews } from '@/components/view-editor'
 import { getBeads, getProjects } from '@/lib/server'
+import { PROJECTS_REFETCH_MS } from '@/lib/polling'
 import { isGate } from '@/lib/lease'
 import { isOverdue } from '@/lib/schedule'
 import { isReady } from '@/lib/sort'
@@ -39,7 +40,7 @@ export function ProjectTopbar() {
   const projectsQuery = useQuery({
     queryKey: ['projects'],
     queryFn: () => getProjects(),
-    refetchInterval: 15000,
+    refetchInterval: PROJECTS_REFETCH_MS,
     staleTime: 5000,
     enabled: Boolean(project),
   })

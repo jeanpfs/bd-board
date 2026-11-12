@@ -56,6 +56,7 @@ import { labelCounts } from '@/lib/labels'
 import { cn, initials, toErrorMessage } from '@/lib/utils'
 import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
 import { groupRelations } from '@/lib/relations'
+import { beadPatchFromUpdate, patchCachedBead } from '@/lib/optimistic'
 import { PRIORITY_TEXT_CLASS, PRIORITY_WORD } from '@/lib/sort'
 import {
   KNOWLEDGE_TYPE_BG_CLASS as K_BG_CLASS,
@@ -319,39 +320,52 @@ function BeadEditDialog({
     )
   }, [open, initialField])
 
+  function buildUpdate(): BeadUpdate {
+    // bd-native labels and types may fall outside the form's own choices,
+    // so send them only when this edit changed them.
+    const source = detail ?? bead
+    const update: BeadUpdate = {
+      title,
+      description,
+      acceptance_criteria: acceptance,
+      design,
+      notes,
+      priority: Number(priority),
+      assignee,
+    }
+    if (issueType !== (source.issue_type || 'task')) {
+      update.issue_type = issueType
+    }
+    const sourceLabels = source.labels ?? []
+    const labelsChanged =
+      [...labels].sort().join('\n') !== [...sourceLabels].sort().join('\n')
+    if (labelsChanged) update.labels = labels
+    return update
+  }
+
   const mutation = useMutation({
-    mutationFn: () => {
-      // bd-native labels and types may fall outside the form's own choices,
-      // so send them only when this edit changed them.
-      const source = detail ?? bead
-      const update: Partial<BeadUpdate> = {
-        title,
-        description,
-        acceptance_criteria: acceptance,
-        design,
-        notes,
-        priority: Number(priority),
-        assignee,
-      }
-      if (issueType !== (source.issue_type || 'task')) {
-        update.issue_type = issueType
-      }
-      const sourceLabels = source.labels ?? []
-      const labelsChanged =
-        [...labels].sort().join('\n') !== [...sourceLabels].sort().join('\n')
-      if (labelsChanged) update.labels = labels
-      return updateBeadFn({ data: { project, id: bead.id, update } })
-    },
+    mutationFn: (update: BeadUpdate) =>
+      updateBeadFn({ data: { project, id: bead.id, update } }),
+    onMutate: (update) =>
+      patchCachedBead(
+        queryClient,
+        project,
+        bead.id,
+        beadPatchFromUpdate(update),
+      ),
     onSuccess: () => {
       toast.success(`Bead ${bead.id} updated`)
-      queryClient.invalidateQueries({ queryKey: ['beads', project] })
-      queryClient.invalidateQueries({ queryKey: ['bead', project, bead.id] })
       onOpenChange(false)
     },
-    onError: (error) => {
+    onError: (error, _update, undo) => {
+      undo?.()
       toast.error(
         error instanceof Error ? error.message : 'Failed to update bead',
       )
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['beads', project] })
+      queryClient.invalidateQueries({ queryKey: ['bead', project, bead.id] })
     },
   })
 
@@ -360,7 +374,7 @@ function BeadEditDialog({
 
   function save() {
     if (!title.trim() || mutation.isPending) return
-    mutation.mutate()
+    mutation.mutate(buildUpdate())
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -832,12 +846,15 @@ export function BeadDetailModal({
   const statusMutation = useMutation({
     mutationFn: (status: BeadColumn) =>
       updateBeadStatusFn({ data: { project, id: bead!.id, status } }),
-    onSuccess: () => {
+    onMutate: (status) =>
+      patchCachedBead(queryClient, project, bead!.id, { status }),
+    onError: (error, _status, undo) => {
+      undo?.()
+      toast.error(toErrorMessage(error, 'Failed to change status'))
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['beads', project] })
       queryClient.invalidateQueries({ queryKey: ['bead', project, bead?.id] })
-    },
-    onError: (error) => {
-      toast.error(toErrorMessage(error, 'Failed to change status'))
     },
   })
 

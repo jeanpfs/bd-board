@@ -7,6 +7,7 @@ import { Timer } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { formatEstimate, parseEstimate } from '@/lib/schedule'
 import { updateBeadFn } from '@/lib/server'
+import { patchCachedBead } from '@/lib/optimistic'
 import { toErrorMessage } from '@/lib/utils'
 
 import type { Bead } from '@/lib/types'
@@ -30,12 +31,17 @@ export function EstimateInput({
       updateBeadFn({
         data: { project, id: bead.id, update: { estimate } },
       }),
-    onSuccess: () => {
+    onMutate: (estimate) =>
+      patchCachedBead(queryClient, project, bead.id, {
+        estimated_minutes: estimate,
+      }),
+    onError: (error, _estimate, undo) => {
+      undo?.()
+      toast.error(toErrorMessage(error, 'Failed to save estimate'))
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['beads', project] })
       queryClient.invalidateQueries({ queryKey: ['bead', project, bead.id] })
-    },
-    onError: (error) => {
-      toast.error(toErrorMessage(error, 'Failed to save estimate'))
     },
   })
 

@@ -48,22 +48,23 @@ describe('project header', () => {
     expect(railText).not.toContain('web')
   })
 })
-describe('home page header', () => {
+describe('first run without projects', () => {
   beforeEach(async () => {
     await resetBrowserApp('/', {
       list_projects: [],
       list_beads: [],
       desktop_probe: null,
     })
-    await $('nav[aria-label="Projects"]').waitForExist({ timeout: 20000 })
   })
 
-  it('does not render ProjectTopbar when no project is active', async () => {
-    const hasProjectTopbar = await browser.execute(
-      () =>
+  it('shows only the start screen: no sidebar, no project header', async () => {
+    await expect($('h1=Start with a project')).toBeDisplayed()
+    const chrome = await browser.execute(() => ({
+      sidebar: document.querySelector('aside') !== null,
+      breadcrumb:
         document.querySelector('header nav[aria-label="Breadcrumb"]') !== null,
-    )
-    expect(hasProjectTopbar).toBe(false)
+    }))
+    expect(chrome).toEqual({ sidebar: false, breadcrumb: false })
   })
 })
 

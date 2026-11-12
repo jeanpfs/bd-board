@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Epics timeline.
 - Insights screen with throughput, cycle time and burn-up.
 - **New entry** in Knowledge: pick a type, the bead it belongs to and the text; it is saved as a `TYPE: …` comment on that bead.
+- `BD_BOARD_TIMING=1` logs every `bd` call with its duration (web server and desktop app).
 
 ### Changed
 
@@ -40,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sidebar**: a project switcher at the top replaces the logo row and, inside a project, the projects list; the project's views (Overview, Board, Hierarchy, Knowledge) moved from the header tabs into the sidebar; the signed-in assignee and the collapse toggle sit in the footer. Group labels are plain text instead of uppercase mono.
 - The project header is a breadcrumb (`ledger › Board`) with a short summary; the Overview carries its own title instead.
 - With no project registered, the app opens on a start screen (Open project / Init project) without the sidebar or page header.
+- **Faster, non-blocking desktop app.** Every desktop command now runs off the main thread, so the window stays responsive while `bd` works and independent calls no longer queue behind each other. Bead lists, bead details and project counts run their `bd` calls in parallel in both runtimes, and `bd statuses` is cached per project for 60 s (cleared when custom statuses are saved).
+- Edits, status changes, due dates, estimates, timeline moves and snoozes show in the board and detail immediately and roll back if `bd` refuses them, instead of waiting for the list to reload.
+- Background refresh is lighter: the project list every 30 s (was 15 s), the board every 15 s without the live feed (was 8 s) and Knowledge every 30 s (was 12 s). Your own changes still refresh right away.
 
 ### Fixed
 

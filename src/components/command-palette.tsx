@@ -38,6 +38,7 @@ import { isMacPlatform } from '@/lib/platform'
 import type { CommandBeadItem } from '@/lib/command-search'
 import { closeRefusalReason } from '@/lib/close-policy'
 import { getProjects, updateBeadStatusFn } from '@/lib/server'
+import { patchCachedBead } from '@/lib/optimistic'
 import { COLUMNS, isEpic, statusText } from '@/lib/types'
 import { toErrorMessage } from '@/lib/utils'
 
@@ -274,6 +275,12 @@ export function CommandPalette() {
     status: BeadColumn,
   ) {
     close()
+    const undo = await patchCachedBead(
+      queryClient,
+      target.project,
+      target.bead.id,
+      { status },
+    )
     try {
       await updateBeadStatusFn({
         data: { project: target.project, id: target.bead.id, status },
@@ -282,6 +289,7 @@ export function CommandPalette() {
         `${target.bead.id} → ${COLUMNS.find((c) => c.key === status)?.label ?? status}`,
       )
     } catch (error) {
+      undo()
       const message = toErrorMessage(error, 'Failed to change status')
       const refusal = status === 'closed' ? closeRefusalReason(message) : null
       if (refusal !== null) {
