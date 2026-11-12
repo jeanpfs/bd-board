@@ -11,11 +11,11 @@ import {
   DragOverlay,
   KeyboardSensor,
   PointerSensor,
-  closestCorners,
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
+import { pointerFirst } from '@/lib/board-dnd'
 import { toast } from 'sonner'
 
 import { BoardHeader } from '@/components/board-header'
@@ -68,7 +68,7 @@ import type { BeadAction } from '@/components/bead-detail-modal'
 import { ProjectOverview } from '@/components/project-overview'
 import { ReadyView } from '@/components/ready-view'
 
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
+import type { DragEndEvent, DragOverEvent, DragStartEvent } from '@dnd-kit/core'
 import type { BoardView, ProjectTab } from '@/components/board-header'
 import type { SortKey } from '@/lib/sort'
 import type { Bead, BeadColumn } from '@/lib/types'
@@ -208,6 +208,7 @@ function BoardPage() {
 
   const [createOpen, setCreateOpen] = useState(false)
   const [activeBead, setActiveBead] = useState<Bead | null>(null)
+  const [overColumn, setOverColumn] = useState<BeadColumn | null>(null)
   const [closing, setClosing] = useState<{
     beads: Bead[]
     refusal?: string
@@ -620,8 +621,13 @@ function BoardPage() {
     setActiveBead(dragged ?? beadsById.get(String(event.active.id)) ?? null)
   }
 
+  function onDragOver(event: DragOverEvent) {
+    setOverColumn(event.over ? columnOfId(String(event.over.id)) : null)
+  }
+
   function onDragEnd(event: DragEndEvent) {
     setActiveBead(null)
+    setOverColumn(null)
     const { active, over } = event
     if (!over) return
     const to = columnOfId(String(over.id))
@@ -840,10 +846,14 @@ function BoardPage() {
       ) : (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCorners}
+          collisionDetection={pointerFirst}
           onDragStart={onDragStart}
+          onDragOver={onDragOver}
           onDragEnd={onDragEnd}
-          onDragCancel={() => setActiveBead(null)}
+          onDragCancel={() => {
+            setActiveBead(null)
+            setOverColumn(null)
+          }}
         >
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 pt-2 pb-1 md:grid-cols-2 xl:grid-cols-4">
             {COLUMNS.map((c) => (
@@ -854,10 +864,17 @@ function BoardPage() {
                 beads={columns[c.key]}
                 onOpen={openBead}
                 nested={nested}
+                highlighted={
+                  overColumn === c.key &&
+                  activeBead !== null &&
+                  mapStatus(activeBead).column !== c.key
+                }
               />
             ))}
           </div>
-          <DragOverlay>
+          {/* No drop animation: the card is already in its new column (optimistic), so flying the
+              overlay back to where the card was picked up only looked like the move failed. */}
+          <DragOverlay dropAnimation={null}>
             {activeBead ? (
               <BeadCard bead={activeBead} onOpen={() => {}} overlay />
             ) : null}
