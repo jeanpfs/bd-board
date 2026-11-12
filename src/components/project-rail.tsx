@@ -9,6 +9,7 @@ import {
   Columns3,
   Gauge,
   Home,
+  Settings,
   Inbox,
   ListTree,
   ListChecks,
@@ -435,6 +436,22 @@ export function ProjectRail() {
                 <X className="size-3" aria-hidden="true" />
               </Button>
             </div>
+          ) : null}
+          {project ? (
+            <Link
+              to="/p/$project/settings"
+              params={{ project }}
+              search={{ section: 'general' }}
+              aria-label="Project settings"
+              title="Project settings"
+              aria-current={pathname.endsWith('/settings') ? 'page' : undefined}
+              className={cn(
+                'flex size-6 shrink-0 items-center justify-center rounded-md text-faint outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60',
+                pathname.endsWith('/settings') && 'bg-white/9 text-foreground',
+              )}
+            >
+              <Settings className="size-3.5" aria-hidden="true" />
+            </Link>
           ) : null}
           <Button
             variant="ghost"

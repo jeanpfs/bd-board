@@ -9,6 +9,7 @@ import {
   parseBeadInput,
   parseClaimInput,
   parseConfigKeyInput,
+  parseSetConfigInput,
   parseUnclaimInput,
   parseCloseBeadInput,
   parseCommentInput,
@@ -107,6 +108,13 @@ const webUnclaimBead = createServerFn({ method: 'POST' })
 const webGetConfig = createServerFn({ method: 'POST' })
   .validator(parseConfigKeyInput)
   .handler(async ({ data }) => bdAdapter.getConfig(data.project, data.key))
+
+const webSetConfig = createServerFn({ method: 'POST' })
+  .validator(parseSetConfigInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.setConfig(data.project, data.key, data.value)
+    return { ok: true as const }
+  })
 
 const webReadyExplain = createServerFn({ method: 'POST' })
   .validator(parseProjectInput)
@@ -352,6 +360,23 @@ export async function getConfigFn({
     })
   }
   return webGetConfig({ data })
+}
+
+export async function setConfigFn({
+  data,
+}: {
+  data: { project: string; key: string; value: string }
+}): Promise<{ ok: true }> {
+  const checked = parseSetConfigInput(data)
+  if (isDesktopApp()) {
+    await invoke('set_config', {
+      projectId: checked.project,
+      key: checked.key,
+      value: checked.value,
+    })
+    return { ok: true }
+  }
+  return webSetConfig({ data: checked })
 }
 
 export async function readyExplainFn({

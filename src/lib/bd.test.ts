@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   buildGetConfigArgs,
+  buildSetConfigArgs,
   buildListGatesArgs,
   buildReclaimBeadArgs,
   asRows,
@@ -680,5 +681,31 @@ describe('lease and gate command builders', () => {
       'claim.pools',
       '--json',
     ])
+  })
+})
+
+describe('buildSetConfigArgs', () => {
+  it('writes a value with config set and the --json flag', () => {
+    expect(buildSetConfigArgs('status.custom', 'qa:wip')).toEqual([
+      'config',
+      'set',
+      'status.custom',
+      'qa:wip',
+      '--json',
+    ])
+  })
+
+  it('keeps an empty value so claim.pools can be cleared', () => {
+    expect(buildSetConfigArgs('claim.pools', '')).toEqual([
+      'config',
+      'set',
+      'claim.pools',
+      '',
+      '--json',
+    ])
+  })
+
+  it('rejects a flag-like key', () => {
+    expect(() => buildSetConfigArgs('--force', 'x')).toThrow()
   })
 })

@@ -1068,6 +1068,22 @@ async function unclaimBead(
   await bdRaw(dir, buildUnclaimBeadArgs(id, force, actor))
 }
 
+/** `bd config set <key> <value>`; an empty value clears the key. */
+export function buildSetConfigArgs(key: string, value: string): string[] {
+  if (key.startsWith('-')) throw new Error('config key is invalid')
+  return ['config', 'set', key, value, '--json']
+}
+
+/** Writes one config key through bd. */
+async function setConfig(
+  projectId: string,
+  key: string,
+  value: string,
+): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildSetConfigArgs(key, value))
+}
+
 /** A config value as text; an unset key reads as the empty string. */
 async function getConfig(projectId: string, key: string): Promise<string> {
   const dir = await resolveDir(projectId)
@@ -1156,6 +1172,7 @@ export const bdAdapter: BdAdapter = {
   reclaimBead,
   unclaimBead,
   getConfig,
+  setConfig,
   updateBead,
   deferBead,
   undeferBead,
@@ -1191,6 +1208,7 @@ export {
   reclaimBead,
   unclaimBead,
   getConfig,
+  setConfig,
   previewDeleteBead,
   deleteBead,
   buildPreviewDeleteBeadArgs,

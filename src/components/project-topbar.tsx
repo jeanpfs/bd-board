@@ -1,4 +1,4 @@
-import { Link, useParams, useSearch } from '@tanstack/react-router'
+import { Link, useLocation, useParams, useSearch } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRight } from 'lucide-react'
 
@@ -28,6 +28,9 @@ export function ProjectTopbar() {
   const { project } = useParams({ strict: false })
   const search = useSearch({ strict: false })
   const tab = search.tab ?? 'overview'
+  const onSettings = useLocation({
+    select: (location) => location.pathname.endsWith('/settings'),
+  })
 
   const projectsQuery = useQuery({
     queryKey: ['projects'],
@@ -45,7 +48,7 @@ export function ProjectTopbar() {
     retry: false,
   })
 
-  if (!project || tab === 'overview') {
+  if (!project || (tab === 'overview' && !onSettings)) {
     return null
   }
 
@@ -81,7 +84,7 @@ export function ProjectTopbar() {
           aria-hidden="true"
         />
         <span aria-current="page" className="font-semibold text-foreground">
-          {TAB_LABEL[tab]}
+          {onSettings ? 'Settings' : TAB_LABEL[tab]}
         </span>
       </nav>
       {open !== undefined && ready !== undefined ? (

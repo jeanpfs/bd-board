@@ -5,6 +5,7 @@ import {
   parseClaimInput,
   parseCommentInput,
   parseConfigKeyInput,
+  parseSetConfigInput,
   parseCreateBeadInput,
   parseDeferInput,
   parseProjectInput,
@@ -347,12 +348,77 @@ describe('config key input', () => {
       project: 'p',
       key: 'claim.pools',
     })
-    expect(() =>
-      parseConfigKeyInput({ project: 'p', key: 'events-journal' }),
-    ).toThrow('Config key is not allowed')
+    expect(
+      parseConfigKeyInput({ project: 'p', key: 'events-journal' }).key,
+    ).toBe('events-journal')
+    expect(
+      parseConfigKeyInput({ project: 'p', key: 'status.custom' }).key,
+    ).toBe('status.custom')
     expect(() => parseConfigKeyInput({ project: 'p', key: '../etc' })).toThrow(
       'Config key is not allowed',
     )
+  })
+})
+
+describe('set config input', () => {
+  it('accepts a boolean events-journal value', () => {
+    expect(
+      parseSetConfigInput({
+        project: 'p',
+        key: 'events-journal',
+        value: 'true',
+      }),
+    ).toEqual({ project: 'p', key: 'events-journal', value: 'true' })
+    expect(() =>
+      parseSetConfigInput({
+        project: 'p',
+        key: 'events-journal',
+        value: 'yes',
+      }),
+    ).toThrow()
+  })
+
+  it('validates status.custom through the custom-status parser', () => {
+    expect(
+      parseSetConfigInput({
+        project: 'p',
+        key: 'status.custom',
+        value: 'qa:wip,archived:done',
+      }).value,
+    ).toBe('qa:wip,archived:done')
+    expect(() =>
+      parseSetConfigInput({
+        project: 'p',
+        key: 'status.custom',
+        value: 'Bad:wip',
+      }),
+    ).toThrow()
+    expect(() =>
+      parseSetConfigInput({
+        project: 'p',
+        key: 'status.custom',
+        value: 'open:wip',
+      }),
+    ).toThrow()
+  })
+
+  it('accepts an empty pool list and rejects newlines or bad pool names', () => {
+    expect(
+      parseSetConfigInput({ project: 'p', key: 'claim.pools', value: '' })
+        .value,
+    ).toBe('')
+    expect(() =>
+      parseSetConfigInput({ project: 'p', key: 'claim.pools', value: 'a\nb' }),
+    ).toThrow()
+    expect(() =>
+      parseSetConfigInput({ project: 'p', key: 'claim.pools', value: '--x' }),
+    ).toThrow()
+  })
+
+  it('rejects keys outside the allowlist', () => {
+    expect(() =>
+      parseSetConfigInput({ project: 'p', key: 'daemon.port', value: '1' }),
+    ).toThrow('Config key is not allowed')
   })
 })
 

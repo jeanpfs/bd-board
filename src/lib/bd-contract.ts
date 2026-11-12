@@ -43,6 +43,8 @@ export interface BdAdapter {
   ) => Promise<void>
   /** `bd config get <key> --json`; empty string when unset. */
   getConfig: (projectId: string, key: string) => Promise<string>
+  /** `bd config set <key> <value>`; an empty value clears the key. */
+  setConfig: (projectId: string, key: string, value: string) => Promise<void>
   /** Raw `bd ready --explain --json`; shape it with `parseReadyExplain`. */
   readyExplain: (projectId: string) => Promise<ReadyExplain>
   /** `bd dep add`, `bd dep relate`, `bd duplicate` or `bd supersede` from `id` to `target`. */

@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import {
+  Outlet,
+  createFileRoute,
+  useLocation,
+  useNavigate,
+} from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   DndContext,
@@ -160,6 +165,9 @@ function BoardPage() {
   const { project } = Route.useParams()
   const boardSearch = Route.useSearch()
   const navigate = useNavigate()
+  const onSettings = useLocation({
+    select: (location) => location.pathname.endsWith('/settings'),
+  })
   const queryClient = useQueryClient()
 
   const [createOpen, setCreateOpen] = useState(false)
@@ -475,6 +483,8 @@ function BoardPage() {
     const to = columnOfId(String(over.id))
     if (to) applyDrop(String(active.id), to)
   }
+
+  if (onSettings) return <Outlet />
 
   return (
     <div className="flex h-[calc(100dvh-6rem)] min-h-0 flex-col">

@@ -1,3 +1,4 @@
+import { validateCustomStatusList } from './custom-statuses.ts'
 import { LABEL_RE } from './labels'
 import { isRelationKind, isRemovableRelation } from './relations'
 import type { RelationKind, RemovableRelationKind } from './relations'
@@ -188,8 +189,43 @@ export function parseUnclaimInput(input: unknown): {
   }
 }
 
-/** Config keys the board may read. Only `claim.pools` is used today. */
-const CONFIG_KEYS: Record<string, true> = { 'claim.pools': true }
+/** Config keys the board may read and write. */
+const CONFIG_KEYS: Record<string, true> = {
+  'claim.pools': true,
+  'status.custom': true,
+  'events-journal': true,
+}
+
+const POOL_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._@-]*$/
+
+/** Validates a value for an allowlisted key before bd sees it. */
+export function parseSetConfigInput(input: unknown): {
+  project: string
+  key: string
+  value: string
+} {
+  const { project, key } = parseConfigKeyInput(input)
+  const data = record(input)
+  const value = data['value']
+  if (typeof value !== 'string' || /[\r\n]/.test(value)) {
+    throw new Error('Config value is invalid')
+  }
+  if (key === 'events-journal' && value !== 'true' && value !== 'false') {
+    throw new Error('events-journal must be true or false')
+  }
+  if (key === 'status.custom') {
+    const problem = validateCustomStatusList(value)
+    if (problem) throw new Error(problem)
+  }
+  if (key === 'claim.pools') {
+    for (const pool of value === '' ? [] : value.split(',')) {
+      if (!POOL_NAME_RE.test(pool.trim())) {
+        throw new Error(`pool name ${pool.trim()} is invalid`)
+      }
+    }
+  }
+  return { project, key, value }
+}
 
 export function parseConfigKeyInput(input: unknown): {
   project: string

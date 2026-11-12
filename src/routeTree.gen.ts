@@ -14,6 +14,7 @@ import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as MyWorkRouteImport } from './routes/my-work'
 import { Route as PProjectRouteImport } from './routes/p.$project'
 import { Route as ApiFeedProjectRouteImport } from './routes/api/feed.$project'
+import { Route as PProjectSettingsRouteImport } from './routes/p.$project.settings'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,34 +41,54 @@ const ApiFeedProjectRoute = ApiFeedProjectRouteImport.update({
   path: '/api/feed/$project',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PProjectSettingsRoute = PProjectSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => PProjectRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/inbox': typeof InboxRoute
   '/my-work': typeof MyWorkRoute
-  '/p/$project': typeof PProjectRoute
+  '/p/$project': typeof PProjectRouteWithChildren
   '/api/feed/$project': typeof ApiFeedProjectRoute
+  '/p/$project/settings': typeof PProjectSettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/inbox': typeof InboxRoute
   '/my-work': typeof MyWorkRoute
-  '/p/$project': typeof PProjectRoute
+  '/p/$project': typeof PProjectRouteWithChildren
   '/api/feed/$project': typeof ApiFeedProjectRoute
+  '/p/$project/settings': typeof PProjectSettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/inbox': typeof InboxRoute
   '/my-work': typeof MyWorkRoute
-  '/p/$project': typeof PProjectRoute
+  '/p/$project': typeof PProjectRouteWithChildren
   '/api/feed/$project': typeof ApiFeedProjectRoute
+  '/p/$project/settings': typeof PProjectSettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/inbox' | '/my-work' | '/p/$project' | '/api/feed/$project'
+  fullPaths:
+    | '/'
+    | '/inbox'
+    | '/my-work'
+    | '/p/$project'
+    | '/api/feed/$project'
+    | '/p/$project/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/inbox' | '/my-work' | '/p/$project' | '/api/feed/$project'
+  to:
+    | '/'
+    | '/inbox'
+    | '/my-work'
+    | '/p/$project'
+    | '/api/feed/$project'
+    | '/p/$project/settings'
   id:
     | '__root__'
     | '/'
@@ -75,13 +96,14 @@ export interface FileRouteTypes {
     | '/my-work'
     | '/p/$project'
     | '/api/feed/$project'
+    | '/p/$project/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   InboxRoute: typeof InboxRoute
   MyWorkRoute: typeof MyWorkRoute
-  PProjectRoute: typeof PProjectRoute
+  PProjectRoute: typeof PProjectRouteWithChildren
   ApiFeedProjectRoute: typeof ApiFeedProjectRoute
 }
 
@@ -122,14 +144,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFeedProjectRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/p/$project/settings': {
+      id: '/p/$project/settings'
+      path: '/settings'
+      fullPath: '/p/$project/settings'
+      preLoaderRoute: typeof PProjectSettingsRouteImport
+      parentRoute: typeof PProjectRoute
+    }
   }
 }
+
+interface PProjectRouteChildren {
+  PProjectSettingsRoute: typeof PProjectSettingsRoute
+}
+
+const PProjectRouteChildren: PProjectRouteChildren = {
+  PProjectSettingsRoute: PProjectSettingsRoute,
+}
+
+const PProjectRouteWithChildren = PProjectRoute._addFileChildren(
+  PProjectRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   InboxRoute: InboxRoute,
   MyWorkRoute: MyWorkRoute,
-  PProjectRoute: PProjectRoute,
+  PProjectRoute: PProjectRouteWithChildren,
   ApiFeedProjectRoute: ApiFeedProjectRoute,
 }
 export const routeTree = rootRouteImport
