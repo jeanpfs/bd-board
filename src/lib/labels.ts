@@ -11,8 +11,8 @@ export interface LabelSuggestions {
   matches: LabelCount[]
 }
 
-/** Server rule for every label: bd accepts nothing else. */
-export const LABEL_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/
+/** bd's label rule: 1 to 64 characters, no comma or whitespace, no leading `-`. */
+export const LABEL_RE = /^[^\s,-][^\s,]{0,63}$/
 
 const MAX_NEW_LABEL_LENGTH = 50
 

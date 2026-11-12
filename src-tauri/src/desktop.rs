@@ -1433,6 +1433,7 @@ fn undefer_bead_inner(project_id: &str, id: &str) -> Result<(), String> {
 }
 
 fn update_bead_inner(project_id: &str, id: &str, update: BeadUpdateInput) -> Result<(), String> {
+    validate_bead_update(&update)?;
     let dir = resolve_dir(project_id)?;
     let existing_labels = if update.labels.is_some() {
         get_bead_detail_inner(project_id, id)?.bead.labels
@@ -1872,13 +1873,36 @@ pub struct BulkPatch {
     pub add_labels: Option<Vec<String>>,
 }
 
-/// Bead ids and label names share one token shape: an ASCII alphanumeric
-/// start, then alphanumerics, `_`, `.` or `-`, within `max_len` bytes.
+/// Bead ids: an ASCII alphanumeric start, then alphanumerics, `_`, `.` or `-`,
+/// within `max_len` bytes.
 fn is_bd_token(value: &str, max_len: usize) -> bool {
     let mut chars = value.chars();
     matches!(chars.next(), Some(c) if c.is_ascii_alphanumeric())
         && value.len() <= max_len
         && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-'))
+}
+
+/// bd label and issue-type names: non-empty, at most `max_chars` characters,
+/// no comma or whitespace, no leading `-` (so bd cannot read them as flags).
+fn is_bd_word(value: &str, max_chars: usize) -> bool {
+    !value.is_empty()
+        && value.chars().count() <= max_chars
+        && !value.starts_with('-')
+        && !value.chars().any(|c| c == ',' || c.is_whitespace())
+}
+
+fn validate_bead_update(update: &BeadUpdateInput) -> Result<(), String> {
+    if let Some(labels) = &update.labels {
+        if labels.iter().any(|label| !is_bd_word(label, 64)) {
+            return Err("Label is invalid".to_string());
+        }
+    }
+    if let Some(issue_type) = &update.issue_type {
+        if !is_bd_word(issue_type, 40) {
+            return Err("Type is invalid".to_string());
+        }
+    }
+    Ok(())
 }
 
 fn validate_bulk_ids(ids: &[String]) -> Result<(), String> {
@@ -1924,7 +1948,7 @@ fn validate_bulk_patch(patch: &BulkPatch) -> Result<(), String> {
         }
     }
     if let Some(labels) = &patch.add_labels {
-        if labels.iter().any(|label| !is_bd_token(label, 64)) {
+        if labels.iter().any(|label| !is_bd_word(label, 64)) {
             return Err("Label is invalid".to_string());
         }
     }
@@ -3253,6 +3277,53 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(validate_bulk_patch(&bad_label), Err("Label is invalid".to_string()));
+    }
+
+    #[test]
+    fn bd_word_rule_accepts_bd_labels_and_rejects_flags_and_split_values() {
+        assert!(is_bd_word("provides:x", 64));
+        assert!(is_bd_word("ui", 64));
+        assert!(is_bd_word(&"a".repeat(64), 64));
+        assert!(!is_bd_word(&"a".repeat(65), 64));
+        assert!(!is_bd_word("", 64));
+        assert!(!is_bd_word("a,b", 64));
+        assert!(!is_bd_word("bad label", 64));
+        assert!(!is_bd_word("-x", 64));
+    }
+
+    #[test]
+    fn update_validation_accepts_bd_native_labels_and_custom_types() {
+        let update = BeadUpdateInput {
+            labels: Some(vec!["provides:x".to_string()]),
+            issue_type: Some("spike".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(validate_bead_update(&update), Ok(()));
+        let custom = BeadUpdateInput {
+            issue_type: Some("research-2".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(validate_bead_update(&custom), Ok(()));
+    }
+
+    #[test]
+    fn update_validation_rejects_flag_like_types_and_split_labels() {
+        let flag_type = BeadUpdateInput {
+            issue_type: Some("-bug".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(
+            validate_bead_update(&flag_type),
+            Err("Type is invalid".to_string())
+        );
+        let split = BeadUpdateInput {
+            labels: Some(vec!["a,b".to_string()]),
+            ..Default::default()
+        };
+        assert_eq!(
+            validate_bead_update(&split),
+            Err("Label is invalid".to_string())
+        );
     }
 
     #[test]

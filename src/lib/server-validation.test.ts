@@ -94,7 +94,7 @@ describe('server input validation', () => {
       parseCreateBeadInput({
         project: 'bd-board',
         title: 'Task',
-        type: 'incident',
+        type: '-incident',
       }),
     ).toThrow('Type is invalid')
   })
@@ -774,5 +774,49 @@ describe('bulk input validation', () => {
     expect(parseCloseManyInput({ project: 'bd-board', ids: ['bd-1'] })).toEqual(
       { project: 'bd-board', ids: ['bd-1'], reason: undefined, force: false },
     )
+  })
+})
+
+describe('bd-native labels and issue types on update', () => {
+  const base = { project: 'bd-board', id: 'bd-board-a2k' }
+
+  it('lets an unchanged provides:x label bead be title-edited', () => {
+    expect(
+      parseUpdateBeadInput({ ...base, update: { title: 'Renamed' } }).update,
+    ).toEqual({ title: 'Renamed' })
+  })
+
+  it('accepts colon-namespaced labels bd creates, such as provides:x', () => {
+    expect(
+      parseUpdateBeadInput({
+        ...base,
+        update: { labels: ['ui', 'provides:x'] },
+      }).update,
+    ).toEqual({ labels: ['provides:x', 'ui'] })
+  })
+
+  it('rejects labels bd cannot take: commas, whitespace, leading dash', () => {
+    for (const label of ['a,b', 'bad label', '-flag']) {
+      expect(() =>
+        parseUpdateBeadInput({ ...base, update: { labels: [label] } }),
+      ).toThrow('Label is invalid')
+    }
+  })
+
+  it('accepts bd built-in and custom issue types as tokens', () => {
+    for (const issueType of ['spike', 'milestone', 'research-2']) {
+      expect(
+        parseUpdateBeadInput({ ...base, update: { issue_type: issueType } })
+          .update,
+      ).toEqual({ issue_type: issueType })
+    }
+  })
+
+  it('rejects issue types that are flag-like or contain spaces', () => {
+    for (const issueType of ['-bug', 'two words']) {
+      expect(() =>
+        parseUpdateBeadInput({ ...base, update: { issue_type: issueType } }),
+      ).toThrow('Type is invalid')
+    }
   })
 })

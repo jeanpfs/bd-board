@@ -85,8 +85,12 @@ describe('suggestLabels', () => {
 
   it('does not offer create for labels the server rejects', () => {
     expect(suggestLabels('two words', counts, []).create).toBeUndefined()
-    expect(suggestLabels('a/b', counts, []).create).toBeUndefined()
+    expect(suggestLabels('a,b', counts, []).create).toBeUndefined()
     expect(suggestLabels('-lead', counts, []).create).toBeUndefined()
+  })
+
+  it('offers create for a colon-namespaced label bd accepts', () => {
+    expect(suggestLabels('provides:x', counts, []).create).toBe('provides:x')
   })
 
   it('lists every unselected label for empty input, most used first', () => {

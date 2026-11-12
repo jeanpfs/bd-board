@@ -13,7 +13,8 @@ const STATUSES = new Set<BeadColumn>([
   'blocked',
   'closed',
 ])
-const TYPES = new Set(['task', 'bug', 'feature', 'epic', 'chore', 'decision'])
+/** bd's issue types (bug, feature, task, epic, chore, decision, spike, story, milestone) and custom ones share this token rule. */
+const ISSUE_TYPE_RE = /^[^\s,-][^\s,]{0,39}$/
 
 function record(input: unknown): Record<string, unknown> {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
@@ -536,7 +537,7 @@ export function parseCreateBeadInput(input: unknown): {
   if (!title) throw new Error('Title is required')
 
   const type = optionalText(data, 'type', 40) ?? 'task'
-  if (!TYPES.has(type)) throw new Error('Type is invalid')
+  if (!ISSUE_TYPE_RE.test(type)) throw new Error('Type is invalid')
 
   const parent = optionalText(data, 'parent', 160)
   if (parent && !BEAD_ID_RE.test(parent))
@@ -610,7 +611,9 @@ export function parseUpdateBeadInput(input: unknown): {
 
   if ('issue_type' in data) {
     const issueType = updateText(data, 'issue_type', 40)
-    if (!issueType || !TYPES.has(issueType)) throw new Error('Type is invalid')
+    if (!issueType || !ISSUE_TYPE_RE.test(issueType)) {
+      throw new Error('Type is invalid')
+    }
     update.issue_type = issueType
   }
 
