@@ -6,6 +6,7 @@ import type {
   LinearSyncResult,
 } from './linear.ts'
 import type {
+  BulkPatch,
   Bead,
   BeadDetail,
   BeadUpdate,
@@ -82,6 +83,18 @@ export interface BdAdapter {
     target: string,
   ) => Promise<void>
   updateBead: (projectId: string, id: string, opts: BeadUpdate) => Promise<void>
+  /** One `bd update` over many ids; `patch` applies to every one. */
+  updateMany: (
+    projectId: string,
+    ids: string[],
+    patch: BulkPatch,
+  ) => Promise<void>
+  /** One `bd close` over many ids; `force` overrides the close policy per bead. */
+  closeMany: (
+    projectId: string,
+    ids: string[],
+    opts: { reason?: string; force?: boolean },
+  ) => Promise<void>
   /** `bd defer`; without `until` the bead is deferred indefinitely. */
   deferBead: (projectId: string, id: string, until?: string) => Promise<void>
   undeferBead: (projectId: string, id: string) => Promise<void>

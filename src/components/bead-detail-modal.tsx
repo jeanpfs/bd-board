@@ -1335,7 +1335,7 @@ export function BeadDetailModal({
 
       <CloseBeadDialog
         project={project}
-        bead={bead}
+        beads={bead ? [bead] : []}
         open={closeOpen}
         onOpenChange={setCloseOpen}
       />

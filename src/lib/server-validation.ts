@@ -3,7 +3,7 @@ import { parseViews, queryTextError, VIEWS_KV_KEY } from './views.ts'
 import { LABEL_RE } from './labels'
 import { isRelationKind, isRemovableRelation } from './relations'
 import type { RelationKind, RemovableRelationKind } from './relations'
-import type { BeadColumn, BeadUpdate } from './types'
+import type { BeadColumn, BeadUpdate, BulkPatch } from './types'
 
 const PROJECT_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/
 const BEAD_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,159}$/
@@ -63,12 +63,10 @@ function updateText(
   return trimmed
 }
 
-function updateLabels(input: Record<string, unknown>): string[] | undefined {
-  if (!('labels' in input)) return undefined
-  const value = input['labels']
-  if (!Array.isArray(value)) throw new Error('labels must be a list')
+function parseLabelList(value: unknown, key: string): string[] {
+  if (!Array.isArray(value)) throw new Error(`${key} must be a list`)
   const labels = value.map((item) => {
-    if (typeof item !== 'string') throw new Error('labels must be text')
+    if (typeof item !== 'string') throw new Error(`${key} must be text`)
     return item.trim()
   })
   const unique = Array.from(new Set(labels.filter(Boolean))).sort()
@@ -76,6 +74,11 @@ function updateLabels(input: Record<string, unknown>): string[] | undefined {
     if (!LABEL_RE.test(label)) throw new Error('Label is invalid')
   }
   return unique
+}
+
+function updateLabels(input: Record<string, unknown>): string[] | undefined {
+  if (!('labels' in input)) return undefined
+  return parseLabelList(input['labels'], 'labels')
 }
 
 export function parseProjectInput(input: unknown): { project: string } {
@@ -125,6 +128,101 @@ export function parseCloseBeadInput(input: unknown): {
   return {
     project: requiredString(data, 'project', PROJECT_RE, 'Project'),
     id: requiredString(data, 'id', BEAD_ID_RE, 'Bead id'),
+    reason: optionalText(data, 'reason', 2000),
+    force,
+  }
+}
+
+function parseBulkIds(data: Record<string, unknown>): string[] {
+  const value = data['ids']
+  if (!Array.isArray(value)) throw new Error('ids must be a list')
+  const ids = Array.from(
+    new Set(
+      value.map((item) => {
+        if (typeof item !== 'string') throw new Error('Bead id is invalid')
+        const id = item.trim()
+        if (!BEAD_ID_RE.test(id)) throw new Error('Bead id is invalid')
+        return id
+      }),
+    ),
+  )
+  if (ids.length === 0) throw new Error('Select at least one bead')
+  if (ids.length > 200) throw new Error('Too many beads')
+  return ids
+}
+
+export function parseUpdateManyInput(input: unknown): {
+  project: string
+  ids: string[]
+  patch: BulkPatch
+} {
+  const data = record(input)
+  const project = requiredString(data, 'project', PROJECT_RE, 'Project')
+  const ids = parseBulkIds(data)
+  const raw = record(data['patch'])
+  const patch: BulkPatch = {}
+
+  if ('status' in raw) {
+    const status = raw['status']
+    if (
+      typeof status !== 'string' ||
+      status === 'closed' ||
+      !STATUSES.has(status as BeadColumn)
+    ) {
+      throw new Error('Status is invalid')
+    }
+    patch.status = status
+  }
+
+  if ('priority' in raw) {
+    const priority = raw['priority']
+    if (
+      typeof priority !== 'number' ||
+      !Number.isInteger(priority) ||
+      priority < 0 ||
+      priority > 4
+    ) {
+      throw new Error('Priority is invalid')
+    }
+    patch.priority = priority
+  }
+
+  const assignee = updateText(raw, 'assignee', 120)
+  if (assignee !== undefined) {
+    if (assignee.startsWith('-')) throw new Error('assignee is invalid')
+    patch.assignee = assignee
+  }
+
+  const due = updateText(raw, 'due', 40)
+  if (due !== undefined) {
+    if (/[\r\n]/.test(due) || due.startsWith('-')) {
+      throw new Error('due is invalid')
+    }
+    patch.due = due
+  }
+
+  if ('addLabels' in raw) {
+    patch.addLabels = parseLabelList(raw['addLabels'], 'addLabels')
+  }
+
+  if (Object.keys(patch).length === 0) {
+    throw new Error('No bead updates provided')
+  }
+  return { project, ids, patch }
+}
+
+export function parseCloseManyInput(input: unknown): {
+  project: string
+  ids: string[]
+  reason?: string
+  force: boolean
+} {
+  const data = record(input)
+  const force = data['force'] ?? false
+  if (typeof force !== 'boolean') throw new Error('force must be true or false')
+  return {
+    project: requiredString(data, 'project', PROJECT_RE, 'Project'),
+    ids: parseBulkIds(data),
     reason: optionalText(data, 'reason', 2000),
     force,
   }

@@ -19,6 +19,7 @@ import type {
   RelatedBead,
   StatusCategory,
   ReadyExplain,
+  BulkPatch,
 } from './types.ts'
 import { BUILT_IN_STATUSES, CATEGORY_COLUMN } from './types.ts'
 import { parseReadyExplain } from './ready.ts'
@@ -986,6 +987,48 @@ async function closeBead(
   await bdRaw(dir, buildCloseBeadArgs(id, opts))
 }
 
+/** One `bd update` over every id; ids come first so flags apply to all of them. */
+function buildUpdateManyArgs(ids: string[], patch: BulkPatch): string[] {
+  const args = ['update', ...ids]
+  if (patch.status !== undefined) args.push('--status', patch.status)
+  if (patch.priority !== undefined)
+    args.push('--priority', String(patch.priority))
+  if (patch.assignee !== undefined) args.push('--assignee', patch.assignee)
+  if (patch.due !== undefined) args.push('--due', patch.due)
+  for (const label of patch.addLabels ?? []) args.push('--add-label', label)
+  return args
+}
+
+function buildCloseManyArgs(
+  ids: string[],
+  opts: { reason?: string; force?: boolean },
+): string[] {
+  const args = ['close', ...ids]
+  if (opts.reason) args.push('--reason', opts.reason)
+  if (opts.force) args.push('--force')
+  return args
+}
+
+async function updateMany(
+  projectId: string,
+  ids: string[],
+  patch: BulkPatch,
+): Promise<void> {
+  const args = buildUpdateManyArgs(ids, patch)
+  if (args.length <= ids.length + 1) return
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, args)
+}
+
+async function closeMany(
+  projectId: string,
+  ids: string[],
+  opts: { reason?: string; force?: boolean },
+): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildCloseManyArgs(ids, opts))
+}
+
 export function buildClaimArgs(id: string, actor?: string): string[] {
   const args = ['update', id, '--claim']
   if (actor) args.push('--actor', actor)
@@ -1290,6 +1333,8 @@ export const bdAdapter: BdAdapter = {
   linearStatus,
   linearSync,
   updateBead,
+  updateMany,
+  closeMany,
   deferBead,
   undeferBead,
   previewDeleteBead,
@@ -1313,6 +1358,10 @@ export {
   removeRelation,
   buildCloseBeadArgs,
   updateBead,
+  updateMany,
+  closeMany,
+  buildUpdateManyArgs,
+  buildCloseManyArgs,
   buildUpdateBeadArgs,
   buildListBeadsArgs,
   buildDeferBeadArgs,

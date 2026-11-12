@@ -20,6 +20,11 @@ import { toast } from 'sonner'
 
 import { BoardHeader } from '@/components/board-header'
 import { BoardSwimlanes } from '@/components/board-swimlanes'
+import { ListView, flattenOrder, listGroups } from '@/components/list-view'
+import type { ListGroupBy } from '@/components/list-view'
+import { BulkActionBar } from '@/components/bulk-action-bar'
+import { labelCounts } from '@/lib/labels'
+import { toggleSelection } from '@/lib/selection'
 import { KanbanColumn } from '@/components/kanban-column'
 import { BeadCard } from '@/components/bead-card'
 import { BeadDetailModal } from '@/components/bead-detail-modal'
@@ -79,9 +84,10 @@ interface BoardSearch {
   due?: 'week' | 'overdue'
   snoozed?: '1'
   new?: '1'
+  group?: ListGroupBy
 }
 
-const BOARD_VIEWS = new Set(['status', 'epic', 'priority'])
+const BOARD_VIEWS = new Set(['status', 'epic', 'priority', 'list'])
 const PROJECT_TABS = new Set([
   'overview',
   'board',
@@ -129,6 +135,10 @@ export const Route = createFileRoute('/p/$project')({
         : undefined,
     ready: search.ready === '1' ? '1' : undefined,
     new: search.new === '1' ? '1' : undefined,
+    group:
+      search.group === 'priority' || search.group === 'epic'
+        ? search.group
+        : undefined,
     assignee:
       typeof search.assignee === 'string' && search.assignee.length > 0
         ? search.assignee
@@ -180,9 +190,13 @@ function BoardPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [activeBead, setActiveBead] = useState<Bead | null>(null)
   const [closing, setClosing] = useState<{
-    bead: Bead
-    refusal: string
+    beads: Bead[]
+    refusal?: string
   } | null>(null)
+  const [selection, setSelection] = useState<{
+    selected: string[]
+    anchor?: string
+  }>({ selected: [] })
   const [gateOpen, setGateOpen] = useState(false)
 
   // The command palette's "New bead" navigates here with `?new=1`.
@@ -351,6 +365,69 @@ function BoardPage() {
   }
 
   const [pendingAction, setPendingAction] = useState<BeadAction | null>(null)
+
+  const listGroupBy: ListGroupBy = boardSearch.group ?? 'epic'
+  const listData = useMemo(
+    () =>
+      listGroups({
+        beads,
+        filters: {
+          search,
+          priorities,
+          ready,
+          assignee,
+          due,
+          snoozed,
+        },
+        groupBy: listGroupBy,
+        sort,
+        now: new Date(),
+      }),
+    [
+      beads,
+      search,
+      priorities,
+      ready,
+      assignee,
+      due,
+      snoozed,
+      listGroupBy,
+      sort,
+    ],
+  )
+  const listOrder = useMemo(() => flattenOrder(listData), [listData])
+  const selectedBeads = useMemo(
+    () =>
+      selection.selected
+        .map((id) => beadsById.get(id))
+        .filter((b): b is Bead => b !== undefined),
+    [selection.selected, beadsById],
+  )
+
+  function toggleRow(id: string, shift: boolean) {
+    setSelection((prev) =>
+      toggleSelection(prev.selected, id, {
+        shift,
+        order: listOrder,
+        anchor: prev.anchor,
+      }),
+    )
+  }
+
+  useEffect(() => {
+    if (view !== 'list') setSelection({ selected: [] })
+  }, [view])
+
+  useEffect(() => {
+    if (view !== 'list' || selection.selected.length === 0) return
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return
+      if (document.querySelector('[role="dialog"]')) return
+      setSelection({ selected: [] })
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [view, selection.selected.length])
   const [claimingId, setClaimingId] = useState<string | null>(null)
 
   // A different bead (or closing the modal) drops any pending bead action.
@@ -428,6 +505,14 @@ function BoardPage() {
     moveCard,
     moveColumn,
     beadAction,
+    toggleFocusedRow: () => {
+      if (view !== 'list') return false
+      const row = document.activeElement?.closest<HTMLElement>('[data-list-id]')
+      const id = row?.dataset.listId
+      if (!id) return false
+      toggleRow(id, false)
+      return true
+    },
     claimFocused: () => {
       const row =
         document.activeElement?.closest<HTMLElement>('[data-ready-id]')
@@ -456,7 +541,7 @@ function BoardPage() {
       queryClient.setQueryData(['beads', project], previous)
       const message = toErrorMessage(error, 'Failed to move bead')
       const refusal = toColumn === 'closed' ? closeRefusalReason(message) : null
-      if (refusal) setClosing({ bead, refusal })
+      if (refusal) setClosing({ beads: [bead], refusal })
       else toast.error(message)
     } finally {
       queryClient.invalidateQueries({ queryKey: ['beads', project] })
@@ -652,6 +737,29 @@ function BoardPage() {
         />
       ) : tab === 'hierarchy' ? (
         <HierarchyView beads={beads} onOpen={openBead} />
+      ) : view === 'list' ? (
+        <div className="flex min-h-0 flex-1 flex-col">
+          {selection.selected.length > 0 ? (
+            <div className="pt-2">
+              <BulkActionBar
+                project={project}
+                ids={selection.selected}
+                labelCounts={labelCounts(beads)}
+                onClear={() => setSelection({ selected: [] })}
+                onClose={() => setClosing({ beads: selectedBeads })}
+              />
+            </div>
+          ) : null}
+          <ListView
+            groups={listData}
+            groupBy={listGroupBy}
+            onGroupByChange={(next) => patchBoardSearch({ group: next })}
+            selected={selection.selected}
+            onRowToggle={toggleRow}
+            onOpen={openBead}
+            now={new Date()}
+          />
+        </div>
       ) : view === 'epic' || view === 'priority' ? (
         <BoardSwimlanes
           beads={beads}
@@ -723,9 +831,10 @@ function BoardPage() {
       />
       <CloseBeadDialog
         project={project}
-        bead={closing?.bead ?? null}
+        beads={closing?.beads ?? []}
         open={closing !== null}
         onOpenChange={(next) => !next && setClosing(null)}
+        onClosed={() => setSelection({ selected: [] })}
         refusal={closing?.refusal}
       />
     </div>

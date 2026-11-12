@@ -20,6 +20,8 @@ import {
   parseTailEventsInput,
   parseUnclaimInput,
   parseUpdateBeadInput,
+  parseUpdateManyInput,
+  parseCloseManyInput,
 } from './server-validation'
 
 describe('server input validation', () => {
@@ -611,5 +613,116 @@ describe('query and shared views input', () => {
         value: 'nope',
       }),
     ).toThrow()
+  })
+})
+
+describe('bulk input validation', () => {
+  const ids = ['bd-a1', 'bd-a2.1']
+
+  it('accepts ids with a patch and trims the values', () => {
+    expect(
+      parseUpdateManyInput({
+        project: 'bd-board',
+        ids,
+        patch: {
+          status: 'in_progress',
+          priority: 0,
+          assignee: ' maya ',
+          addLabels: ['ui', 'ui', 'pdf'],
+          due: 'tomorrow',
+        },
+      }),
+    ).toEqual({
+      project: 'bd-board',
+      ids,
+      patch: {
+        status: 'in_progress',
+        priority: 0,
+        assignee: 'maya',
+        addLabels: ['pdf', 'ui'],
+        due: 'tomorrow',
+      },
+    })
+  })
+
+  it('lets an empty assignee or due clear the field', () => {
+    expect(
+      parseUpdateManyInput({
+        project: 'bd-board',
+        ids,
+        patch: { assignee: '', due: '' },
+      }).patch,
+    ).toEqual({ assignee: '', due: '' })
+  })
+
+  it('rejects an empty patch, closed status and bad values', () => {
+    const base = { project: 'bd-board', ids }
+    expect(() => parseUpdateManyInput({ ...base, patch: {} })).toThrow(
+      'No bead updates provided',
+    )
+    expect(() =>
+      parseUpdateManyInput({ ...base, patch: { status: 'closed' } }),
+    ).toThrow('Status is invalid')
+    expect(() =>
+      parseUpdateManyInput({ ...base, patch: { status: 'nope' } }),
+    ).toThrow('Status is invalid')
+    expect(() =>
+      parseUpdateManyInput({ ...base, patch: { priority: 5 } }),
+    ).toThrow('Priority is invalid')
+    expect(() =>
+      parseUpdateManyInput({ ...base, patch: { addLabels: ['bad label'] } }),
+    ).toThrow('Label is invalid')
+    expect(() =>
+      parseUpdateManyInput({ ...base, patch: { due: 'a\nb' } }),
+    ).toThrow('due is invalid')
+    expect(() =>
+      parseUpdateManyInput({ ...base, patch: { assignee: '--force' } }),
+    ).toThrow('assignee is invalid')
+  })
+
+  it('requires 1 to 200 ids that are each a valid bead id', () => {
+    const patch = { priority: 1 }
+    const many = (n: number) => Array.from({ length: n }, (_, i) => `bd-${i}`)
+    expect(() =>
+      parseUpdateManyInput({ project: 'bd-board', ids: [], patch }),
+    ).toThrow('Select at least one bead')
+    expect(
+      parseUpdateManyInput({ project: 'bd-board', ids: many(200), patch }).ids,
+    ).toHaveLength(200)
+    expect(() =>
+      parseUpdateManyInput({ project: 'bd-board', ids: many(201), patch }),
+    ).toThrow('Too many beads')
+    expect(() =>
+      parseUpdateManyInput({
+        project: 'bd-board',
+        ids: ['bd-1', '--force'],
+        patch,
+      }),
+    ).toThrow('Bead id is invalid')
+    expect(() =>
+      parseCloseManyInput({ project: 'bd-board', ids: 'bd-1' }),
+    ).toThrow('ids must be a list')
+    expect(() =>
+      parseCloseManyInput({ project: 'bd-board', ids: ['-x'] }),
+    ).toThrow('Bead id is invalid')
+  })
+
+  it('drops duplicate ids and parses the close options', () => {
+    expect(
+      parseCloseManyInput({
+        project: 'bd-board',
+        ids: ['bd-1', 'bd-1', 'bd-2'],
+        reason: '  done  ',
+        force: true,
+      }),
+    ).toEqual({
+      project: 'bd-board',
+      ids: ['bd-1', 'bd-2'],
+      reason: 'done',
+      force: true,
+    })
+    expect(parseCloseManyInput({ project: 'bd-board', ids: ['bd-1'] })).toEqual(
+      { project: 'bd-board', ids: ['bd-1'], reason: undefined, force: false },
+    )
   })
 })

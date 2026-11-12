@@ -1843,6 +1843,153 @@ fn close_bead_inner(
     run_bd_mut(&dir, &build_close_bead_args(id, reason, force)).map(|_| ())
 }
 
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct BulkPatch {
+    pub status: Option<String>,
+    pub priority: Option<i64>,
+    pub assignee: Option<String>,
+    pub due: Option<String>,
+    pub add_labels: Option<Vec<String>>,
+}
+
+/// Bead ids and label names share one token shape: an ASCII alphanumeric
+/// start, then alphanumerics, `_`, `.` or `-`, within `max_len` bytes.
+fn is_bd_token(value: &str, max_len: usize) -> bool {
+    let mut chars = value.chars();
+    matches!(chars.next(), Some(c) if c.is_ascii_alphanumeric())
+        && value.len() <= max_len
+        && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-'))
+}
+
+fn validate_bulk_ids(ids: &[String]) -> Result<(), String> {
+    if ids.is_empty() {
+        return Err("Select at least one bead".to_string());
+    }
+    if ids.len() > 200 {
+        return Err("Too many beads".to_string());
+    }
+    if ids.iter().any(|id| !is_bd_token(id, 160)) {
+        return Err("Bead id is invalid".to_string());
+    }
+    Ok(())
+}
+
+fn validate_bulk_patch(patch: &BulkPatch) -> Result<(), String> {
+    let touched = patch.status.is_some()
+        || patch.priority.is_some()
+        || patch.assignee.is_some()
+        || patch.due.is_some()
+        || patch.add_labels.is_some();
+    if !touched {
+        return Err("No bead updates provided".to_string());
+    }
+    if let Some(status) = &patch.status {
+        if status == "closed" || !matches!(status.as_str(), "open" | "in_progress" | "blocked") {
+            return Err("Status is invalid".to_string());
+        }
+    }
+    if let Some(priority) = patch.priority {
+        if !(0..=4).contains(&priority) {
+            return Err("Priority is invalid".to_string());
+        }
+    }
+    if let Some(assignee) = &patch.assignee {
+        if assignee.chars().count() > 120 || assignee.starts_with('-') {
+            return Err("assignee is invalid".to_string());
+        }
+    }
+    if let Some(due) = &patch.due {
+        if due.chars().count() > 40 || due.starts_with('-') || due.contains(['\n', '\r']) {
+            return Err("due is invalid".to_string());
+        }
+    }
+    if let Some(labels) = &patch.add_labels {
+        if labels.iter().any(|label| !is_bd_token(label, 64)) {
+            return Err("Label is invalid".to_string());
+        }
+    }
+    Ok(())
+}
+
+/// Ids come first so every flag applies to all of them.
+fn build_update_many_args(ids: &[String], patch: &BulkPatch) -> Vec<String> {
+    let mut args = vec!["update".to_string()];
+    args.extend(ids.iter().cloned());
+    if let Some(status) = &patch.status {
+        args.push("--status".to_string());
+        args.push(status.clone());
+    }
+    if let Some(priority) = patch.priority {
+        args.push("--priority".to_string());
+        args.push(priority.to_string());
+    }
+    if let Some(assignee) = &patch.assignee {
+        args.push("--assignee".to_string());
+        args.push(assignee.clone());
+    }
+    if let Some(due) = &patch.due {
+        args.push("--due".to_string());
+        args.push(due.clone());
+    }
+    for label in patch.add_labels.iter().flatten() {
+        args.push("--add-label".to_string());
+        args.push(label.clone());
+    }
+    args
+}
+
+fn build_close_many_args(ids: &[String], reason: Option<&str>, force: bool) -> Vec<String> {
+    let mut args = vec!["close".to_string()];
+    args.extend(ids.iter().cloned());
+    if let Some(reason) = reason.filter(|r| !r.is_empty()) {
+        args.push("--reason".to_string());
+        args.push(reason.to_string());
+    }
+    if force {
+        args.push("--force".to_string());
+    }
+    args
+}
+
+fn update_many_inner(project_id: &str, ids: &[String], patch: &BulkPatch) -> Result<(), String> {
+    validate_bulk_ids(ids)?;
+    validate_bulk_patch(patch)?;
+    let args = build_update_many_args(ids, patch);
+    if args.len() <= ids.len() + 1 {
+        return Ok(());
+    }
+    let dir = resolve_dir(project_id)?;
+    run_bd_mut(&dir, &args)?;
+    Ok(())
+}
+
+fn close_many_inner(
+    project_id: &str,
+    ids: &[String],
+    reason: Option<&str>,
+    force: bool,
+) -> Result<(), String> {
+    validate_bulk_ids(ids)?;
+    let dir = resolve_dir(project_id)?;
+    run_bd_mut(&dir, &build_close_many_args(ids, reason, force)).map(|_| ())
+}
+
+#[tauri::command]
+pub fn update_many(project_id: String, ids: Vec<String>, patch: BulkPatch) -> Result<(), String> {
+    update_many_inner(&project_id, &ids, &patch)
+}
+
+#[tauri::command]
+pub fn close_many(
+    project_id: String,
+    ids: Vec<String>,
+    reason: Option<String>,
+    force: bool,
+) -> Result<(), String> {
+    close_many_inner(&project_id, &ids, reason.as_deref(), force)
+}
+
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TailEventsPage {
@@ -2979,6 +3126,89 @@ mod tests {
         assert_eq!(
             build_close_bead_args("bd-board-a2k", Some("done"), true),
             vec!["close", "bd-board-a2k", "--reason", "done", "--force"]
+        );
+    }
+
+    #[test]
+    fn bulk_update_args_put_every_id_before_the_flags() {
+        let ids = vec!["bd-a1".to_string(), "bd-a2".to_string()];
+        let patch = BulkPatch {
+            status: Some("in_progress".to_string()),
+            priority: Some(1),
+            assignee: Some(String::new()),
+            due: None,
+            add_labels: Some(vec!["ui".to_string(), "pdf".to_string()]),
+        };
+        assert_eq!(
+            build_update_many_args(&ids, &patch),
+            vec![
+                "update",
+                "bd-a1",
+                "bd-a2",
+                "--status",
+                "in_progress",
+                "--priority",
+                "1",
+                "--assignee",
+                "",
+                "--add-label",
+                "ui",
+                "--add-label",
+                "pdf",
+            ]
+        );
+    }
+
+    #[test]
+    fn bulk_input_rejects_empty_and_unsafe_values() {
+        let too_many: Vec<String> = (0..201).map(|i| format!("bd-{i}")).collect();
+        assert_eq!(validate_bulk_ids(&[]), Err("Select at least one bead".to_string()));
+        assert_eq!(validate_bulk_ids(&too_many), Err("Too many beads".to_string()));
+        assert_eq!(
+            validate_bulk_ids(&["--force".to_string()]),
+            Err("Bead id is invalid".to_string())
+        );
+        assert!(validate_bulk_ids(&["bd-a1".to_string()]).is_ok());
+
+        assert_eq!(
+            validate_bulk_patch(&BulkPatch::default()),
+            Err("No bead updates provided".to_string())
+        );
+        let closed = BulkPatch {
+            status: Some("closed".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(validate_bulk_patch(&closed), Err("Status is invalid".to_string()));
+        let high = BulkPatch {
+            priority: Some(5),
+            ..Default::default()
+        };
+        assert_eq!(validate_bulk_patch(&high), Err("Priority is invalid".to_string()));
+        let flag_assignee = BulkPatch {
+            assignee: Some("--force".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(
+            validate_bulk_patch(&flag_assignee),
+            Err("assignee is invalid".to_string())
+        );
+        let bad_label = BulkPatch {
+            add_labels: Some(vec!["bad label".to_string()]),
+            ..Default::default()
+        };
+        assert_eq!(validate_bulk_patch(&bad_label), Err("Label is invalid".to_string()));
+    }
+
+    #[test]
+    fn bulk_close_args_match_the_bd_cli() {
+        let ids = vec!["bd-a1".to_string(), "bd-a2".to_string()];
+        assert_eq!(
+            build_close_many_args(&ids, None, false),
+            vec!["close", "bd-a1", "bd-a2"]
+        );
+        assert_eq!(
+            build_close_many_args(&ids, Some("done"), true),
+            vec!["close", "bd-a1", "bd-a2", "--reason", "done", "--force"]
         );
     }
 

@@ -25,6 +25,8 @@ import {
   parseQueryInput,
   parseViewsKeyInput,
   parseViewsWriteInput,
+  parseUpdateManyInput,
+  parseCloseManyInput,
 } from './server-validation.ts'
 import { parseReadyExplain } from './ready.ts'
 import { tailResult } from './events.ts'
@@ -37,6 +39,7 @@ import type {
   BeadFeedMessage,
   BeadDetail,
   BeadUpdate,
+  BulkPatch,
   DeletePlan,
   Project,
   ReadyExplain,
@@ -74,6 +77,23 @@ const webCloseBead = createServerFn({ method: 'POST' })
   .validator(parseCloseBeadInput)
   .handler(async ({ data }) => {
     await bdAdapter.closeBead(data.project, data.id, {
+      reason: data.reason,
+      force: data.force,
+    })
+    return { ok: true as const }
+  })
+
+const webUpdateMany = createServerFn({ method: 'POST' })
+  .validator(parseUpdateManyInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.updateMany(data.project, data.ids, data.patch)
+    return { ok: true as const }
+  })
+
+const webCloseMany = createServerFn({ method: 'POST' })
+  .validator(parseCloseManyInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.closeMany(data.project, data.ids, {
       reason: data.reason,
       force: data.force,
     })
@@ -317,6 +337,39 @@ export async function closeBeadFn({
     return { ok: true }
   }
   return webCloseBead({ data })
+}
+
+export async function updateManyFn({
+  data,
+}: {
+  data: { project: string; ids: string[]; patch: BulkPatch }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('update_many', {
+      projectId: data.project,
+      ids: data.ids,
+      patch: data.patch,
+    })
+    return { ok: true }
+  }
+  return webUpdateMany({ data })
+}
+
+export async function closeManyFn({
+  data,
+}: {
+  data: { project: string; ids: string[]; reason?: string; force?: boolean }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('close_many', {
+      projectId: data.project,
+      ids: data.ids,
+      reason: data.reason,
+      force: data.force ?? false,
+    })
+    return { ok: true }
+  }
+  return webCloseMany({ data })
 }
 
 export async function claimBeadFn({

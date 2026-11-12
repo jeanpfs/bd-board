@@ -6,6 +6,7 @@ import {
   Plus,
   Search,
   SlidersHorizontal,
+  List,
 } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
@@ -29,7 +30,7 @@ import { PRIORITIES, SORT_OPTIONS } from '@/lib/sort'
 import type { LucideIcon } from 'lucide-react'
 import type { SortKey } from '@/lib/sort'
 
-export type BoardView = 'status' | 'epic' | 'priority'
+export type BoardView = 'status' | 'epic' | 'priority' | 'list'
 export type ProjectTab =
   | 'overview'
   | 'board'
@@ -69,6 +70,7 @@ const VIEWS: { key: BoardView; label: string; icon: LucideIcon }[] = [
   { key: 'epic', label: 'Epics', icon: Layers },
   { key: 'priority', label: 'Priority', icon: SlidersHorizontal },
   { key: 'status', label: 'Status', icon: Columns3 },
+  { key: 'list', label: 'List', icon: List },
 ]
 
 const PRIORITY_HINT: Record<number, string> = {

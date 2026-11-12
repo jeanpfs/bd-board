@@ -144,6 +144,15 @@ export interface BeadUpdate {
   estimate?: number
 }
 
+/** Fields applied to every selected bead by one `bd update`. Empty string clears. */
+export interface BulkPatch {
+  status?: string
+  priority?: number
+  assignee?: string
+  due?: string
+  addLabels?: string[]
+}
+
 export interface ProjectCounts {
   open: number
   in_progress: number

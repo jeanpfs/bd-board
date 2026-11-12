@@ -22,6 +22,8 @@ import {
   buildBeadGraph,
   buildClaimArgs,
   buildCloseBeadArgs,
+  buildCloseManyArgs,
+  buildUpdateManyArgs,
   buildReadyExplainArgs,
   buildCountsFromGroups,
   buildDeferBeadArgs,
@@ -782,5 +784,64 @@ describe('bd query and kv args', () => {
     expect(() => parseKvGet(2, '', 'database is locked')).toThrow(
       'database is locked',
     )
+  })
+})
+
+describe('bulk bd arguments', () => {
+  it('puts every id before the flags in one update command', () => {
+    expect(
+      buildUpdateManyArgs(['x-1', 'x-2', 'x-3'], {
+        status: 'in_progress',
+        priority: 1,
+        assignee: 'maya',
+        due: 'tomorrow',
+      }),
+    ).toEqual([
+      'update',
+      'x-1',
+      'x-2',
+      'x-3',
+      '--status',
+      'in_progress',
+      '--priority',
+      '1',
+      '--assignee',
+      'maya',
+      '--due',
+      'tomorrow',
+    ])
+  })
+
+  it('repeats --add-label once per label and passes an empty value to clear', () => {
+    expect(
+      buildUpdateManyArgs(['x-1', 'x-2'], {
+        addLabels: ['ui', 'pdf'],
+        assignee: '',
+        due: '',
+      }),
+    ).toEqual([
+      'update',
+      'x-1',
+      'x-2',
+      '--assignee',
+      '',
+      '--due',
+      '',
+      '--add-label',
+      'ui',
+      '--add-label',
+      'pdf',
+    ])
+  })
+
+  it('closes many ids with the reason and force only when given', () => {
+    expect(buildCloseManyArgs(['x-1', 'x-2'], {})).toEqual([
+      'close',
+      'x-1',
+      'x-2',
+    ])
+    expect(
+      buildCloseManyArgs(['x-1', 'x-2'], { reason: 'dup', force: true }),
+    ).toEqual(['close', 'x-1', 'x-2', '--reason', 'dup', '--force'])
   })
 })

@@ -14,49 +14,64 @@ import {
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { closeBeadFn } from '@/lib/server'
+import { closeBeadFn, closeManyFn } from '@/lib/server'
 import { closeRefusalReason } from '@/lib/close-policy'
 import { toErrorMessage } from '@/lib/utils'
 
 export function CloseBeadDialog({
   project,
-  bead,
+  beads,
   open,
   onOpenChange,
   refusal: initialRefusal,
+  onClosed,
 }: {
   project: string
-  bead: { id: string; title: string } | null
+  /** One bead for a single close; several for a bulk close from the list view. */
+  beads: { id: string; title: string }[]
   open: boolean
   onOpenChange: (open: boolean) => void
   /** bd's refusal reason from an earlier attempt (e.g. a drag to Closed). */
   refusal?: string
+  /** Runs after a successful close, before the dialog closes. */
+  onClosed?: () => void
 }) {
   const queryClient = useQueryClient()
   const [reason, setReason] = useState('')
   const [refusal, setRefusal] = useState<string | undefined>(initialRefusal)
+  const ids = beads.map((b) => b.id)
+  const idsKey = ids.join(',')
 
   useEffect(() => {
     if (!open) return
     setReason('')
     setRefusal(initialRefusal)
-  }, [open, bead?.id, initialRefusal])
+  }, [open, idsKey, initialRefusal])
 
   const mutation = useMutation({
-    mutationFn: (force: boolean) =>
-      closeBeadFn({
-        data: {
-          project,
-          id: bead!.id,
-          reason: reason.trim() || undefined,
-          force,
-        },
-      }),
+    mutationFn: (force: boolean) => {
+      const trimmed = reason.trim() || undefined
+      if (ids.length === 1) {
+        return closeBeadFn({
+          data: { project, id: ids[0], reason: trimmed, force },
+        })
+      }
+      return closeManyFn({
+        data: { project, ids, reason: trimmed, force },
+      })
+    },
     onSuccess: () => {
-      toast.success(`Bead ${bead!.id} closed`)
+      toast.success(
+        ids.length === 1
+          ? `Bead ${ids[0]} closed`
+          : `Closed ${ids.length} beads`,
+      )
       queryClient.invalidateQueries({ queryKey: ['beads', project] })
-      queryClient.invalidateQueries({ queryKey: ['bead', project, bead!.id] })
+      for (const id of ids) {
+        queryClient.invalidateQueries({ queryKey: ['bead', project, id] })
+      }
       queryClient.invalidateQueries({ queryKey: ['projects'] })
+      onClosed?.()
       onOpenChange(false)
     },
     onError: (error) => {
@@ -67,17 +82,27 @@ export function CloseBeadDialog({
     },
   })
 
-  if (!bead) return null
+  if (ids.length === 0) return null
   const forced = refusal !== undefined
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Close bead</DialogTitle>
+          <DialogTitle>
+            {ids.length === 1 ? 'Close bead' : `Close ${ids.length} beads`}
+          </DialogTitle>
           <DialogDescription>
-            <span className="font-mono text-foreground">{bead.id}</span>:{' '}
-            <span className="text-foreground">{bead.title}</span>
+            {ids.length === 1 ? (
+              <>
+                <span className="font-mono text-foreground">{ids[0]}</span>:{' '}
+                <span className="text-foreground">{beads[0].title}</span>
+              </>
+            ) : (
+              <span className="font-mono text-foreground">
+                {ids.join(', ')}
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -139,7 +164,11 @@ export function CloseBeadDialog({
               ) : (
                 <CheckCircle2 className="size-3.5" aria-hidden="true" />
               )}
-              {forced ? 'Close anyway' : 'Close bead'}
+              {forced
+                ? 'Close anyway'
+                : ids.length === 1
+                  ? 'Close bead'
+                  : `Close ${ids.length} beads`}
             </Button>
           </DialogFooter>
         </form>

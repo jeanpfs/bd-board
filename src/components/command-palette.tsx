@@ -540,7 +540,7 @@ export function CommandPalette() {
         <CloseBeadDialog
           key={`${closeTarget.project}:${closeTarget.bead.id}`}
           project={closeTarget.project}
-          bead={closeTarget.bead}
+          beads={[closeTarget.bead]}
           open
           onOpenChange={(next) => {
             if (!next) setCloseTarget(null)

@@ -60,6 +60,8 @@ pub fn run() {
             desktop::update_bead,
             desktop::preview_delete_bead,
             desktop::close_bead,
+            desktop::update_many,
+            desktop::close_many,
             desktop::claim_bead,
             desktop::unclaim_bead,
             desktop::reclaim_bead,
