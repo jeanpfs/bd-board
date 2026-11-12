@@ -1471,6 +1471,17 @@ fn build_close_bead_args(id: &str, reason: Option<&str>, force: bool) -> Vec<Str
     args
 }
 
+fn build_tail_events_args(since: i64, limit: i64) -> Vec<String> {
+    vec![
+        "events".to_string(),
+        "tail".to_string(),
+        "--since".to_string(),
+        since.to_string(),
+        "--limit".to_string(),
+        limit.to_string(),
+    ]
+}
+
 fn build_claim_args(id: &str, actor: Option<&str>) -> Result<Vec<String>, String> {
     let mut args = vec!["update".to_string(), id.to_string(), "--claim".to_string()];
     if let Some(actor) = actor.map(str::trim).filter(|a| !a.is_empty()) {
@@ -1744,6 +1755,18 @@ fn close_bead_inner(
     run_bd_mut(&dir, &build_close_bead_args(id, reason, force)).map(|_| ())
 }
 
+fn tail_events_inner(project_id: &str, since: i64, limit: i64) -> Result<String, String> {
+    let dir = resolve_dir(project_id)?;
+    let args = build_tail_events_args(since, limit);
+    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    let cap = exec_bd(&dir, &refs)?;
+    // Truncation arrives as a JSON error line, possibly with a non-zero exit; the TS side parses stdout.
+    if !cap.status.success() && !cap.stdout.contains("events_journal_truncated") {
+        return Err(bd_failure(&cap));
+    }
+    Ok(cap.stdout)
+}
+
 fn claim_bead_inner(project_id: &str, id: &str, actor: Option<&str>) -> Result<(), String> {
     let dir = resolve_dir(project_id)?;
     run_bd_mut(&dir, &build_claim_args(id, actor)?).map(|_| ())
@@ -1919,6 +1942,11 @@ pub fn close_bead(
     force: bool,
 ) -> Result<(), String> {
     close_bead_inner(&project_id, &id, reason.as_deref(), force)
+}
+
+#[tauri::command]
+pub fn tail_events(project_id: String, since: i64, limit: i64) -> Result<String, String> {
+    tail_events_inner(&project_id, since, limit)
 }
 
 #[tauri::command]
@@ -2233,6 +2261,14 @@ pub fn relocate_project(id: String, path: String) -> Result<RegistryEntry, Strin
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn build_tail_events_args_reads_from_cursor_with_limit() {
+        assert_eq!(
+            build_tail_events_args(7, 50),
+            ["events", "tail", "--since", "7", "--limit", "50"]
+        );
+    }
 
     #[test]
     fn build_counts_from_groups_maps_bd_count_by_status_groups() {

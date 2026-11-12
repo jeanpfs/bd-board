@@ -16,9 +16,12 @@ import {
   parseDeferInput,
   parseProjectInput,
   parseStatusUpdateInput,
+  parseTailEventsInput,
   parseUpdateBeadInput,
 } from './server-validation.ts'
 import { parseReadyExplain } from './ready.ts'
+import { parseEventLines } from './events.ts'
+import type { TailEventsResult } from './events.ts'
 import { toErrorMessage } from './utils.ts'
 
 import type {
@@ -185,6 +188,12 @@ export const webEnableEventsJournal = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     await bdAdapter.enableEventsJournal(data.project)
     return { ok: true as const }
+  })
+
+const webTailEvents = createServerFn({ method: 'POST' })
+  .validator(parseTailEventsInput)
+  .handler(async ({ data }) => {
+    return bdAdapter.tailEvents(data.project, data.since, data.limit)
   })
 
 export async function getProjects(): Promise<Project[]> {
@@ -519,6 +528,22 @@ export async function enableEventsJournalFn({
     return { ok: true }
   }
   return webEnableEventsJournal({ data })
+}
+
+export async function tailEventsFn({
+  data,
+}: {
+  data: { project: string; since: number; limit: number }
+}): Promise<TailEventsResult> {
+  if (isDesktopApp()) {
+    const stdout = await invoke<string>('tail_events', {
+      projectId: data.project,
+      since: data.since,
+      limit: data.limit,
+    })
+    return parseEventLines(stdout)
+  }
+  return webTailEvents({ data })
 }
 
 export function subscribeBeadFeed(

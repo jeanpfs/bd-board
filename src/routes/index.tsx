@@ -9,11 +9,11 @@ import { EditProjectModal } from '@/components/edit-project-modal'
 import {
   AttentionBlock,
   AttentionRow,
-  LIST_ROW,
   Section,
 } from '@/components/home-sections'
+import { BeadLinkRow, MyWorkList, myWorkItems } from '@/components/my-work'
+import type { Located } from '@/components/my-work'
 import { ProjectCard } from '@/components/project-card'
-import { ProjectChip } from '@/components/project-chip'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -29,7 +29,7 @@ import { getStoredIdentity } from '@/lib/identity'
 import { isGate } from '@/lib/lease'
 import { getProjects } from '@/lib/server'
 import { relativeDate } from '@/lib/time'
-import { groupBeadLinks, mapStatus, statusText } from '@/lib/types'
+import { statusText } from '@/lib/types'
 import { useValidateProjectsOnMount } from '@/lib/useValidateProjectsOnMount'
 
 import type { Bead, Project } from '@/lib/types'
@@ -39,13 +39,6 @@ export const Route = createFileRoute('/')({ component: Home })
 const NEEDS_YOU_LIMIT = 6
 const MY_WORK_LIMIT = 8
 const RECENT_LIMIT = 5
-
-/** A bead together with the project it lives in and that project's color. */
-interface Located {
-  bead: Bead
-  project: Project
-  index: number
-}
 
 function Home() {
   const { data, isPending, isError, error, refetch, isFetching } = useQuery({
@@ -144,6 +137,8 @@ function Dashboard({ projects }: { projects: Project[] }) {
     [projects, beadsByProject],
   )
 
+  const mine = myWorkItems(located, identity)
+
   return (
     <>
       <NeedsYou
@@ -166,7 +161,9 @@ function Dashboard({ projects }: { projects: Project[] }) {
       </Section>
 
       <div className="grid gap-x-12 gap-y-section lg:grid-cols-2">
-        <MyWork located={located} identity={identity} />
+        <Section title="My work" meta={identity ? mine.length : undefined}>
+          <MyWorkList items={mine} identity={identity} limit={MY_WORK_LIMIT} />
+        </Section>
         <RecentlyUpdated located={located} />
       </div>
 
@@ -280,96 +277,6 @@ function NeedsYou({
     >
       {shown}
     </AttentionBlock>
-  )
-}
-
-function BeadLinkRow({
-  item,
-  trailing,
-}: {
-  item: Located
-  trailing: React.ReactNode
-}) {
-  const { bead, project, index } = item
-  return (
-    <li className="border-b border-border/60 last:border-0">
-      <Link
-        to="/p/$project"
-        params={{ project: project.id }}
-        search={{ bead: bead.id }}
-        className={LIST_ROW}
-      >
-        <ProjectChip name={project.name} index={index} />
-        <span className="shrink-0 font-mono text-xs text-muted-foreground">
-          {bead.id}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-foreground">
-          {bead.title}
-        </span>
-        <span className="shrink-0 text-xs text-muted-foreground">
-          {trailing}
-        </span>
-      </Link>
-    </li>
-  )
-}
-
-function MyWork({
-  located,
-  identity,
-}: {
-  located: Located[]
-  identity: string | null
-}) {
-  const mine = useMemo(
-    () =>
-      identity
-        ? located
-            .filter(
-              ({ bead }) =>
-                bead.assignee === identity &&
-                mapStatus(bead).column !== 'closed',
-            )
-            .sort(
-              (a, b) =>
-                Number(mapStatus(b.bead).column === 'in_progress') -
-                  Number(mapStatus(a.bead).column === 'in_progress') ||
-                a.bead.priority - b.bead.priority,
-            )
-        : [],
-    [located, identity],
-  )
-
-  return (
-    <Section title="My work" meta={identity ? mine.length : undefined}>
-      {!identity ? (
-        <p className="px-3 text-body text-muted-foreground">
-          Pick yourself under <em>Assigned to me</em> in a project&apos;s
-          sidebar to see your beads here.
-        </p>
-      ) : mine.length === 0 ? (
-        <p className="px-3 text-body text-muted-foreground">
-          Nothing open is assigned to {identity}.
-        </p>
-      ) : (
-        <ul className="flex flex-col">
-          {mine.slice(0, MY_WORK_LIMIT).map((item) => {
-            const waitsOn = groupBeadLinks(item.bead.links).blockedBy[0]
-            return (
-              <BeadLinkRow
-                key={`${item.project.id}:${item.bead.id}`}
-                item={item}
-                trailing={
-                  waitsOn && mapStatus(item.bead).column === 'open'
-                    ? `waits on ${waitsOn}`
-                    : statusText(item.bead)
-                }
-              />
-            )
-          })}
-        </ul>
-      )}
-    </Section>
   )
 }
 

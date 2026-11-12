@@ -128,6 +128,32 @@ export function parseCloseBeadInput(input: unknown): {
   }
 }
 
+export function parseTailEventsInput(input: unknown): {
+  project: string
+  since: number
+  limit: number
+} {
+  const data = record(input)
+  const since = data['since']
+  if (typeof since !== 'number' || !Number.isInteger(since) || since < 0) {
+    throw new Error('since must be a whole number, zero or more')
+  }
+  const limit = data['limit']
+  if (
+    typeof limit !== 'number' ||
+    !Number.isInteger(limit) ||
+    limit < 1 ||
+    limit > 1000
+  ) {
+    throw new Error('limit must be a whole number from 1 to 1000')
+  }
+  return {
+    project: requiredString(data, 'project', PROJECT_RE, 'Project'),
+    since,
+    limit,
+  }
+}
+
 export function parseClaimInput(input: unknown): {
   project: string
   id: string

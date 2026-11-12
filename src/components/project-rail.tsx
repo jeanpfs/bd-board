@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams, useSearch } from '@tanstack/react-router'
+import { Link, useLocation, useParams, useSearch } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Bot,
@@ -9,7 +9,9 @@ import {
   Columns3,
   Gauge,
   Home,
+  Inbox,
   ListTree,
+  ListChecks,
   X,
 } from 'lucide-react'
 
@@ -21,6 +23,7 @@ import { ProjectActionsMenu } from '@/components/project-actions-menu'
 import { ProjectChip } from '@/components/project-chip'
 import { ProjectSwitcher } from '@/components/project-switcher'
 import { projectProblem } from '@/lib/attention'
+import { useInbox } from '@/hooks/use-inbox'
 import { cn, initials } from '@/lib/utils'
 import { getBeads, getProjects } from '@/lib/server'
 
@@ -205,6 +208,8 @@ export function ProjectRail() {
     staleTime: 5000,
   })
   const projects = projectsQuery.data ?? []
+  const { unread: inboxUnread } = useInbox(projects)
+  const pathname = useLocation({ select: (location) => location.pathname })
 
   const beadsQuery = useQuery({
     queryKey: ['beads', project],
@@ -279,10 +284,27 @@ export function ProjectRail() {
             <RailLink
               to="/"
               icon={Home}
-              active={!project}
+              active={!project && pathname === '/'}
               collapsed={collapsed}
             >
               Home
+            </RailLink>
+            <RailLink
+              to="/inbox"
+              icon={Inbox}
+              active={pathname === '/inbox'}
+              collapsed={collapsed}
+              count={inboxUnread}
+            >
+              Inbox
+            </RailLink>
+            <RailLink
+              to="/my-work"
+              icon={ListChecks}
+              active={pathname === '/my-work'}
+              collapsed={collapsed}
+            >
+              My work
             </RailLink>
           </ul>
         </nav>

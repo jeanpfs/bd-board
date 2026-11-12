@@ -7,7 +7,15 @@ import {
 } from 'react'
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Circle, Folder, GitBranch, Home, Plus } from 'lucide-react'
+import {
+  Circle,
+  Folder,
+  GitBranch,
+  Home,
+  Inbox,
+  ListChecks,
+  Plus,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import { CloseBeadDialog } from '@/components/close-bead-dialog'
@@ -187,7 +195,10 @@ export function CommandPalette() {
       (matches('Change status') || matches('Copy branch name')))
   const showHome = matches('Home')
   const visibleProjects = projects.filter((p) => matches(p.name))
-  const showGoTo = showHome || visibleProjects.length > 0
+  const showInbox = matches('Inbox')
+  const showMyWork = matches('My work')
+  const showGoTo =
+    showHome || showInbox || showMyWork || visibleProjects.length > 0
   const statusOptions = focused
     ? COLUMNS.filter((c) => c.key !== focused.bead.status)
     : []
@@ -232,6 +243,11 @@ export function CommandPalette() {
   function goHome(newTab: boolean) {
     if (newTab) window.open('/', '_blank')
     else navigate({ to: '/' })
+  }
+
+  function goPage(path: '/inbox' | '/my-work', newTab: boolean) {
+    if (newTab) window.open(path, '_blank')
+    else navigate({ to: path })
   }
 
   function newBead() {
@@ -441,6 +457,38 @@ export function CommandPalette() {
                           aria-hidden="true"
                         />
                         Home
+                      </CommandItem>
+                    ) : null}
+                    {showInbox ? (
+                      <CommandItem
+                        value="go:inbox"
+                        onSelect={() => {
+                          const useNewTab = takeNewTab()
+                          close()
+                          goPage('/inbox', useNewTab)
+                        }}
+                      >
+                        <Inbox
+                          className="size-3.5 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                        Inbox
+                      </CommandItem>
+                    ) : null}
+                    {showMyWork ? (
+                      <CommandItem
+                        value="go:my-work"
+                        onSelect={() => {
+                          const useNewTab = takeNewTab()
+                          close()
+                          goPage('/my-work', useNewTab)
+                        }}
+                      >
+                        <ListChecks
+                          className="size-3.5 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                        My work
                       </CommandItem>
                     ) : null}
                     {visibleProjects.map((p) => (

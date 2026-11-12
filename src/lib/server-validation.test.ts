@@ -11,6 +11,7 @@ import {
   parseRelationInput,
   parseRemoveRelationInput,
   parseStatusUpdateInput,
+  parseTailEventsInput,
   parseUnclaimInput,
   parseUpdateBeadInput,
 } from './server-validation'
@@ -352,5 +353,31 @@ describe('config key input', () => {
     expect(() => parseConfigKeyInput({ project: 'p', key: '../etc' })).toThrow(
       'Config key is not allowed',
     )
+  })
+})
+
+describe('events tail input', () => {
+  it('accepts a project, a non-negative cursor and a page limit', () => {
+    expect(
+      parseTailEventsInput({ project: 'bd_board', since: 0, limit: 200 }),
+    ).toEqual({ project: 'bd_board', since: 0, limit: 200 })
+  })
+
+  it('rejects a negative or fractional cursor', () => {
+    expect(() =>
+      parseTailEventsInput({ project: 'bd_board', since: -1, limit: 200 }),
+    ).toThrow()
+    expect(() =>
+      parseTailEventsInput({ project: 'bd_board', since: 1.5, limit: 200 }),
+    ).toThrow()
+  })
+
+  it('rejects a page limit outside 1 to 1000', () => {
+    expect(() =>
+      parseTailEventsInput({ project: 'bd_board', since: 0, limit: 0 }),
+    ).toThrow()
+    expect(() =>
+      parseTailEventsInput({ project: 'bd_board', since: 0, limit: 1001 }),
+    ).toThrow()
   })
 })

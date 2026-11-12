@@ -10,12 +10,24 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as InboxRouteImport } from './routes/inbox'
+import { Route as MyWorkRouteImport } from './routes/my-work'
 import { Route as PProjectRouteImport } from './routes/p.$project'
 import { Route as ApiFeedProjectRouteImport } from './routes/api/feed.$project'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InboxRoute = InboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MyWorkRoute = MyWorkRouteImport.update({
+  id: '/my-work',
+  path: '/my-work',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PProjectRoute = PProjectRouteImport.update({
@@ -31,30 +43,44 @@ const ApiFeedProjectRoute = ApiFeedProjectRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/inbox': typeof InboxRoute
+  '/my-work': typeof MyWorkRoute
   '/p/$project': typeof PProjectRoute
   '/api/feed/$project': typeof ApiFeedProjectRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/inbox': typeof InboxRoute
+  '/my-work': typeof MyWorkRoute
   '/p/$project': typeof PProjectRoute
   '/api/feed/$project': typeof ApiFeedProjectRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/inbox': typeof InboxRoute
+  '/my-work': typeof MyWorkRoute
   '/p/$project': typeof PProjectRoute
   '/api/feed/$project': typeof ApiFeedProjectRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/p/$project' | '/api/feed/$project'
+  fullPaths: '/' | '/inbox' | '/my-work' | '/p/$project' | '/api/feed/$project'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/p/$project' | '/api/feed/$project'
-  id: '__root__' | '/' | '/p/$project' | '/api/feed/$project'
+  to: '/' | '/inbox' | '/my-work' | '/p/$project' | '/api/feed/$project'
+  id:
+    | '__root__'
+    | '/'
+    | '/inbox'
+    | '/my-work'
+    | '/p/$project'
+    | '/api/feed/$project'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  InboxRoute: typeof InboxRoute
+  MyWorkRoute: typeof MyWorkRoute
   PProjectRoute: typeof PProjectRoute
   ApiFeedProjectRoute: typeof ApiFeedProjectRoute
 }
@@ -66,6 +92,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inbox': {
+      id: '/inbox'
+      path: '/inbox'
+      fullPath: '/inbox'
+      preLoaderRoute: typeof InboxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/my-work': {
+      id: '/my-work'
+      path: '/my-work'
+      fullPath: '/my-work'
+      preLoaderRoute: typeof MyWorkRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/p/$project': {
@@ -87,6 +127,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  InboxRoute: InboxRoute,
+  MyWorkRoute: MyWorkRoute,
   PProjectRoute: PProjectRoute,
   ApiFeedProjectRoute: ApiFeedProjectRoute,
 }

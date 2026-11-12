@@ -80,6 +80,7 @@ pub fn run() {
             desktop::watch_bead_feed,
             desktop::unwatch_bead_feed,
             desktop::enable_events_journal,
+            desktop::tail_events,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
