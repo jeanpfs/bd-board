@@ -76,7 +76,7 @@ import {
 
 import type { LucideIcon } from 'lucide-react'
 import type { FormEvent, ReactNode } from 'react'
-import type { Bead, BeadColumn, BeadDetail } from '@/lib/types'
+import type { Bead, BeadColumn, BeadDetail, BeadUpdate } from '@/lib/types'
 
 export interface BeadAction {
   id: string
@@ -320,24 +320,28 @@ function BeadEditDialog({
   }, [open, initialField])
 
   const mutation = useMutation({
-    mutationFn: () =>
-      updateBeadFn({
-        data: {
-          project,
-          id: bead.id,
-          update: {
-            title,
-            description,
-            acceptance_criteria: acceptance,
-            design,
-            notes,
-            priority: Number(priority),
-            issue_type: issueType,
-            assignee,
-            labels,
-          },
-        },
-      }),
+    mutationFn: () => {
+      // bd-native labels and types may fall outside the form's own choices,
+      // so send them only when this edit changed them.
+      const source = detail ?? bead
+      const update: Partial<BeadUpdate> = {
+        title,
+        description,
+        acceptance_criteria: acceptance,
+        design,
+        notes,
+        priority: Number(priority),
+        assignee,
+      }
+      if (issueType !== (source.issue_type || 'task')) {
+        update.issue_type = issueType
+      }
+      const sourceLabels = source.labels ?? []
+      const labelsChanged =
+        [...labels].sort().join('\n') !== [...sourceLabels].sort().join('\n')
+      if (labelsChanged) update.labels = labels
+      return updateBeadFn({ data: { project, id: bead.id, update } })
+    },
     onSuccess: () => {
       toast.success(`Bead ${bead.id} updated`)
       queryClient.invalidateQueries({ queryKey: ['beads', project] })
