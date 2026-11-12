@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-12
+
 ### Added
 
 - Pending schema migrations are surfaced instead of failing silently. When a shared (remote-backed) database is behind the bd binary, bd refuses to migrate it on its own (only one clone may migrate). The dashboard card shows "Read-only · migration pending", the board shows bd's options (`migrate` vs `adopt`) with their commands, conditions and risks, and toasts show a one-line summary. bd board never runs a migration.
@@ -44,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The sidebar no longer has a **Quick filters** group (Blocked, Assigned to me). Blocked beads keep their own board column, and a saved view covers an assignee filter. Choosing who you are moved to the sidebar footer ("Who are you?").
 - **Faster, non-blocking desktop app.** Every desktop command now runs off the main thread, so the window stays responsive while `bd` works. `bd` calls on one project run one at a time in both runtimes: bd's embedded database locks, and concurrent calls on it took longer in total than the same calls in turn. Different projects still run in parallel. `bd statuses` is cached per project for 60 s (cleared when custom statuses are saved).
 - Edits, status changes, due dates, estimates, timeline moves and snoozes show in the board and detail immediately and roll back if `bd` refuses them, instead of waiting for the list to reload.
+- Dragging a card is steadier: the column under the pointer is the drop target and lights up even while the pointer is over one of its cards, and a dropped card stays in its new column instead of flying back to where it was picked up first.
 - Background refresh is lighter: the project list every 30 s (was 15 s), the board every 15 s without the live feed (was 8 s) and Knowledge every 30 s (was 12 s). Your own changes still refresh right away.
 
 ### Fixed
