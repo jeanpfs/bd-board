@@ -9,6 +9,7 @@ import {
   LIST_ROW,
   Section,
 } from '@/components/home-sections'
+import { AttentionAction } from '@/components/attention-action'
 import { PriorityBadge } from '@/components/priority-badge'
 import { SubtaskProgress } from '@/components/subtask-progress'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -41,6 +42,7 @@ export function ProjectOverview({
   project,
   name,
   beads,
+  attentionBeads,
   liveIndicator,
   onOpen,
   onOpenKnowledge,
@@ -50,6 +52,7 @@ export function ProjectOverview({
   project: string
   name: string
   beads: Bead[]
+  attentionBeads: Bead[]
   liveIndicator: React.ReactNode
   onOpen: (bead: Bead) => void
   onOpenKnowledge: (id: string) => void
@@ -70,7 +73,10 @@ export function ProjectOverview({
     return { open, inProgress, closed: closedThisWeek(beads, now) }
   }, [beads, now])
 
-  const attention = useMemo(() => attentionList(beads, now), [beads, now])
+  const attention = useMemo(
+    () => attentionList(attentionBeads, now),
+    [attentionBeads, now],
+  )
 
   const epics = useMemo(
     () =>
@@ -149,21 +155,31 @@ export function ProjectOverview({
           meta={attention.length}
           empty="Nothing needs attention: no open P0, nothing overdue, nothing blocked, nothing stale."
         >
-          {attention.map(({ kind, bead, detail }) => (
+          {attention.map((item) => (
             <AttentionRow
-              key={bead.id}
-              kind={kind}
-              id={bead.id}
-              title={bead.title}
-              meta={bead.assignee ? `${detail} · ${bead.assignee}` : detail}
+              key={item.bead.id}
+              kind={item.kind}
+              id={item.bead.id}
+              title={item.bead.title}
+              meta={
+                item.bead.assignee
+                  ? `${item.detail} · ${item.bead.assignee}`
+                  : item.detail
+              }
               action={
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onOpen(bead)}
-                >
-                  Open
-                </Button>
+                <AttentionAction
+                  item={item}
+                  project={project}
+                  fallback={
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onOpen(item.bead)}
+                    >
+                      Open
+                    </Button>
+                  }
+                />
               }
             />
           ))}

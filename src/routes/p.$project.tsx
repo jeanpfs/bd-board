@@ -28,6 +28,7 @@ import { AgentsView } from '@/components/agents-view'
 import { LiveUpdatesIndicator } from '@/components/live-updates-indicator'
 import { Button } from '@/components/ui/button'
 import { isDueThisWeek, isOverdue } from '@/lib/schedule'
+import { isGate } from '@/lib/lease'
 import {
   claimBeadFn,
   getBeads,
@@ -244,7 +245,9 @@ function BoardPage() {
     : null
   const loadGate = loadError ? migrationGateFromMessage(loadError) : null
 
-  const beads = beadsQuery.data ?? []
+  // Gate beads never appear as board work; the Agents panel reads all beads.
+  const allBeads = beadsQuery.data ?? []
+  const beads = useMemo(() => allBeads.filter((b) => !isGate(b)), [allBeads])
 
   const beadsById = useMemo(() => {
     const map = new Map<string, Bead>()
@@ -563,6 +566,7 @@ function BoardPage() {
           project={project}
           name={projectInfo?.name ?? project}
           beads={beads}
+          attentionBeads={allBeads}
           liveIndicator={
             <LiveUpdatesIndicator status={feed.status} message={feed.message} />
           }
@@ -596,7 +600,7 @@ function BoardPage() {
       ) : tab === 'agents' ? (
         <AgentsView
           project={project}
-          beads={beads}
+          beads={allBeads}
           now={new Date()}
           onOpen={(id) => {
             const bead = beadsById.get(id)

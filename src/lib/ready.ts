@@ -1,3 +1,4 @@
+import { isGate } from './lease'
 import { relativeDate } from './time.ts'
 
 import type {
@@ -79,7 +80,7 @@ export function parseReadyExplain(raw: unknown): ReadyExplain {
   const ready: ReadyRow[] = []
   for (const row of rows(data['ready'])) {
     const bead = mapBead(row)
-    if (!bead) continue
+    if (!bead || isGate(bead)) continue
     ready.push({
       ...bead,
       reason: text(row, 'reason') ?? '',
@@ -93,7 +94,7 @@ export function parseReadyExplain(raw: unknown): ReadyExplain {
   const blocked: BlockedRow[] = []
   for (const row of rows(data['blocked'])) {
     const bead = mapBead(row)
-    if (!bead) continue
+    if (!bead || isGate(bead)) continue
     const list = Array.isArray(row['blocked_by']) ? row['blocked_by'] : []
     blocked.push({
       ...bead,

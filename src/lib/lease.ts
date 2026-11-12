@@ -1,5 +1,10 @@
 import type { Bead } from './types'
 
+/** Gate beads are coordination records; they never appear as board work. */
+export function isGate(bead: Bead): boolean {
+  return bead.issue_type === 'gate'
+}
+
 /** A lease with at most this much time left is shown as expiring. */
 export const EXPIRING_WITHIN_MS = 2 * 60_000
 

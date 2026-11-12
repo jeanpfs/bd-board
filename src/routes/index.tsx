@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { AlertCircle, FolderOpen, Plus } from 'lucide-react'
 
 import { DesktopProbeCard } from '@/components/desktop-probe-card'
+import { AttentionAction } from '@/components/attention-action'
 import { EditProjectModal } from '@/components/edit-project-modal'
 import {
   AttentionBlock,
@@ -236,7 +237,7 @@ function NeedsYou({
         a.bead.priority - b.bead.priority,
     )
 
-  for (const { kind, bead, detail, project } of beadItems) {
+  for (const { kind, bead, detail, project, gateId } of beadItems) {
     rows.push(
       <AttentionRow
         key={`${project.id}:${bead.id}`}
@@ -245,15 +246,21 @@ function NeedsYou({
         title={bead.title}
         meta={[project.name, detail, bead.assignee].filter(Boolean).join(' · ')}
         action={
-          <Button size="sm" variant="outline" asChild>
-            <Link
-              to="/p/$project"
-              params={{ project: project.id }}
-              search={{ bead: bead.id }}
-            >
-              Open
-            </Link>
-          </Button>
+          <AttentionAction
+            item={{ kind, bead, detail, gateId }}
+            project={project.id}
+            fallback={
+              <Button size="sm" variant="outline" asChild>
+                <Link
+                  to="/p/$project"
+                  params={{ project: project.id }}
+                  search={{ bead: bead.id }}
+                >
+                  Open
+                </Link>
+              </Button>
+            }
+          />
         }
       />,
     )

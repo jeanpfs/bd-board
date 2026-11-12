@@ -1,6 +1,6 @@
 import { isOverdue, dueState } from './schedule.ts'
 import { isReady } from './sort.ts'
-import { gateBlocks, leaseState } from './lease.ts'
+import { gateBlocks, isGate, leaseState } from './lease.ts'
 import { mapStatus, statusText } from './types.ts'
 
 import type { Bead, Project } from './types.ts'
@@ -22,6 +22,8 @@ export interface Attention {
   bead: Bead
   /** One-line reason, e.g. `no update for 9 days`. */
   detail: string
+  /** Set for kind `gate`: the open gate bead this bead is waiting on. */
+  gateId?: string
 }
 
 /** Most severe first. The one source for kind order. */
@@ -64,7 +66,8 @@ export function beadAttention(
     const mins = Math.floor(-lease.remainingMs / 60_000)
     return { kind: 'lease-expired', detail: `lease expired ${mins}m ago` }
   }
-  if (gateId) return { kind: 'gate', detail: `waiting on gate ${gateId}` }
+  if (gateId)
+    return { kind: 'gate', detail: `waiting on gate ${gateId}`, gateId }
   if (status.column === 'blocked') {
     return { kind: 'blocked', detail: 'blocked' }
   }
@@ -89,6 +92,8 @@ export function attentionList(beads: Bead[], now: number): Attention[] {
   }
   const items: Attention[] = []
   for (const bead of beads) {
+    // Gate beads are coordination records, never ordinary attention items.
+    if (isGate(bead)) continue
     const hit = beadAttention(bead, now, waitingOn.get(bead.id))
     if (hit) items.push({ ...hit, bead })
   }
