@@ -69,6 +69,15 @@ export function IntegrationsSection({ project }: IntegrationsSectionProps) {
   )
 }
 
+/** bd refuses to write a secret into a git-tracked config.yaml; say what to do instead. */
+export function saveKeyErrorMessage(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err)
+  if (/git-tracked config/i.test(message)) {
+    return "bd won't save the key: the project's .beads/config.yaml is tracked by git, so the key would be committed. Set LINEAR_API_KEY in the environment that runs bd board, or untrack the config file."
+  }
+  return message
+}
+
 interface LinearPanelProps {
   project: string
   status: LinearStatus
@@ -90,6 +99,7 @@ function LinearPanel({
   const [relations, setRelations] = useState(false)
   const [result, setResult] = useState<LinearSyncResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [keyError, setKeyError] = useState<string | null>(null)
   const configured = status.configured
 
   function refreshLinear() {
@@ -105,13 +115,14 @@ function LinearPanel({
       setConfigFn({
         data: { project, key: 'linear.api_key', value: apiKey.trim() },
       }),
+    onMutate: () => setKeyError(null),
     onSuccess: () => {
       setApiKey('')
       setError(null)
       refreshLinear()
       toast.success('Linear API key saved')
     },
-    onError: reportError,
+    onError: (err) => setKeyError(saveKeyErrorMessage(err)),
   })
 
   const saveAccess = useMutation({
@@ -234,6 +245,11 @@ function LinearPanel({
                 Save key
               </Button>
             </div>
+            {keyError ? (
+              <p role="alert" className="text-body text-destructive">
+                {keyError}
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-col gap-2 py-3">
             <Label
