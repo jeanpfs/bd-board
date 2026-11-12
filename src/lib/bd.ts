@@ -161,6 +161,11 @@ async function bdRaw(dir: string, args: string[]): Promise<string> {
   return result.stdout
 }
 
+/** List-shaped bd output as rows: bd prints `null` for an empty list. */
+export function asRows(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? (value as Record<string, unknown>[]) : []
+}
+
 async function bdJson<T>(dir: string, args: string[]): Promise<T> {
   const raw = await bdRaw(dir, args)
   const trimmed = raw.trim()
@@ -634,17 +639,17 @@ function mapKnowledgeEntry(
 /** `bd list` can hide gate issues; add the ones `bd gate list` reports. */
 export function mergeGateRows(
   rows: Record<string, unknown>[],
-  gates: Record<string, unknown>[],
+  gates: unknown,
 ): Record<string, unknown>[] {
   const known = new Set(rows.map((row) => row['id']))
-  return [...rows, ...gates.filter((gate) => !known.has(gate['id']))]
+  return [...rows, ...asRows(gates).filter((gate) => !known.has(gate['id']))]
 }
 
 async function listBeads(projectId: string): Promise<Bead[]> {
   const dir = await resolveDir(projectId)
   const [raw, gates, categories] = await Promise.all([
-    bdJson<Record<string, unknown>[]>(dir, buildListBeadsArgs()),
-    bdJson<Record<string, unknown>[]>(dir, buildListGatesArgs()),
+    bdJson<unknown>(dir, buildListBeadsArgs()).then(asRows),
+    bdJson<unknown>(dir, buildListGatesArgs()).then(asRows),
     statusCategories(dir),
   ])
   return buildBeadGraph(mergeGateRows(raw, gates), categories)
@@ -694,10 +699,8 @@ async function getBeadDetail(
   const dir = await resolveDir(projectId)
 
   const [rawArr, rawComments] = await Promise.all([
-    bdJson<Record<string, unknown>[]>(dir, buildShowBeadArgs(id)),
-    bdJson<Record<string, unknown>[]>(dir, ['comments', id, '--json']).catch(
-      () => [] as Record<string, unknown>[],
-    ),
+    bdJson<unknown>(dir, buildShowBeadArgs(id)).then(asRows),
+    bdJson<unknown>(dir, ['comments', id, '--json']).then(asRows, () => []),
   ])
 
   return mapBeadDetail(rawArr, rawComments)
@@ -912,7 +915,7 @@ async function planDelete(
   id: string,
 ): Promise<{ beads: Bead[]; ids: string[] }> {
   const beads = buildBeadGraph(
-    await bdJson<Record<string, unknown>[]>(dir, buildListBeadsArgs()),
+    asRows(await bdJson<unknown>(dir, buildListBeadsArgs())),
   )
   if (!beads.some((b) => b.id === id)) throw new Error(`bead not found: ${id}`)
   return { beads, ids: deletionSet(beads, id) }
@@ -1024,7 +1027,7 @@ export function buildGetConfigArgs(key: string): string[] {
 
 async function listGates(projectId: string): Promise<Bead[]> {
   const dir = await resolveDir(projectId)
-  const raw = await bdJson<Record<string, unknown>[]>(dir, buildListGatesArgs())
+  const raw = asRows(await bdJson<unknown>(dir, buildListGatesArgs()))
   return raw.map((row) => mapRawBead(row))
 }
 

@@ -8,6 +8,7 @@ import {
   buildGetConfigArgs,
   buildListGatesArgs,
   buildReclaimBeadArgs,
+  asRows,
   mergeGateRows,
   parseReclaimCount,
   buildResolveGateArgs,
@@ -637,6 +638,13 @@ describe('lease and gate command builders', () => {
       [{ id: 'g1' }, { id: 'g2' }],
     )
     expect(merged.map((row) => row['id'])).toEqual(['a', 'g1', 'g2'])
+  })
+
+  it('treats bd null output (no gates) as an empty list', () => {
+    expect(mergeGateRows([{ id: 'a' }], null)).toEqual([{ id: 'a' }])
+    expect(asRows(null)).toEqual([])
+    expect(asRows({ error: 'x' })).toEqual([])
+    expect(asRows([{ id: 'a' }])).toEqual([{ id: 'a' }])
   })
 
   it('reads the reclaimed count, including zero when the lease was renewed', () => {

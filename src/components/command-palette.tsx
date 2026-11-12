@@ -25,6 +25,7 @@ import {
 import { Kbd } from '@/components/ui/kbd'
 import { useAllProjectBeads } from '@/hooks/use-all-project-beads'
 import { branchName, matchRange, searchBeads } from '@/lib/command-search'
+import { isGate } from '@/lib/lease'
 import { isMacPlatform } from '@/lib/platform'
 import type { CommandBeadItem } from '@/lib/command-search'
 import { closeRefusalReason } from '@/lib/close-policy'
@@ -129,6 +130,7 @@ export function CommandPalette() {
     const out: CommandBeadItem[] = []
     for (const p of projects) {
       for (const bead of beadsByProject.get(p.id) ?? []) {
+        if (isGate(bead)) continue
         out.push({ bead, project: p, index: out.length })
       }
     }

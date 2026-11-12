@@ -4,6 +4,7 @@ import { ChevronRight } from 'lucide-react'
 
 import { ProjectChip } from '@/components/project-chip'
 import { getBeads, getProjects } from '@/lib/server'
+import { isGate } from '@/lib/lease'
 import { isOverdue } from '@/lib/schedule'
 import { isReady } from '@/lib/sort'
 import { mapStatus } from '@/lib/types'
@@ -53,6 +54,7 @@ export function ProjectTopbar() {
   const name = projects[index]?.name ?? project
   const beads = beadsQuery.data
   const open = beads?.filter((b) => {
+    if (isGate(b)) return false
     const column = mapStatus(b).column
     return column === 'open' || column === 'blocked'
   }).length
