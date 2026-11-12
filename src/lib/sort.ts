@@ -1,6 +1,6 @@
-import { isGate } from './lease'
-import { isDueThisWeek, isOverdue } from './schedule'
-import { groupBeadLinks, mapStatus } from './types'
+import { isGate } from './lease.ts'
+import { isDueThisWeek, isOverdue } from './schedule.ts'
+import { groupBeadLinks, mapStatus } from './types.ts'
 
 import type { Bead } from './types'
 

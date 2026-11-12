@@ -1,4 +1,4 @@
-import { isGate } from './lease'
+import { isGate } from './lease.ts'
 import { relativeDate } from './time.ts'
 
 import type {

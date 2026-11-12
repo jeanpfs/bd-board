@@ -1,6 +1,6 @@
 import { addDays, differenceInCalendarDays, format, startOfDay } from 'date-fns'
 
-import { mapStatus } from './types'
+import { mapStatus } from './types.ts'
 import type { Bead } from './types'
 
 /** `90`, `90m`, `3h`, `1h30m`, `1h 30m`, `1.5h` → minutes; null when invalid or ≤ 0. */

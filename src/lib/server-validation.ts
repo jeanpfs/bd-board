@@ -1,7 +1,7 @@
 import { validateCustomStatusList } from './custom-statuses.ts'
 import { parseViews, queryTextError, VIEWS_KV_KEY } from './views.ts'
-import { LABEL_RE } from './labels'
-import { isRelationKind, isRemovableRelation } from './relations'
+import { LABEL_RE } from './labels.ts'
+import { isRelationKind, isRemovableRelation } from './relations.ts'
 import type { RelationKind, RemovableRelationKind } from './relations'
 import type { BeadColumn, BeadUpdate, BulkPatch } from './types'
 

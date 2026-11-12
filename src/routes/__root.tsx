@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import {
   HeadContent,
   Scripts,
@@ -44,6 +45,12 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  // Effects run children first, so by now every listener (Mod+K, sidebar
+  // toggle) is attached. Tests wait for this before driving the app.
+  useEffect(() => {
+    document.documentElement.dataset.hydrated = 'true'
+  }, [])
+
   return (
     <html lang="en" className="dark">
       <head>

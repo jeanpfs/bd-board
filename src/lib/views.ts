@@ -1,4 +1,4 @@
-import { SORT_OPTIONS } from './sort'
+import { SORT_OPTIONS } from './sort.ts'
 
 import type { SortKey } from './sort'
 

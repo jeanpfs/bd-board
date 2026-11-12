@@ -1,7 +1,12 @@
 const SIDEBAR_KEY = 'bdb.sidebar-collapsed.v1'
 
-/** The app has settled: the sidebar, or the first-run start screen when no project exists. */
-const APP_READY = 'aside button[aria-label], #start-screen-title'
+/**
+ * The app has settled: hydrated (listeners attached; the server-rendered HTML
+ * shows the sidebar before keys and clicks work), showing the sidebar or the
+ * first-run start screen when no project exists.
+ */
+const APP_READY =
+  'html[data-hydrated] aside button[aria-label], html[data-hydrated] #start-screen-title'
 
 /**
  * Every spec starts from a known window state: localStorage wiped and a fresh
