@@ -79,6 +79,10 @@ function ageSince(value: string | undefined, now: Date): string {
 /** The lease countdowns re-render on this cadence, not only on refetch. */
 const TICK_MS = 30_000
 
+/** Header and rows share one template; a fixed action column keeps them aligned. */
+const AGENT_GRID =
+  'grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.6fr)_72px_80px_minmax(0,1.3fr)_4rem] gap-4'
+
 export function AgentsView({ project, beads, onOpen }: AgentsViewProps) {
   const queryClient = useQueryClient()
   const [now, setNow] = useState(() => new Date())
@@ -329,7 +333,12 @@ export function AgentsView({ project, beads, onOpen }: AgentsViewProps) {
           </p>
         ) : (
           <>
-            <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.6fr)_72px_80px_minmax(0,1.3fr)_auto] gap-4 border-t border-border px-2 py-2 text-xs text-muted-foreground">
+            <div
+              className={cn(
+                AGENT_GRID,
+                'border-t border-border px-2 py-2 text-xs text-muted-foreground',
+              )}
+            >
               <span>Agent</span>
               <span>Bead</span>
               <span>Claimed</span>
@@ -345,7 +354,10 @@ export function AgentsView({ project, beads, onOpen }: AgentsViewProps) {
               return (
                 <div
                   key={bead.id}
-                  className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.6fr)_72px_80px_minmax(0,1.3fr)_auto] items-center gap-4 border-t border-border px-2 py-2.5 text-body"
+                  className={cn(
+                    AGENT_GRID,
+                    'items-center border-t border-border px-2 py-2.5 text-body',
+                  )}
                 >
                   <div className="flex min-w-0 items-center gap-2">
                     {human ? (
@@ -426,6 +438,7 @@ export function AgentsView({ project, beads, onOpen }: AgentsViewProps) {
                   <Button
                     variant="outline"
                     size="sm"
+                    className="justify-self-end"
                     onClick={() => onOpen(bead.id)}
                   >
                     Open
