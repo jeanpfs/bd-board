@@ -1918,6 +1918,23 @@ fn validate_bulk_ids(ids: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+/// Bead ids reach bd as positional args, so reject anything bd could read as a flag.
+fn validate_bead_id(id: &str) -> Result<(), String> {
+    if is_bd_token(id, 160) {
+        Ok(())
+    } else {
+        Err("Bead id is invalid".to_string())
+    }
+}
+
+/// `since` is an event sequence number; `limit` bounds one page of the journal.
+fn validate_tail_request(since: i64, limit: i64) -> Result<(), String> {
+    if since < 0 || !(1..=1000).contains(&limit) {
+        return Err("Event window is invalid".to_string());
+    }
+    Ok(())
+}
+
 fn validate_bulk_patch(patch: &BulkPatch) -> Result<(), String> {
     let touched = patch.status.is_some()
         || patch.priority.is_some()
@@ -2421,11 +2438,13 @@ pub fn close_bead(
 
 #[tauri::command]
 pub fn tail_events(project_id: String, since: i64, limit: i64) -> Result<TailEventsPage, String> {
+    validate_tail_request(since, limit)?;
     tail_events_inner(&project_id, since, limit)
 }
 
 #[tauri::command]
 pub fn claim_bead(project_id: String, id: String, actor: Option<String>) -> Result<(), String> {
+    validate_bead_id(&id)?;
     claim_bead_inner(&project_id, &id, actor.as_deref())
 }
 
@@ -2441,11 +2460,13 @@ pub fn stale_beads(project_id: String, days: u32) -> Result<Vec<Bead>, String> {
 
 #[tauri::command]
 pub fn resolve_gate(project_id: String, id: String) -> Result<(), String> {
+    validate_bead_id(&id)?;
     resolve_gate_inner(&project_id, &id)
 }
 
 #[tauri::command]
 pub fn reclaim_bead(project_id: String, id: String) -> Result<u64, String> {
+    validate_bead_id(&id)?;
     reclaim_bead_inner(&project_id, &id)
 }
 
@@ -2456,6 +2477,7 @@ pub fn unclaim_bead(
     force: bool,
     actor: Option<String>,
 ) -> Result<(), String> {
+    validate_bead_id(&id)?;
     unclaim_bead_inner(&project_id, &id, force, actor.as_deref())
 }
 
@@ -2516,6 +2538,8 @@ pub fn add_relation(
     kind: String,
     target: String,
 ) -> Result<(), String> {
+    validate_bead_id(&id)?;
+    validate_bead_id(&target)?;
     add_relation_inner(&project_id, &id, &kind, &target)
 }
 
@@ -2526,16 +2550,20 @@ pub fn remove_relation(
     kind: String,
     target: String,
 ) -> Result<(), String> {
+    validate_bead_id(&id)?;
+    validate_bead_id(&target)?;
     remove_relation_inner(&project_id, &id, &kind, &target)
 }
 
 #[tauri::command]
 pub fn defer_bead(project_id: String, id: String, until: Option<String>) -> Result<(), String> {
+    validate_bead_id(&id)?;
     defer_bead_inner(&project_id, &id, until.as_deref())
 }
 
 #[tauri::command]
 pub fn undefer_bead(project_id: String, id: String) -> Result<(), String> {
+    validate_bead_id(&id)?;
     undefer_bead_inner(&project_id, &id)
 }
 
@@ -3277,6 +3305,18 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(validate_bulk_patch(&bad_label), Err("Label is invalid".to_string()));
+    }
+
+    #[test]
+    fn bead_id_and_tail_guards_reject_flags_and_out_of_range_windows() {
+        assert!(validate_bead_id("bd-a2k").is_ok());
+        assert_eq!(validate_bead_id("--force"), Err("Bead id is invalid".to_string()));
+        assert_eq!(validate_bead_id(""), Err("Bead id is invalid".to_string()));
+        assert!(validate_tail_request(0, 1).is_ok());
+        assert!(validate_tail_request(5, 1000).is_ok());
+        assert_eq!(validate_tail_request(-1, 10), Err("Event window is invalid".to_string()));
+        assert_eq!(validate_tail_request(0, 0), Err("Event window is invalid".to_string()));
+        assert_eq!(validate_tail_request(0, 1001), Err("Event window is invalid".to_string()));
     }
 
     #[test]
