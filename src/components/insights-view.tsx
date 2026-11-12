@@ -221,7 +221,7 @@ export function InsightsView({
       </p>
 
       <div className="grid gap-6 lg:grid-cols-[1.45fr_1fr]">
-        <section className="rounded-lg border border-primary-text p-4">
+        <section className="rounded-lg border border-border p-4">
           <h2 className="text-sm text-foreground">Burn-up</h2>
           {!lastBurn || lastBurn.scope === 0 ? (
             <p className="py-10 text-body text-muted-foreground">
