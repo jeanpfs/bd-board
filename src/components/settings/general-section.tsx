@@ -61,7 +61,7 @@ export function GeneralSection({ project }: GeneralSectionProps) {
         </dl>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+      <div className="flex flex-col gap-3 border-t border-border pt-4">
         <h3 className="text-body font-semibold text-foreground">Database</h3>
         <dl className="grid grid-cols-[120px_1fr] gap-x-4 gap-y-2 text-body">
           <dt className="text-muted-foreground">Schema</dt>
@@ -77,7 +77,7 @@ export function GeneralSection({ project }: GeneralSectionProps) {
         </dl>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+      <div className="flex flex-col gap-3 border-t border-border pt-4">
         <h3 className="text-body font-semibold text-foreground">
           Live updates
         </h3>
