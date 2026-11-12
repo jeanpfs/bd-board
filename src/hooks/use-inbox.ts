@@ -7,6 +7,7 @@ import { describeEvents, unreadCount } from '@/lib/events'
 import type { BdEvent, InboxItem } from '@/lib/events'
 import { tailEventsFn } from '@/lib/server'
 import {
+  advanceSince,
   inboxStartSeq,
   shouldSeedCursor,
   truncationResume,
@@ -107,8 +108,8 @@ async function advanceProjectInbox(
       continue
     }
     fresh.push(...page.events)
+    since = advanceSince(since, page.events)
     if (page.events.length < PAGE_SIZE) break
-    since = page.events[page.events.length - 1].seq
   }
 
   const lastByBead = new Map(prev?.lastByBead)

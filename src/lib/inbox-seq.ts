@@ -35,3 +35,15 @@ export function shouldSeedCursor(
 ): boolean {
   return cursor === undefined && !backfilling && !disabled
 }
+
+/**
+ * Read position after a page: the last record's seq, or unchanged for an empty
+ * page. Advancing on every non-empty page keeps a short final page from being
+ * read again on the next poll.
+ */
+export function advanceSince(
+  since: number,
+  events: readonly { seq: number }[],
+): number {
+  return events.length > 0 ? events[events.length - 1].seq : since
+}
