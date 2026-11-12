@@ -1081,12 +1081,6 @@ export function buildGetConfigArgs(key: string): string[] {
   return ['config', 'get', key, '--json']
 }
 
-async function listGates(projectId: string): Promise<Bead[]> {
-  const dir = await resolveDir(projectId)
-  const raw = asRows(await bdJson<unknown>(dir, buildListGatesArgs()))
-  return raw.map((row) => mapRawBead(row))
-}
-
 async function staleBeads(projectId: string, days: number): Promise<Bead[]> {
   const dir = await resolveDir(projectId)
   const [raw, categories] = await Promise.all([
@@ -1334,7 +1328,6 @@ export const bdAdapter: BdAdapter = {
   readyExplain,
   addRelation,
   removeRelation,
-  listGates,
   staleBeads,
   resolveGate,
   reclaimBead,
@@ -1383,7 +1376,6 @@ export {
   buildUndeferBeadArgs,
   deferBead,
   undeferBead,
-  listGates,
   staleBeads,
   resolveGate,
   reclaimBead,

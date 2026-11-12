@@ -108,10 +108,6 @@ const webClaimBead = createServerFn({ method: 'POST' })
     return { ok: true as const }
   })
 
-const webListGates = createServerFn({ method: 'POST' })
-  .validator(parseProjectInput)
-  .handler(async ({ data }) => bdAdapter.listGates(data.project))
-
 const webStaleBeads = createServerFn({ method: 'POST' })
   .validator(parseStaleInput)
   .handler(async ({ data }) => bdAdapter.staleBeads(data.project, data.days))
@@ -391,17 +387,6 @@ export async function claimBeadFn({
     return { ok: true }
   }
   return webClaimBead({ data })
-}
-
-export async function listGatesFn({
-  data,
-}: {
-  data: { project: string }
-}): Promise<Bead[]> {
-  if (isDesktopApp()) {
-    return invoke<Bead[]>('list_gates', { projectId: data.project })
-  }
-  return webListGates({ data })
 }
 
 export async function staleBeadsFn({

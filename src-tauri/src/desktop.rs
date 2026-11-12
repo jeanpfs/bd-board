@@ -2085,19 +2085,6 @@ fn claim_bead_inner(project_id: &str, id: &str, actor: Option<&str>) -> Result<(
     run_bd_mut(&dir, &build_claim_args(id, actor)?).map(|_| ())
 }
 
-fn list_gates_inner(project_id: &str) -> Result<Vec<Bead>, String> {
-    let dir = resolve_dir(project_id)?;
-    let raw = bd_json(&dir, build_list_gates_args())?;
-    let categories = status_categories(&dir);
-    Ok(raw
-        .as_array()
-        .cloned()
-        .unwrap_or_default()
-        .into_iter()
-        .map(|value| map_bead(&value, &categories))
-        .collect())
-}
-
 fn stale_beads_inner(project_id: &str, days: u32) -> Result<Vec<Bead>, String> {
     let days = stale_days_checked(days)?;
     let dir = resolve_dir(project_id)?;
@@ -2446,11 +2433,6 @@ pub fn tail_events(project_id: String, since: i64, limit: i64) -> Result<TailEve
 pub fn claim_bead(project_id: String, id: String, actor: Option<String>) -> Result<(), String> {
     validate_bead_id(&id)?;
     claim_bead_inner(&project_id, &id, actor.as_deref())
-}
-
-#[tauri::command]
-pub fn list_gates(project_id: String) -> Result<Vec<Bead>, String> {
-    list_gates_inner(&project_id)
 }
 
 #[tauri::command]

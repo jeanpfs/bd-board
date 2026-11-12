@@ -65,7 +65,6 @@ pub fn run() {
             desktop::claim_bead,
             desktop::unclaim_bead,
             desktop::reclaim_bead,
-            desktop::list_gates,
             desktop::stale_beads,
             desktop::resolve_gate,
             desktop::get_config,
