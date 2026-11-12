@@ -16,6 +16,8 @@ export interface ShortcutHandlers {
   claimFocused?: () => boolean
   /** Toggles the focused list row; returns false when none has focus. */
   toggleFocusedRow?: () => boolean
+  /** Clears the list selection; returns false when nothing was selected. */
+  clearSelection?: () => boolean
 }
 
 const TAB_BY_ID: Partial<Record<string, 'board' | 'hierarchy' | 'knowledge'>> =
@@ -65,6 +67,17 @@ export function useShortcuts(handlers: ShortcutHandlers) {
     }
 
     function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        // Open menus and dialogs consume Esc first (defaultPrevented); typing targets keep their own.
+        if (
+          event.defaultPrevented ||
+          shouldIgnore(event.target, 'Global', openDialogs())
+        ) {
+          return
+        }
+        if (ref.current.clearSelection?.()) event.preventDefault()
+        return
+      }
       const result = matchShortcut({ pending }, event)
       const shortcut = result.id
         ? SHORTCUTS.find((s) => s.id === result.id)

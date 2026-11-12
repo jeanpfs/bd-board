@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { format } from 'date-fns'
-import { CheckSquare, Square } from 'lucide-react'
+import { Check } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,7 +14,7 @@ import { beadMatches, compareBeads, priorityLabel } from '@/lib/sort'
 import type { SortKey } from '@/lib/sort'
 import { cn } from '@/lib/utils'
 
-export type ListGroupBy = 'epic' | 'priority'
+export type ListGroupBy = 'epic' | 'priority' | 'status'
 
 export interface ListFilters {
   search: string
@@ -29,9 +29,19 @@ export interface ListGroup {
   key: string
   label: string
   beads: Bead[]
+  /** Epic groups: closed children out of all children of the epic. */
+  progress?: { done: number; total: number }
 }
 
 const NO_EPIC = '__none__'
+
+const STATUS_ORDER = ['open', 'in_progress', 'blocked', 'closed'] as const
+const STATUS_LABEL: Record<(typeof STATUS_ORDER)[number], string> = {
+  open: 'Open',
+  in_progress: 'In progress',
+  blocked: 'Blocked',
+  closed: 'Closed',
+}
 
 /**
  * Filters and groups beads for the list view. Gates are excluded by the
@@ -51,9 +61,12 @@ export function listGroups({
   sort: SortKey
   now: Date
 }): ListGroup[] {
-  const visible = beads.filter(
+  // Same rules as the board lanes: epics are group headers, never rows.
+  const epicIds = new Set(beads.filter(isEpic).map((e) => e.id))
+  const work = beads.filter(
     (b) =>
       !isGate(b) &&
+      !isEpic(b) &&
       beadMatches(
         b,
         filters.search,
@@ -66,45 +79,54 @@ export function listGroups({
       ),
   )
   const compare = compareBeads(sort)
-  const groups = new Map<string, ListGroup>()
+  const sorted = (list: Bead[]) => [...list].sort(compare)
 
   if (groupBy === 'priority') {
-    for (const bead of visible) {
+    const byPriority = new Map<number, Bead[]>()
+    for (const bead of work) {
       const p = Math.max(0, Math.min(4, bead.priority))
-      const key = `p${p}`
-      const group = groups.get(key) ?? {
-        key,
-        label: priorityLabel(p),
-        beads: [],
-      }
-      group.beads.push(bead)
-      groups.set(key, group)
+      byPriority.set(p, [...(byPriority.get(p) ?? []), bead])
     }
-    return [...groups.values()]
-      .map((g) => ({ ...g, beads: g.beads.sort(compare) }))
-      .sort((a, b) => a.key.localeCompare(b.key))
+    return [...byPriority.keys()]
+      .sort((a, b) => a - b)
+      .map((p) => ({
+        key: `p${p}`,
+        label: priorityLabel(p),
+        beads: sorted(byPriority.get(p) ?? []),
+      }))
   }
 
-  const epicTitles = new Map(
-    beads.filter(isEpic).map((e) => [e.id, e.title] as const),
-  )
-  for (const bead of visible) {
-    const key = bead.parent ?? NO_EPIC
-    const group = groups.get(key) ?? {
-      key,
-      label: key === NO_EPIC ? 'No epic' : (epicTitles.get(key) ?? key),
-      beads: [],
-    }
-    group.beads.push(bead)
-    groups.set(key, group)
+  if (groupBy === 'status') {
+    return STATUS_ORDER.map((column) => ({
+      key: column,
+      label: STATUS_LABEL[column],
+      beads: sorted(work.filter((b) => mapStatus(b).column === column)),
+    })).filter((g) => g.beads.length > 0)
   }
-  return [...groups.values()]
-    .map((g) => ({ ...g, beads: g.beads.sort(compare) }))
-    .sort((a, b) => {
-      if (a.key === NO_EPIC) return 1
-      if (b.key === NO_EPIC) return -1
-      return a.label.localeCompare(b.label)
+
+  const orphans = work.filter((b) => !b.parent || !epicIds.has(b.parent))
+  const epicGroups = beads
+    .filter(isEpic)
+    .sort(compareBeads('priority'))
+    .map((epic) => {
+      const children = beads.filter((b) => b.parent === epic.id && !isEpic(b))
+      return {
+        key: epic.id,
+        label: epic.title,
+        beads: sorted(work.filter((b) => b.parent === epic.id)),
+        progress: {
+          done: children.filter((b) => mapStatus(b).column === 'closed').length,
+          total: children.length,
+        },
+      }
     })
+    .filter((g) => g.beads.length > 0)
+  return orphans.length > 0
+    ? [
+        { key: NO_EPIC, label: 'No epic', beads: sorted(orphans) },
+        ...epicGroups,
+      ]
+    : epicGroups
 }
 
 export function flattenOrder(groups: ListGroup[]): string[] {
@@ -118,23 +140,14 @@ const STATUS_DOT: Record<string, string> = {
   closed: 'bg-muted-foreground/30',
 }
 
-const GROUP_OPTIONS: { key: ListGroupBy; label: string }[] = [
-  { key: 'epic', label: 'Epic' },
-  { key: 'priority', label: 'Priority' },
-]
-
 export function ListView({
   groups,
-  groupBy,
-  onGroupByChange,
   selected,
   onRowToggle,
   onOpen,
   now,
 }: {
   groups: ListGroup[]
-  groupBy: ListGroupBy
-  onGroupByChange: (next: ListGroupBy) => void
   selected: string[]
   onRowToggle: (id: string, shift: boolean) => void
   onOpen: (bead: Bead) => void
@@ -145,23 +158,10 @@ export function ListView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 pt-2 pb-1">
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-muted-foreground">Group by</span>
-        {GROUP_OPTIONS.map((option) => (
-          <Button
-            key={option.key}
-            size="sm"
-            variant={groupBy === option.key ? 'secondary' : 'ghost'}
-            aria-pressed={groupBy === option.key}
-            onClick={() => onGroupByChange(option.key)}
-          >
-            {option.label}
-          </Button>
-        ))}
-        <span className="ml-auto font-mono text-xs text-muted-foreground tabular-nums">
-          {total} {total === 1 ? 'bead' : 'beads'}
-        </span>
-      </div>
+      <p className="text-xs text-muted-foreground">
+        <span className="font-mono tabular-nums">{total}</span>{' '}
+        {total === 1 ? 'bead' : 'beads'}
+      </p>
 
       {total === 0 ? (
         <p className="py-10 text-center text-sm text-muted-foreground">
@@ -182,7 +182,7 @@ export function ListView({
             <span role="columnheader">Title</span>
             <span role="columnheader">Status</span>
             <span role="columnheader">Pri</span>
-            <span role="columnheader">Assignee</span>
+            <span role="columnheader">Who</span>
             <span role="columnheader">Labels</span>
             <span role="columnheader">Due</span>
             <span role="columnheader">Updated</span>
@@ -192,9 +192,18 @@ export function ListView({
             <section key={group.key} role="rowgroup">
               <div className="border-t border-border bg-muted/30 px-3 py-1 text-xs font-medium text-foreground">
                 {group.label}{' '}
-                <span className="font-mono text-muted-foreground tabular-nums">
-                  {group.beads.length}
-                </span>
+                {group.progress ? (
+                  <span className="text-muted-foreground">
+                    <span className="font-mono tabular-nums">
+                      {group.progress.done}/{group.progress.total}
+                    </span>{' '}
+                    done
+                  </span>
+                ) : (
+                  <span className="font-mono text-muted-foreground tabular-nums">
+                    {group.beads.length}
+                  </span>
+                )}
               </div>
               {group.beads.map((bead) => {
                 const isSelected = selectedSet.has(bead.id)
@@ -220,14 +229,21 @@ export function ListView({
                     )}
                   >
                     <span role="cell" className="text-muted-foreground">
-                      {isSelected ? (
-                        <CheckSquare
-                          className="size-4 text-primary"
-                          aria-hidden="true"
-                        />
-                      ) : (
-                        <Square className="size-4" aria-hidden="true" />
-                      )}
+                      <span
+                        role="checkbox"
+                        aria-checked={isSelected}
+                        aria-label={`Select ${bead.id}`}
+                        className={cn(
+                          'flex size-4 items-center justify-center rounded-[4px] ring-1 ring-inset',
+                          isSelected
+                            ? 'bg-primary text-primary-foreground ring-primary'
+                            : 'ring-border',
+                        )}
+                      >
+                        {isSelected ? (
+                          <Check className="size-3" aria-hidden="true" />
+                        ) : null}
+                      </span>
                     </span>
                     <span
                       role="cell"

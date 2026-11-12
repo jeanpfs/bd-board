@@ -80,19 +80,11 @@ export function BulkActionBar({
     <div
       role="toolbar"
       aria-label="Bulk actions"
-      className="flex flex-wrap items-center gap-2 rounded-lg bg-card px-3 py-2 shadow-md ring-1 ring-border"
+      className="absolute bottom-4 left-1/2 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 flex-wrap items-center gap-2 rounded-lg bg-card px-3 py-2 shadow-lg ring-1 ring-border"
     >
       <span className="text-sm font-medium tabular-nums">
         {ids.length} selected
       </span>
-      <Button
-        size="sm"
-        variant="ghost"
-        aria-label="Clear selection"
-        onClick={onClear}
-      >
-        <X className="size-3.5" aria-hidden="true" />
-      </Button>
 
       <div className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
 
@@ -238,13 +230,22 @@ export function BulkActionBar({
 
       <div className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
 
-      <Button size="sm" variant="destructive" disabled={busy} onClick={onClose}>
+      <Button size="sm" variant="outline" disabled={busy} onClick={onClose}>
         {busy ? (
           <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
         ) : (
           <CheckCircle2 className="size-3.5" aria-hidden="true" />
         )}
         Close…
+      </Button>
+
+      <Button
+        size="sm"
+        variant="ghost"
+        aria-label="Clear selection"
+        onClick={onClear}
+      >
+        <X className="size-3.5" aria-hidden="true" />
       </Button>
     </div>
   )

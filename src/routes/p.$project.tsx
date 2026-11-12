@@ -85,10 +85,18 @@ interface BoardSearch {
   due?: 'week' | 'overdue'
   snoozed?: '1'
   new?: '1'
-  group?: ListGroupBy
 }
 
 const BOARD_VIEWS = new Set(['status', 'epic', 'priority', 'list', 'timeline'])
+
+const LAST_BOARD_VIEW_KEY = 'bd-board:last-board-view'
+
+/** The grouping the list view uses: the last non-list board view, epic by default. */
+function readLastBoardView(): ListGroupBy {
+  if (typeof window === 'undefined') return 'epic'
+  const stored = window.localStorage.getItem(LAST_BOARD_VIEW_KEY)
+  return stored === 'priority' || stored === 'status' ? stored : 'epic'
+}
 const PROJECT_TABS = new Set([
   'overview',
   'board',
@@ -136,10 +144,6 @@ export const Route = createFileRoute('/p/$project')({
         : undefined,
     ready: search.ready === '1' ? '1' : undefined,
     new: search.new === '1' ? '1' : undefined,
-    group:
-      search.group === 'priority' || search.group === 'epic'
-        ? search.group
-        : undefined,
     assignee:
       typeof search.assignee === 'string' && search.assignee.length > 0
         ? search.assignee
@@ -367,7 +371,14 @@ function BoardPage() {
 
   const [pendingAction, setPendingAction] = useState<BeadAction | null>(null)
 
-  const listGroupBy: ListGroupBy = boardSearch.group ?? 'epic'
+  const [lastBoardView, setLastBoardView] =
+    useState<ListGroupBy>(readLastBoardView)
+  useEffect(() => {
+    if (view !== 'epic' && view !== 'priority' && view !== 'status') return
+    setLastBoardView(view)
+    window.localStorage.setItem(LAST_BOARD_VIEW_KEY, view)
+  }, [view])
+  const listGroupBy = lastBoardView
   const listData = useMemo(
     () =>
       listGroups({
@@ -404,6 +415,13 @@ function BoardPage() {
         .filter((b): b is Bead => b !== undefined),
     [selection.selected, beadsById],
   )
+  const listOrderSet = useMemo(() => new Set(listOrder), [listOrder])
+  // Bulk ops act only on selected rows that are still visible.
+  const visibleSelected = useMemo(
+    () => selection.selected.filter((id) => listOrderSet.has(id)),
+    [selection.selected, listOrderSet],
+  )
+  const labelOptions = useMemo(() => labelCounts(beads), [beads])
 
   function toggleRow(id: string, shift: boolean) {
     setSelection((prev) =>
@@ -419,16 +437,17 @@ function BoardPage() {
     if (view !== 'list') setSelection({ selected: [] })
   }, [view])
 
+  // Drop selected rows that filters or deletes hid from the visible order.
   useEffect(() => {
-    if (view !== 'list' || selection.selected.length === 0) return
-    function onKey(event: KeyboardEvent) {
-      if (event.key !== 'Escape') return
-      if (document.querySelector('[role="dialog"]')) return
-      setSelection({ selected: [] })
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [view, selection.selected.length])
+    if (view !== 'list') return
+    const visibleIds = new Set(listOrder)
+    setSelection((prev) => {
+      const next = prev.selected.filter((id) => visibleIds.has(id))
+      return next.length === prev.selected.length
+        ? prev
+        : { selected: next, anchor: prev.anchor }
+    })
+  }, [view, listOrder])
   const [claimingId, setClaimingId] = useState<string | null>(null)
 
   // A different bead (or closing the modal) drops any pending bead action.
@@ -512,6 +531,11 @@ function BoardPage() {
       const id = row?.dataset.listId
       if (!id) return false
       toggleRow(id, false)
+      return true
+    },
+    clearSelection: () => {
+      if (view !== 'list' || selection.selected.length === 0) return false
+      setSelection({ selected: [] })
       return true
     },
     claimFocused: () => {
@@ -746,22 +770,22 @@ function BoardPage() {
           onOpen={openBead}
         />
       ) : view === 'list' ? (
-        <div className="flex min-h-0 flex-1 flex-col">
-          {selection.selected.length > 0 ? (
-            <div className="pt-2">
-              <BulkActionBar
-                project={project}
-                ids={selection.selected}
-                labelCounts={labelCounts(beads)}
-                onClear={() => setSelection({ selected: [] })}
-                onClose={() => setClosing({ beads: selectedBeads })}
-              />
-            </div>
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          {visibleSelected.length > 0 ? (
+            <BulkActionBar
+              project={project}
+              ids={visibleSelected}
+              labelCounts={labelOptions}
+              onClear={() => setSelection({ selected: [] })}
+              onClose={() =>
+                setClosing({
+                  beads: selectedBeads.filter((b) => listOrderSet.has(b.id)),
+                })
+              }
+            />
           ) : null}
           <ListView
             groups={listData}
-            groupBy={listGroupBy}
-            onGroupByChange={(next) => patchBoardSearch({ group: next })}
             selected={selection.selected}
             onRowToggle={toggleRow}
             onOpen={openBead}
