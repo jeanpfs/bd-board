@@ -87,13 +87,22 @@ export function ProjectTopbar() {
           className="size-3.5 shrink-0 text-faint"
           aria-hidden="true"
         />
-        <span aria-current="page" className="font-semibold text-foreground">
-          {onSettings
-            ? 'Settings'
-            : tab === 'view'
-              ? `Views › ${viewName ?? 'View'}`
-              : TAB_LABEL[tab]}
-        </span>
+        {tab === 'view' && !onSettings ? (
+          <>
+            <span className="text-muted-foreground">Views</span>
+            <ChevronRight
+              className="size-3.5 shrink-0 text-faint"
+              aria-hidden="true"
+            />
+            <span aria-current="page" className="font-semibold text-foreground">
+              {viewName ?? 'View'}
+            </span>
+          </>
+        ) : (
+          <span aria-current="page" className="font-semibold text-foreground">
+            {onSettings ? 'Settings' : TAB_LABEL[tab]}
+          </span>
+        )}
       </nav>
       {open !== undefined && ready !== undefined ? (
         <p className="truncate text-xs text-muted-foreground">

@@ -1,5 +1,10 @@
-import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { KanbanColumn } from '@/components/kanban-column'
@@ -12,6 +17,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import {
   getBeads,
@@ -85,37 +97,54 @@ export function useSavedViews(project: string) {
     mutationFn: async ({
       view,
       previous,
+      create,
     }: {
       view: SavedView
       previous?: SavedView
-    }) => {
+      /** New view: the id is derived here, against the freshly read lists. */
+      create?: boolean
+    }): Promise<SavedView> => {
       const leavingShared = Boolean(previous?.shared) && !view.shared
-      if (view.shared || leavingShared) {
-        // Re-read so a concurrent edit from another client is not overwritten.
-        const current = parseViews(
-          (await kvGetFn({ data: { project, key: VIEWS_KV_KEY } })) ?? '[]',
-        )
+      const writesShared = view.shared || leavingShared
+      // Re-read so a concurrent edit from another client is not overwritten.
+      const current =
+        writesShared || create
+          ? parseViews(
+              (await kvGetFn({ data: { project, key: VIEWS_KV_KEY } })) ?? '[]',
+            )
+          : []
+      const final = create
+        ? {
+            ...view,
+            id: newViewId(view.name, [
+              ...current.map((v) => v.id),
+              ...readPersonalViews(project).map((v) => v.id),
+            ]),
+          }
+        : view
+      if (writesShared) {
         const base = leavingShared
-          ? current.filter((v) => v.id !== view.id)
+          ? current.filter((v) => v.id !== final.id)
           : current
-        const next = view.shared ? upsertView(base, view) : base
+        const next = final.shared ? upsertView(base, final) : base
         await kvSetFn({
           data: { project, key: VIEWS_KV_KEY, value: JSON.stringify(next) },
         })
       }
-      if (!view.shared) {
+      if (!final.shared) {
         window.localStorage.setItem(
           personalViewsKey(project),
-          JSON.stringify(upsertView(readPersonalViews(project), view)),
+          JSON.stringify(upsertView(readPersonalViews(project), final)),
         )
       } else if (previous && !previous.shared) {
         window.localStorage.setItem(
           personalViewsKey(project),
           JSON.stringify(
-            readPersonalViews(project).filter((v) => v.id !== view.id),
+            readPersonalViews(project).filter((v) => v.id !== final.id),
           ),
         )
       }
+      return final
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({
@@ -166,6 +195,9 @@ export function useSavedViews(project: string) {
   return {
     views: mergeViews(shared, personal),
     isLoading: sharedQuery.isPending,
+    sharedError: sharedQuery.isError
+      ? toErrorMessage(sharedQuery.error, 'Could not load shared views.')
+      : null,
     save,
     remove,
   }
@@ -173,7 +205,6 @@ export function useSavedViews(project: string) {
 
 interface ViewEditorProps {
   project: string
-  existing: SavedView[]
   /** Pre-filled values, e.g. when duplicating a view. */
   base?: SavedView
   onSaved: (view: SavedView) => void
@@ -183,7 +214,6 @@ interface ViewEditorProps {
 /** Creates a view from a name and a bd query, shared with the project or personal. */
 export function ViewEditor({
   project,
-  existing,
   base,
   onSaved,
   onOpenChange,
@@ -210,10 +240,7 @@ export function ViewEditor({
       return
     }
     const view: SavedView = {
-      id: newViewId(
-        trimmed,
-        existing.map((v) => v.id),
-      ),
+      id: '',
       name: trimmed,
       query: query.trim(),
       shared,
@@ -227,8 +254,8 @@ export function ViewEditor({
       return
     }
     try {
-      await save.mutateAsync({ view })
-      onSaved(view)
+      const created = await save.mutateAsync({ view, create: true })
+      onSaved(created)
       onOpenChange(false)
     } catch {
       // onError already surfaced the message.
@@ -317,7 +344,7 @@ export function ViewPage({
   onCreated,
   onDeleted,
 }: ViewPageProps) {
-  const { views, isLoading, save, remove } = useSavedViews(project)
+  const { views, isLoading, sharedError, save, remove } = useSavedViews(project)
   const view = views.find((v) => v.id === viewId)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<string | null>(null)
@@ -336,19 +363,33 @@ export function ViewPage({
     retry: false,
   })
   const beadsQuery = useQuery({
-    queryKey: ['view-beads', project, view?.query, liveBeads.dataUpdatedAt],
+    queryKey: ['view-beads', project, view?.query],
     queryFn: () => queryBeadsFn({ data: { project, query: view!.query } }),
     enabled: Boolean(view) && queryTextError(view?.query ?? '') === null,
+    placeholderData: keepPreviousData,
     retry: false,
   })
+  const refetchBeads = beadsQuery.refetch
+  const seenUpdate = useRef(liveBeads.dataUpdatedAt)
+  useEffect(() => {
+    if (seenUpdate.current === liveBeads.dataUpdatedAt) return
+    seenUpdate.current = liveBeads.dataUpdatedAt
+    if (view) void refetchBeads()
+  }, [liveBeads.dataUpdatedAt, refetchBeads, view])
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading views…</p>
   }
   if (!view) {
     return (
-      <p className="text-sm text-muted-foreground">
-        This view no longer exists.
+      <p
+        role={sharedError ? 'alert' : undefined}
+        className={cn(
+          'text-sm',
+          sharedError ? 'text-destructive' : 'text-muted-foreground',
+        )}
+      >
+        {sharedError ?? 'This view no longer exists.'}
       </p>
     )
   }
@@ -444,12 +485,17 @@ export function ViewPage({
 
       {editing ? (
         <div className="flex flex-col gap-1">
-          <Input
-            aria-label="View query"
-            className="font-mono"
-            value={draftQuery}
-            onChange={(event) => setDraft(event.target.value)}
-          />
+          <div className="flex items-center gap-2 font-mono text-sm">
+            <span className="shrink-0 text-faint" aria-hidden="true">
+              $ bd query
+            </span>
+            <Input
+              aria-label="View query"
+              className="font-mono"
+              value={draftQuery}
+              onChange={(event) => setDraft(event.target.value)}
+            />
+          </div>
           {problem || saveError ? (
             <p role="alert" className="text-sm text-destructive">
               {problem ?? saveError}
@@ -458,7 +504,8 @@ export function ViewPage({
         </div>
       ) : (
         <code className="block rounded-md border border-border px-3 py-2 font-mono text-sm">
-          {view.query}
+          <span className="text-faint">$ bd query </span>
+          &quot;{view.query}&quot;
         </code>
       )}
 
@@ -469,56 +516,58 @@ export function ViewPage({
       ) : null}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-        <label className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5">
           Group by
           {editing ? (
-            <select
-              aria-label="Group by"
-              className="rounded-md border border-border bg-transparent px-1.5 py-0.5 text-foreground"
+            <Select
               value={groupBy}
-              onChange={(event) =>
-                setGroupDraft(
-                  parseViewGroup(event.target.value) ?? DEFAULT_VIEW_GROUP,
-                )
+              onValueChange={(value) =>
+                setGroupDraft(parseViewGroup(value) ?? DEFAULT_VIEW_GROUP)
               }
             >
-              {VIEW_GROUP_OPTIONS.map((o) => (
-                <option key={o.key} value={o.key}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger size="sm" aria-label="Group by">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {VIEW_GROUP_OPTIONS.map((o) => (
+                  <SelectItem key={o.key} value={o.key}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           ) : (
             <span className="text-foreground">
               {VIEW_GROUP_OPTIONS.find((o) => o.key === groupBy)?.label}
             </span>
           )}
-        </label>
-        <label className="flex items-center gap-1.5">
+        </div>
+        <div className="flex items-center gap-1.5">
           Sort
           {editing ? (
-            <select
-              aria-label="Sort"
-              className="rounded-md border border-border bg-transparent px-1.5 py-0.5 text-foreground"
+            <Select
               value={sort}
-              onChange={(event) =>
-                setSortDraft(
-                  parseViewSort(event.target.value) ?? DEFAULT_VIEW_SORT,
-                )
+              onValueChange={(value) =>
+                setSortDraft(parseViewSort(value) ?? DEFAULT_VIEW_SORT)
               }
             >
-              {SORT_OPTIONS.map((o) => (
-                <option key={o.key} value={o.key}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger size="sm" aria-label="Sort">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map((o) => (
+                  <SelectItem key={o.key} value={o.key}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           ) : (
             <span className="text-foreground">
               {SORT_OPTIONS.find((o) => o.key === sort)?.label}
             </span>
           )}
-        </label>
+        </div>
         <span>
           Show{' '}
           <span className="text-foreground">ID · priority · labels · due</span>
@@ -595,7 +644,6 @@ export function ViewPage({
       {duplicating ? (
         <ViewEditor
           project={project}
-          existing={views}
           base={{ ...view, name: `${view.name} copy`, shared: false }}
           onSaved={onCreated}
           onOpenChange={setDuplicating}

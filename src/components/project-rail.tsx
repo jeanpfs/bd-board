@@ -20,9 +20,11 @@ import {
   ListTree,
   ListChecks,
   X,
+  Plus,
 } from 'lucide-react'
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { isReady } from '@/lib/sort'
 import { Button } from '@/components/ui/button'
 import { EditProjectModal } from '@/components/edit-project-modal'
 import { ConfirmDeleteModal } from '@/components/confirm-delete-modal'
@@ -72,18 +74,21 @@ function projectSignal(
 function RailGroup({
   label,
   collapsed,
+  action,
   children,
 }: {
   label: string
   collapsed?: boolean
+  action?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
     <nav className="flex flex-col gap-1 px-3" aria-label={label}>
       {!collapsed ? (
-        <p className="px-2 pb-0.5 text-xs font-medium text-muted-foreground">
-          {label}
-        </p>
+        <div className="flex items-center justify-between pb-0.5 pl-2">
+          <p className="text-xs font-medium text-muted-foreground">{label}</p>
+          {action}
+        </div>
       ) : null}
       <ul className="flex flex-col gap-0.5">{children}</ul>
     </nav>
@@ -228,6 +233,7 @@ export function ProjectRail() {
     retry: false,
   })
   const beads = project ? (beadsQuery.data ?? []) : []
+  const readyCount = beads.filter(isReady).length
   const blockedCount = beads.filter(
     (b) => mapStatus(b).column === 'blocked',
   ).length
@@ -365,12 +371,27 @@ export function ProjectRail() {
           )}
 
           {!collapsed && project ? (
-            <RailGroup label="Views">
+            <RailGroup
+              label="Views"
+              action={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="New view"
+                  className="text-muted-foreground"
+                  onClick={() => setCreatingView(true)}
+                >
+                  <Plus aria-hidden="true" />
+                </Button>
+              }
+            >
               <RailLink
                 to="/p/$project"
                 params={{ project }}
                 search={{ tab: 'ready' }}
                 active={tab === 'ready'}
+                count={readyCount}
               >
                 Ready
               </RailLink>
@@ -393,17 +414,6 @@ export function ProjectRail() {
                   {view.name}
                 </RailLink>
               ))}
-              <li className="px-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start text-muted-foreground"
-                  onClick={() => setCreatingView(true)}
-                >
-                  + New view
-                </Button>
-              </li>
             </RailGroup>
           ) : null}
           {!collapsed && project ? (
@@ -452,7 +462,6 @@ export function ProjectRail() {
         {creatingView ? (
           <ViewEditor
             project={project ?? ''}
-            existing={savedViews.views}
             onSaved={(view) =>
               void navigate({
                 to: '/p/$project',

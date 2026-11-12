@@ -602,6 +602,7 @@ function BoardPage() {
         />
       ) : tab === 'view' ? (
         <ViewPage
+          key={boardSearch.v}
           project={project}
           viewId={boardSearch.v}
           onOpen={openBead}
