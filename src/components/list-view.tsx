@@ -180,7 +180,7 @@ export function ListView({
         >
           <div
             role="row"
-            className="sticky top-0 z-10 grid grid-cols-[1.25rem_5.5rem_minmax(0,1fr)_7rem_3rem_7rem_minmax(0,10rem)_6rem_6rem] items-center gap-3 bg-muted/60 px-3 py-1.5 text-xs font-medium text-muted-foreground"
+            className="sticky top-0 z-10 grid grid-cols-[1.25rem_5.5rem_minmax(0,1fr)_7rem_3rem_7rem_minmax(0,10rem)_6rem_6rem] items-center gap-3 bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground"
           >
             <span role="columnheader" aria-label="Selected" />
             <span role="columnheader">ID</span>

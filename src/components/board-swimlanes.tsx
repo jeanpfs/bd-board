@@ -377,7 +377,7 @@ export function BoardSwimlanes({
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto pb-2">
-      <div className="sticky top-0 z-10 grid grid-cols-1 gap-3 bg-background/92 pt-3 pb-2.5 backdrop-blur-[8px] md:grid-cols-2 xl:grid-cols-4">
+      <div className="sticky top-0 z-10 grid grid-cols-1 gap-3 bg-background pt-3 pb-2.5 md:grid-cols-2 xl:grid-cols-4">
         {COLUMN_KEYS.map((key) => (
           <StatusColumnHeader
             key={key}
