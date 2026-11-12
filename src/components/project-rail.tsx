@@ -220,6 +220,8 @@ export function ProjectRail() {
     staleTime: 5000,
   })
   const projects = projectsQuery.data ?? []
+  // With no projects there is nothing to read, triage or browse: Home only.
+  const noProjects = projectsQuery.isSuccess && projects.length === 0
   const { unread: inboxUnread } = useInbox(projects)
   const pathname = useLocation({ select: (location) => location.pathname })
 
@@ -304,23 +306,27 @@ export function ProjectRail() {
             >
               Home
             </RailLink>
-            <RailLink
-              to="/inbox"
-              icon={Inbox}
-              active={pathname === '/inbox'}
-              collapsed={collapsed}
-              count={inboxUnread}
-            >
-              Inbox
-            </RailLink>
-            <RailLink
-              to="/my-work"
-              icon={ListChecks}
-              active={pathname === '/my-work'}
-              collapsed={collapsed}
-            >
-              My work
-            </RailLink>
+            {noProjects ? null : (
+              <>
+                <RailLink
+                  to="/inbox"
+                  icon={Inbox}
+                  active={pathname === '/inbox'}
+                  collapsed={collapsed}
+                  count={inboxUnread}
+                >
+                  Inbox
+                </RailLink>
+                <RailLink
+                  to="/my-work"
+                  icon={ListChecks}
+                  active={pathname === '/my-work'}
+                  collapsed={collapsed}
+                >
+                  My work
+                </RailLink>
+              </>
+            )}
           </ul>
         </nav>
 
@@ -345,7 +351,7 @@ export function ProjectRail() {
                 </RailLink>
               ))}
             </RailGroup>
-          ) : (
+          ) : noProjects ? null : (
             <RailGroup label="Projects" collapsed={collapsed}>
               {projects.map((p, i) => (
                 <RailLink
