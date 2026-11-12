@@ -717,15 +717,6 @@ pub fn unwatch_bead_feed(watch_id: u32, watches: tauri::State<'_, FeedWatches>) 
     }
 }
 
-#[tauri::command]
-pub fn enable_events_journal(project_id: String) -> Result<(), String> {
-    run_bd(
-        &resolve_dir(&project_id)?,
-        &["config", "set", "events-journal", "true"],
-    )
-    .map(|_| ())
-}
-
 fn bd_json(dir: &Path, args: &[&str]) -> Result<Value, String> {
     let raw = run_bd(dir, args)?;
     let trimmed = raw.trim();

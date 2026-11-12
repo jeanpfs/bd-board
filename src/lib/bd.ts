@@ -1298,11 +1298,6 @@ async function addComment(
   await bdRaw(dir, ['comment', id, text])
 }
 
-async function enableEventsJournal(projectId: string): Promise<void> {
-  const dir = await resolveDir(projectId)
-  await bdRaw(dir, ['config', 'set', 'events-journal', 'true'])
-}
-
 /** One page of the events journal after `since`. Truncation can come with a non-zero exit, and a disabled journal exits 0 with a note on stderr. */
 async function tailEvents(
   projectId: string,
@@ -1349,7 +1344,6 @@ export const bdAdapter: BdAdapter = {
   deleteBead,
   createBead,
   addComment,
-  enableEventsJournal,
   tailEvents,
 }
 
@@ -1394,7 +1388,6 @@ export {
   buildDeleteBeadArgs,
   createBead,
   addComment,
-  enableEventsJournal,
   tailEvents,
   resolveDir,
   counts,

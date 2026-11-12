@@ -88,7 +88,6 @@ pub fn run() {
             desktop::relocate_project,
             desktop::watch_bead_feed,
             desktop::unwatch_bead_feed,
-            desktop::enable_events_journal,
             desktop::tail_events,
         ])
         .build(tauri::generate_context!())

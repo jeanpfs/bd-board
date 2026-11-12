@@ -254,13 +254,6 @@ const webAddComment = createServerFn({ method: 'POST' })
     return { ok: true as const }
   })
 
-export const webEnableEventsJournal = createServerFn({ method: 'POST' })
-  .validator(parseProjectInput)
-  .handler(async ({ data }) => {
-    await bdAdapter.enableEventsJournal(data.project)
-    return { ok: true as const }
-  })
-
 const webTailEvents = createServerFn({ method: 'POST' })
   .validator(parseTailEventsInput)
   .handler(async ({ data }) => {
@@ -738,18 +731,6 @@ export async function addCommentFn({
     return { ok: true }
   }
   return webAddComment({ data })
-}
-
-export async function enableEventsJournalFn({
-  data,
-}: {
-  data: { project: string }
-}): Promise<{ ok: true }> {
-  if (isDesktopApp()) {
-    await invoke('enable_events_journal', { projectId: data.project })
-    return { ok: true }
-  }
-  return webEnableEventsJournal({ data })
 }
 
 export async function tailEventsFn({

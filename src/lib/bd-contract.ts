@@ -111,7 +111,6 @@ export interface BdAdapter {
     },
   ) => Promise<string>
   addComment: (projectId: string, id: string, text: string) => Promise<void>
-  enableEventsJournal: (projectId: string) => Promise<void>
   /** `bd events tail --since <since> --limit <limit>`: one page of the journal, oldest first. */
   tailEvents: (
     projectId: string,

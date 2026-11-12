@@ -32,7 +32,7 @@ import type { InboxEntry, ProjectInboxState } from '@/hooks/use-inbox'
 import { formatClock, formatDay, groupByDay, isForMe } from '@/lib/events'
 import { getStoredIdentity } from '@/lib/identity'
 import { isAgentActor } from '@/lib/lease'
-import { enableEventsJournalFn } from '@/lib/server'
+import { setConfigFn } from '@/lib/server'
 import { initials, toErrorMessage } from '@/lib/utils'
 
 import type { Bead, Project } from '@/lib/types'
@@ -103,7 +103,9 @@ export function InboxView({
   async function enable(project: Project, state: ProjectInboxState) {
     setEnabling(project.id)
     try {
-      await enableEventsJournalFn({ data: { project: project.id } })
+      await setConfigFn({
+        data: { project: project.id, key: 'events-journal', value: 'true' },
+      })
       state.refetch()
     } catch (err) {
       toast.error(toErrorMessage(err, 'Could not turn on live updates'))
