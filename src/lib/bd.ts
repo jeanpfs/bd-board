@@ -105,7 +105,24 @@ export function bdErrorMessage(
   return `bd exited with status ${exitCode}`
 }
 
+/** `BD_BOARD_TIMING=1` logs every bd call with its duration to stderr. */
+const TIMING = process.env.BD_BOARD_TIMING === '1'
+
 export async function bdExec(
+  dir: string,
+  args: string[],
+): Promise<{ bin: string; code: number; stdout: string; stderr: string }> {
+  if (!TIMING) return bdExecOnce(dir, args)
+  const start = performance.now()
+  try {
+    return await bdExecOnce(dir, args)
+  } finally {
+    const ms = Math.round(performance.now() - start)
+    console.error(`[bd ${ms}ms] ${args.join(' ')} (${path.basename(dir)})`)
+  }
+}
+
+async function bdExecOnce(
   dir: string,
   args: string[],
 ): Promise<{ bin: string; code: number; stdout: string; stderr: string }> {
@@ -272,15 +289,23 @@ export function parseStatusCategories(result: {
   return categories
 }
 
+/** `bd statuses` rarely changes; this saves one bd process per list and per project probe. */
+const STATUS_TTL_MS = 60_000
+const statusCache = new Map<
+  string,
+  { at: number; value: Promise<Map<string, StatusCategory>> }
+>()
+
 /** Empty when bd can't tell (gated database): custom statuses then fall back to "unspecified". */
-async function statusCategories(
-  dir: string,
-): Promise<Map<string, StatusCategory>> {
-  try {
-    return parseStatusCategories(await bdJson(dir, ['statuses', '--json']))
-  } catch {
-    return new Map()
-  }
+function statusCategories(dir: string): Promise<Map<string, StatusCategory>> {
+  const hit = statusCache.get(dir)
+  if (hit && Date.now() - hit.at < STATUS_TTL_MS) return hit.value
+  const value = bdJson<Parameters<typeof parseStatusCategories>[0]>(dir, [
+    'statuses',
+    '--json',
+  ]).then(parseStatusCategories, () => new Map<string, StatusCategory>())
+  statusCache.set(dir, { at: Date.now(), value })
+  return value
 }
 
 /**
@@ -289,10 +314,12 @@ async function statusCategories(
  */
 async function counts(
   dir: string,
-  categories: Map<string, StatusCategory>,
 ): Promise<{ counts: ProjectCounts; migration: MigrationGate | null }> {
   try {
-    const result = await bdExec(dir, ['count', '--by-status', '--json'])
+    const [result, categories] = await Promise.all([
+      bdExec(dir, ['count', '--by-status', '--json']),
+      statusCategories(dir),
+    ])
     const migration = parseMigrationGate(result.stdout, result.stderr)
     if (result.code !== 0) return { counts: { ...EMPTY_COUNTS }, migration }
     const json = JSON.parse(result.stdout) as {
@@ -348,6 +375,8 @@ async function discoverProject(entry: RegistryEntry): Promise<Project> {
   }
 
   try {
+    // Counting does not depend on the probe, so both run at once.
+    const countsPromise = counts(entry.path)
     const probeResult = await bdJson<{
       path?: string
       database_path?: string
@@ -359,11 +388,7 @@ async function discoverProject(entry: RegistryEntry): Promise<Project> {
     }
 
     const expectedBeads = path.join(entry.path, '.beads')
-    const categories = await statusCategories(entry.path)
-    const { counts: projectCounts, migration } = await counts(
-      entry.path,
-      categories,
-    )
+    const { counts: projectCounts, migration } = await countsPromise
     return {
       ...base,
       beadsPath: probeResult.path,
@@ -1139,6 +1164,7 @@ async function setConfig(
 ): Promise<void> {
   const dir = await resolveDir(projectId)
   await bdRaw(dir, buildSetConfigArgs(key, value))
+  if (key === 'status.custom') statusCache.delete(dir)
 }
 
 /** A config value as text; an unset key reads as the empty string. */

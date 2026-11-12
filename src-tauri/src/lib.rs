@@ -100,7 +100,7 @@ pub fn run() {
         });
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn desktop_probe() -> Result<DesktopProbe, String> {
     let bd_version = resolve_bd_version()?;
     let bd_binary = find_bd_binary()?.to_string_lossy().to_string();

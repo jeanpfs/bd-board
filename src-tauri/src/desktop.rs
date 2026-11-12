@@ -297,7 +297,28 @@ struct BdCapture {
     status: std::process::ExitStatus,
 }
 
+/// `BD_BOARD_TIMING=1` logs every bd call with its duration to stderr.
 fn exec_bd(dir: &Path, args: &[&str]) -> Result<BdCapture, String> {
+    if env::var("BD_BOARD_TIMING").as_deref() != Ok("1") {
+        return exec_bd_once(dir, args);
+    }
+    let started = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() % 100_000)
+        .unwrap_or(0);
+    let start = std::time::Instant::now();
+    let result = exec_bd_once(dir, args);
+    eprintln!(
+        "[bd t={:05} {}ms] {} ({})",
+        started,
+        start.elapsed().as_millis(),
+        args.join(" "),
+        dir.file_name().and_then(|n| n.to_str()).unwrap_or("")
+    );
+    result
+}
+
+fn exec_bd_once(dir: &Path, args: &[&str]) -> Result<BdCapture, String> {
     let candidates = bd_candidates();
 
     for candidate in &candidates {
@@ -677,7 +698,7 @@ fn run_feed(dir: &Path, since: i64, watch: &FeedWatch, send: &dyn Fn(BeadFeedMes
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn watch_bead_feed(
     project_id: String,
     since: i64,
@@ -704,7 +725,7 @@ pub fn watch_bead_feed(
     Ok(id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn unwatch_bead_feed(watch_id: u32, watches: tauri::State<'_, FeedWatches>) {
     let removed = watches
         .watches
@@ -933,76 +954,76 @@ fn map_knowledge_entry(value: &Value) -> Option<ProjectKnowledgeEntry> {
     })
 }
 
+/// Projects probed at once, like the web runtime's discovery.
+const DISCOVERY_CONCURRENCY: usize = 4;
+
+/// Joins a scoped thread, re-raising its panic instead of swallowing it.
+fn join_scoped<T>(handle: std::thread::ScopedJoinHandle<'_, T>) -> T {
+    handle
+        .join()
+        .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+}
+
+fn empty_counts() -> ProjectCounts {
+    ProjectCounts {
+        open: 0,
+        in_progress: 0,
+        blocked: 0,
+        closed: 0,
+        deferred: 0,
+        total: 0,
+    }
+}
+
+fn discover_project(entry: &registry::RegistryEntry) -> Project {
+    let dir_path = PathBuf::from(&entry.path);
+    let base = |error: Option<String>, missing: bool| Project {
+        id: entry.id.clone(),
+        name: entry.label.clone(),
+        dir: entry.path.clone(),
+        beads_path: String::new(),
+        prefix: None,
+        external: false,
+        missing,
+        error,
+        migration: None,
+        counts: empty_counts(),
+    };
+
+    if !dir_path.exists() {
+        return base(Some("folder no longer exists".into()), true);
+    }
+
+    // Counting does not depend on the probe, so both run at once.
+    let (location, (counts, migration)) = std::thread::scope(|scope| {
+        let counts = scope.spawn(|| project_counts(&dir_path));
+        (probe_beads_location(&dir_path), join_scoped(counts))
+    });
+    match location {
+        Ok(location) => Project {
+            beads_path: location.beads_path,
+            prefix: location.prefix,
+            external: location.external,
+            counts,
+            migration,
+            ..base(None, false)
+        },
+        Err(err) => base(Some(err), false),
+    }
+}
+
 fn discover_projects_inner() -> Result<Vec<Project>, String> {
-    let mut projects = Vec::new();
     let registry = registry::load()?;
+    let mut projects = Vec::with_capacity(registry.projects.len());
 
-    for entry in registry.projects {
-        let dir_path = PathBuf::from(&entry.path);
-
-        // Check if folder exists
-        if !dir_path.exists() {
-            projects.push(Project {
-                id: entry.id.clone(),
-                name: entry.label.clone(),
-                dir: entry.path.clone(),
-                beads_path: String::new(),
-                prefix: None,
-                external: false,
-                missing: true,
-                error: Some("folder no longer exists".into()),
-                migration: None,
-                counts: ProjectCounts {
-                    open: 0,
-                    in_progress: 0,
-                    blocked: 0,
-                    closed: 0,
-                    deferred: 0,
-                    total: 0,
-                },
-            });
-            continue;
-        }
-
-        // Probe beads location
-        match probe_beads_location(&dir_path) {
-            Ok(location) => {
-                let (counts, migration) = project_counts(&dir_path);
-                projects.push(Project {
-                    id: entry.id.clone(),
-                    name: entry.label.clone(),
-                    dir: entry.path.clone(),
-                    beads_path: location.beads_path,
-                    prefix: location.prefix,
-                    external: location.external,
-                    missing: false,
-                    error: None,
-                    counts,
-                    migration,
-                });
-            }
-            Err(err) => {
-                projects.push(Project {
-                    id: entry.id.clone(),
-                    name: entry.label.clone(),
-                    dir: entry.path.clone(),
-                    beads_path: String::new(),
-                    prefix: None,
-                    external: false,
-                    missing: false,
-                    error: Some(err),
-                    migration: None,
-                    counts: ProjectCounts {
-                        open: 0,
-                        in_progress: 0,
-                        blocked: 0,
-                        closed: 0,
-                        deferred: 0,
-                        total: 0,
-                    },
-                });
-            }
-        }
+    for chunk in registry.projects.chunks(DISCOVERY_CONCURRENCY) {
+        std::thread::scope(|scope| {
+            let handles: Vec<_> = chunk
+                .iter()
+                .map(|entry| scope.spawn(move || discover_project(entry)))
+                .collect();
+            projects.extend(handles.into_iter().map(join_scoped));
+        });
     }
 
     projects.sort_by(|a, b| {
@@ -1015,7 +1036,38 @@ fn discover_projects_inner() -> Result<Vec<Project>, String> {
     Ok(projects)
 }
 
+/// `bd statuses` rarely changes; this saves one bd process per list and per project probe.
+const STATUS_TTL: std::time::Duration = std::time::Duration::from_secs(60);
+
+type StatusCacheMap = HashMap<PathBuf, (std::time::Instant, HashMap<String, String>)>;
+static STATUS_CACHE: Mutex<Option<StatusCacheMap>> = Mutex::new(None);
+
+fn status_cache() -> std::sync::MutexGuard<'static, Option<StatusCacheMap>> {
+    STATUS_CACHE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+fn forget_status_categories(dir: &Path) {
+    if let Some(map) = status_cache().as_mut() {
+        map.remove(dir);
+    }
+}
+
 fn status_categories(dir: &Path) -> HashMap<String, String> {
+    if let Some((at, value)) = status_cache().as_ref().and_then(|map| map.get(dir)) {
+        if at.elapsed() < STATUS_TTL {
+            return value.clone();
+        }
+    }
+    let value = fetch_status_categories(dir);
+    status_cache()
+        .get_or_insert_with(HashMap::new)
+        .insert(dir.to_path_buf(), (std::time::Instant::now(), value.clone()));
+    value
+}
+
+fn fetch_status_categories(dir: &Path) -> HashMap<String, String> {
     let Ok(cap) = exec_bd(dir, &["statuses", "--json"]) else {
         return HashMap::new();
     };
@@ -1083,8 +1135,12 @@ fn build_counts_from_groups(rows: &[Value], categories: &HashMap<String, String>
 }
 
 fn project_counts(dir: &Path) -> (ProjectCounts, Option<MigrationGate>) {
-    let categories = status_categories(dir);
-    let Ok(cap) = exec_bd(dir, &["count", "--by-status", "--json"]) else {
+    let (categories, cap) = std::thread::scope(|scope| {
+        let categories = scope.spawn(|| status_categories(dir));
+        let cap = exec_bd(dir, &["count", "--by-status", "--json"]);
+        (join_scoped(categories), cap)
+    });
+    let Ok(cap) = cap else {
         return (build_counts_from_groups(&[], &categories), None);
     };
     // The gate is reported even when bd exits non-zero.
@@ -1207,10 +1263,13 @@ fn merge_gate_rows(rows: &serde_json::Value, gates: &serde_json::Value) -> Vec<s
 
 fn list_beads_inner(project_id: &str) -> Result<Vec<Bead>, String> {
     let dir = resolve_dir(project_id)?;
-    let raw = bd_json(&dir, build_list_beads_args())?;
-    let gates = bd_json(&dir, build_list_gates_args())?;
-    let categories = status_categories(&dir);
-    let rows = merge_gate_rows(&raw, &gates);
+    let (raw, gates, categories) = std::thread::scope(|scope| {
+        let gates = scope.spawn(|| bd_json(&dir, build_list_gates_args()));
+        let categories = scope.spawn(|| status_categories(&dir));
+        let raw = bd_json(&dir, build_list_beads_args());
+        (raw, join_scoped(gates), join_scoped(categories))
+    });
+    let rows = merge_gate_rows(&raw?, &gates?);
     Ok(build_bead_graph(&rows, &categories))
 }
 
@@ -1243,14 +1302,13 @@ fn map_related_list(raw: &Value, key: &str) -> Vec<RelatedBead> {
 
 fn get_bead_detail_inner(project_id: &str, id: &str) -> Result<BeadDetail, String> {
     let dir = resolve_dir(project_id)?;
-    let raw_arr = bd_json(
-        &dir,
-        &build_show_bead_args(id)
-            .iter()
-            .map(String::as_str)
-            .collect::<Vec<_>>(),
-    )?;
-    let raw_comments = bd_json(&dir, &["comments", id, "--json"]).ok();
+    let show_args = build_show_bead_args(id);
+    let show_refs: Vec<&str> = show_args.iter().map(String::as_str).collect();
+    let (raw_arr, raw_comments) = std::thread::scope(|scope| {
+        let comments = scope.spawn(|| bd_json(&dir, &["comments", id, "--json"]).ok());
+        (bd_json(&dir, &show_refs), join_scoped(comments))
+    });
+    let raw_arr = raw_arr?;
 
     let raw = raw_arr
         .as_array()
@@ -2026,12 +2084,12 @@ fn close_many_inner(
     run_bd_mut(&dir, &build_close_many_args(ids, reason, force)).map(|_| ())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn update_many(project_id: String, ids: Vec<String>, patch: BulkPatch) -> Result<(), String> {
     update_many_inner(&project_id, &ids, &patch)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn close_many(
     project_id: String,
     ids: Vec<String>,
@@ -2136,6 +2194,9 @@ fn get_config_inner(project_id: &str, key: &str) -> Result<String, String> {
 fn set_config_inner(project_id: &str, key: &str, value: &str) -> Result<(), String> {
     let dir = resolve_dir(project_id)?;
     run_bd_mut(&dir, &build_set_config_args(key, value)?)?;
+    if key == "status.custom" {
+        forget_status_categories(&dir);
+    }
     Ok(())
 }
 
@@ -2369,42 +2430,42 @@ fn add_comment_inner(project_id: &str, id: &str, text: &str) -> Result<(), Strin
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn list_projects() -> Result<Vec<Project>, String> {
     discover_projects_inner()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn list_beads(project_id: String) -> Result<Vec<Bead>, String> {
     list_beads_inner(&project_id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_bead_detail(project_id: String, id: String) -> Result<BeadDetail, String> {
     get_bead_detail_inner(&project_id, &id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_project_knowledge(project_id: String) -> Result<ProjectKnowledge, String> {
     get_project_knowledge_inner(&project_id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn update_bead_status(project_id: String, id: String, status: String) -> Result<(), String> {
     update_bead_status_inner(&project_id, &id, &status)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn update_bead(project_id: String, id: String, update: BeadUpdateInput) -> Result<(), String> {
     update_bead_inner(&project_id, &id, update)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn preview_delete_bead(project_id: String, id: String) -> Result<DeletePlan, String> {
     preview_delete_bead_inner(&project_id, &id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn close_bead(
     project_id: String,
     id: String,
@@ -2414,36 +2475,36 @@ pub fn close_bead(
     close_bead_inner(&project_id, &id, reason.as_deref(), force)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn tail_events(project_id: String, since: i64, limit: i64) -> Result<TailEventsPage, String> {
     validate_tail_request(since, limit)?;
     tail_events_inner(&project_id, since, limit)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn claim_bead(project_id: String, id: String, actor: Option<String>) -> Result<(), String> {
     validate_bead_id(&id)?;
     claim_bead_inner(&project_id, &id, actor.as_deref())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn stale_beads(project_id: String, days: u32) -> Result<Vec<Bead>, String> {
     stale_beads_inner(&project_id, days)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn resolve_gate(project_id: String, id: String) -> Result<(), String> {
     validate_bead_id(&id)?;
     resolve_gate_inner(&project_id, &id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn reclaim_bead(project_id: String, id: String) -> Result<u64, String> {
     validate_bead_id(&id)?;
     reclaim_bead_inner(&project_id, &id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn unclaim_bead(
     project_id: String,
     id: String,
@@ -2454,47 +2515,47 @@ pub fn unclaim_bead(
     unclaim_bead_inner(&project_id, &id, force, actor.as_deref())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_config(project_id: String, key: String, value: String) -> Result<(), String> {
     set_config_inner(&project_id, &key, &value)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_config(project_id: String, key: String) -> Result<String, String> {
     get_config_inner(&project_id, &key)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn query_beads(project_id: String, query: String) -> Result<Vec<Bead>, String> {
     query_beads_inner(&project_id, &query)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn validate_query(project_id: String, query: String) -> Result<(), String> {
     validate_query_inner(&project_id, &query)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn kv_get(project_id: String, key: String) -> Result<Option<String>, String> {
     kv_get_inner(&project_id, &key)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn kv_set(project_id: String, key: String, value: String) -> Result<(), String> {
     kv_set_inner(&project_id, &key, &value)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn ready_explain(project_id: String) -> Result<Value, String> {
     ready_explain_inner(&project_id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn linear_status(project_id: String) -> Result<Value, String> {
     linear_status_inner(&project_id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn linear_sync(
     project_id: String,
     direction: String,
@@ -2504,7 +2565,7 @@ pub fn linear_sync(
     linear_sync_inner(&project_id, &direction, relations, dry_run)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn add_relation(
     project_id: String,
     id: String,
@@ -2516,7 +2577,7 @@ pub fn add_relation(
     add_relation_inner(&project_id, &id, &kind, &target)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn remove_relation(
     project_id: String,
     id: String,
@@ -2528,24 +2589,24 @@ pub fn remove_relation(
     remove_relation_inner(&project_id, &id, &kind, &target)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn defer_bead(project_id: String, id: String, until: Option<String>) -> Result<(), String> {
     validate_bead_id(&id)?;
     defer_bead_inner(&project_id, &id, until.as_deref())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn undefer_bead(project_id: String, id: String) -> Result<(), String> {
     validate_bead_id(&id)?;
     undefer_bead_inner(&project_id, &id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn delete_bead(project_id: String, id: String) -> Result<(), String> {
     delete_bead_inner(&project_id, &id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn create_bead(
     project_id: String,
     title: String,
@@ -2564,12 +2625,12 @@ pub fn create_bead(
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn add_comment(project_id: String, id: String, text: String) -> Result<(), String> {
     add_comment_inner(&project_id, &id, &text)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn probe_project(path: String) -> Result<BeadsLocation, String> {
     let dir_path = PathBuf::from(path);
     probe_beads_location(&dir_path)
@@ -2596,7 +2657,7 @@ pub enum PathStatus {
     },
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn check_project_path(path: String) -> PathStatus {
     let dir_path = PathBuf::from(&path);
 
@@ -2639,7 +2700,7 @@ pub enum AddProjectOutcome {
     },
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn add_project(path: String, name: Option<String>) -> Result<AddProjectOutcome, String> {
     let dir_path = PathBuf::from(&path);
 
@@ -2685,7 +2746,7 @@ pub fn add_project(path: String, name: Option<String>) -> Result<AddProjectOutco
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn remove_project(id: String) -> Result<(), String> {
     registry::remove(&id)
 }
@@ -2700,7 +2761,7 @@ fn build_init_args(prefix: &str) -> Vec<String> {
     ]
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn init_project(
     path: String,
     prefix: Option<String>,
@@ -2768,12 +2829,12 @@ pub fn init_project(
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn rename_project(id: String, name: String) -> Result<RegistryEntry, String> {
     registry::rename(&id, name)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn relocate_project(id: String, path: String) -> Result<RegistryEntry, String> {
     registry::relocate(&id, path)
 }

@@ -140,6 +140,7 @@ Use the **Open project** and **Init project** buttons in the app UI to manage pr
 ### Environment Variables
 
 - `BD_BIN`: path to the `bd` binary. Defaults to `bd`, with `/opt/homebrew/bin/bd` as a fallback.
+- `BD_BOARD_TIMING=1`: log every `bd` call with its duration to stderr, in both the web server and the desktop app. Useful to see where time goes.
 
 The desktop shell uses the same `BD_BIN` configuration. **`BD_ROOTS` is no longer used.**
 
