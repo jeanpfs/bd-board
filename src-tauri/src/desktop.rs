@@ -107,6 +107,14 @@ pub struct RelatedBead {
 }
 
 #[derive(Serialize, Clone)]
+pub struct BeadLink {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub direction: &'static str,
+}
+
+#[derive(Serialize, Clone)]
 pub struct Bead {
     pub id: String,
     pub title: String,
@@ -129,6 +137,8 @@ pub struct Bead {
     pub dependent_count: Option<i64>,
     pub children: Option<Vec<String>>,
     pub child_beads: Option<Vec<Bead>>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub links: Vec<BeadLink>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status_category: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -853,6 +863,7 @@ fn map_bead(value: &Value, categories: &HashMap<String, String>) -> Bead {
         dependent_count: value_i64(value, "dependent_count"),
         children: None,
         child_beads: None,
+        links: Vec::new(),
         status_category: status_category(&status, categories),
         due_at: value_present_str(value, "due_at"),
         defer_until: value_present_str(value, "defer_until"),
@@ -1110,6 +1121,44 @@ fn resolve_dir(project_id: &str) -> Result<PathBuf, String> {
     Ok(path)
 }
 
+/// Mirrors buildBeadGraph: links, parent and children derived from the raw rows.
+fn build_bead_graph(raws: &[Value], categories: &HashMap<String, String>) -> Vec<Bead> {
+    let mut beads: Vec<Bead> = raws.iter().map(|raw| map_bead(raw, categories)).collect();
+    let known: HashSet<String> = beads.iter().map(|b| b.id.clone()).collect();
+    let closed_gates: HashSet<String> = beads
+        .iter()
+        .filter(|b| b.issue_type == "gate" && b.status == "closed")
+        .map(|b| b.id.clone())
+        .collect();
+    // A resolved gate no longer blocks; bd keeps the edge but drops the block.
+    let edges: Vec<DependencyEdge> = dependency_edges(raws, &known)
+        .into_iter()
+        .filter(|e| !(e.kind == "blocks" && closed_gates.contains(&e.to)))
+        .collect();
+
+    let mut links: HashMap<String, Vec<BeadLink>> = HashMap::new();
+    for edge in &edges {
+        links.entry(edge.from.clone()).or_default().push(BeadLink {
+            id: edge.to.clone(),
+            kind: edge.kind.clone(),
+            direction: "outgoing",
+        });
+        links.entry(edge.to.clone()).or_default().push(BeadLink {
+            id: edge.from.clone(),
+            kind: edge.kind.clone(),
+            direction: "incoming",
+        });
+    }
+    let parents = parents_of(raws, &edges);
+    for bead in &mut beads {
+        bead.links = links.remove(&bead.id).unwrap_or_default();
+        if bead.parent.is_none() {
+            bead.parent = parents.get(&bead.id).cloned();
+        }
+    }
+    derive_children(beads)
+}
+
 fn derive_children(beads: Vec<Bead>) -> Vec<Bead> {
     let mut child_map: std::collections::BTreeMap<String, Vec<String>> =
         std::collections::BTreeMap::new();
@@ -1170,11 +1219,8 @@ fn list_beads_inner(project_id: &str) -> Result<Vec<Bead>, String> {
     let raw = bd_json(&dir, build_list_beads_args())?;
     let gates = bd_json(&dir, build_list_gates_args())?;
     let categories = status_categories(&dir);
-    let beads = merge_gate_rows(&raw, &gates)
-        .into_iter()
-        .map(|value| map_bead(&value, &categories))
-        .collect();
-    Ok(derive_children(beads))
+    let rows = merge_gate_rows(&raw, &gates);
+    Ok(build_bead_graph(&rows, &categories))
 }
 
 fn build_show_bead_args(id: &str) -> Vec<String> {
@@ -3019,5 +3065,131 @@ mod tests {
         };
         let json = serde_json::to_string(&msg).unwrap();
         assert_eq!(json, r#"{"type":"change","seq":5,"issueIds":["x"]}"#);
+    }
+
+    fn graph_issue(id: &str, deps: Option<Vec<Value>>, extra: Value) -> Value {
+        let mut row = json!({"id": id, "title": format!("Issue {id}"), "status": "open", "priority": 2, "issue_type": "task"});
+        if let Some(deps) = deps {
+            row["dependencies"] = Value::Array(deps);
+        }
+        for (k, v) in extra.as_object().cloned().unwrap_or_default() {
+            row[k] = v;
+        }
+        row
+    }
+
+    fn graph_edge(from: &str, to: &str, kind: &str) -> Value {
+        json!({"issue_id": from, "depends_on_id": to, "type": kind})
+    }
+
+    fn links_json(bead: &Bead) -> Value {
+        serde_json::to_value(bead).unwrap()["links"].clone()
+    }
+
+    #[test]
+    fn graph_reads_blocks_edges_in_both_directions() {
+        let beads = build_bead_graph(
+            &[
+                graph_issue("ravo-fvs", Some(vec![graph_edge("ravo-fvs", "ravo-nyu", "blocks")]), json!({})),
+                graph_issue("ravo-nyu", None, json!({})),
+            ],
+            &HashMap::new(),
+        );
+        assert_eq!(
+            links_json(&beads[0]),
+            json!([{"id": "ravo-nyu", "type": "blocks", "direction": "outgoing"}])
+        );
+        assert_eq!(
+            links_json(&beads[1]),
+            json!([{"id": "ravo-fvs", "type": "blocks", "direction": "incoming"}])
+        );
+    }
+
+    #[test]
+    fn graph_derives_parent_and_children_from_parent_child_edges() {
+        let beads = build_bead_graph(
+            &[
+                graph_issue("ravo-epic", None, json!({"issue_type": "epic"})),
+                graph_issue("ravo-sub", Some(vec![graph_edge("ravo-sub", "ravo-epic", "parent-child")]), json!({})),
+            ],
+            &HashMap::new(),
+        );
+        assert_eq!(beads[1].parent.as_deref(), Some("ravo-epic"));
+        assert_eq!(beads[0].children, Some(vec!["ravo-sub".to_string()]));
+    }
+
+    #[test]
+    fn graph_keeps_non_blocking_edge_types_with_their_own_type() {
+        let beads = build_bead_graph(
+            &[
+                graph_issue("ravo-14f", Some(vec![graph_edge("ravo-14f", "ravo-c4d", "discovered-from")]), json!({})),
+                graph_issue("ravo-c4d", None, json!({})),
+            ],
+            &HashMap::new(),
+        );
+        assert_eq!(
+            links_json(&beads[0]),
+            json!([{"id": "ravo-c4d", "type": "discovered-from", "direction": "outgoing"}])
+        );
+        assert_eq!(
+            links_json(&beads[1]),
+            json!([{"id": "ravo-14f", "type": "discovered-from", "direction": "incoming"}])
+        );
+    }
+
+    #[test]
+    fn graph_ignores_expanded_dependency_shape_and_omits_empty_links() {
+        let beads = build_bead_graph(
+            &[graph_issue(
+                "ravo-fvs",
+                Some(vec![json!({"id": "ravo-nyu", "title": "Expanded", "dependency_type": "blocks"})]),
+                json!({}),
+            )],
+            &HashMap::new(),
+        );
+        assert!(serde_json::to_value(&beads[0]).unwrap().get("links").is_none());
+    }
+
+    #[test]
+    fn graph_drops_duplicate_edges_and_unknown_ids() {
+        let beads = build_bead_graph(
+            &[
+                graph_issue(
+                    "ravo-fvs",
+                    Some(vec![
+                        graph_edge("ravo-fvs", "ravo-nyu", "blocks"),
+                        graph_edge("ravo-fvs", "ravo-nyu", "blocks"),
+                        graph_edge("ravo-fvs", "ravo-gone", "blocks"),
+                    ]),
+                    json!({}),
+                ),
+                graph_issue("ravo-nyu", None, json!({})),
+            ],
+            &HashMap::new(),
+        );
+        assert_eq!(
+            links_json(&beads[0]),
+            json!([{"id": "ravo-nyu", "type": "blocks", "direction": "outgoing"}])
+        );
+    }
+
+    #[test]
+    fn graph_drops_blocks_edge_to_resolved_gate_only() {
+        let dep = |to: &str| graph_edge("w", to, "blocks");
+        let beads = build_bead_graph(
+            &[
+                json!({"id": "g1", "title": "g", "status": "closed", "issue_type": "gate"}),
+                json!({"id": "g2", "title": "g", "status": "open", "issue_type": "gate"}),
+                graph_issue("w", Some(vec![dep("g1"), dep("g2")]), json!({})),
+            ],
+            &HashMap::new(),
+        );
+        let w = beads.iter().find(|b| b.id == "w").unwrap();
+        assert_eq!(
+            links_json(w),
+            json!([{"id": "g2", "type": "blocks", "direction": "outgoing"}])
+        );
+        let g1 = beads.iter().find(|b| b.id == "g1").unwrap();
+        assert!(serde_json::to_value(g1).unwrap().get("links").is_none());
     }
 }
