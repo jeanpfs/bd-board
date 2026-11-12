@@ -8,7 +8,9 @@ use std::sync::{Mutex, MutexGuard};
 static WRITE_LOCK: Mutex<()> = Mutex::new(());
 
 fn write_lock() -> MutexGuard<'static, ()> {
-    WRITE_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    WRITE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 #[derive(Serialize, Deserialize, Clone)]

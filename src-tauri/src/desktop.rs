@@ -1077,9 +1077,10 @@ fn status_categories(dir: &Path) -> HashMap<String, String> {
         }
     }
     let value = fetch_status_categories(dir);
-    status_cache()
-        .get_or_insert_with(HashMap::new)
-        .insert(dir.to_path_buf(), (std::time::Instant::now(), value.clone()));
+    status_cache().get_or_insert_with(HashMap::new).insert(
+        dir.to_path_buf(),
+        (std::time::Instant::now(), value.clone()),
+    );
     value
 }
 
@@ -2281,7 +2282,10 @@ fn query_beads_inner(project_id: &str, expr: &str) -> Result<Vec<Bead>, String> 
     let dir = resolve_dir(project_id)?;
     let args = build_query_args(expr)?;
     let refs: Vec<&str> = args.iter().map(String::as_str).collect();
-    let rows = bd_json(&dir, &refs)?.as_array().cloned().unwrap_or_default();
+    let rows = bd_json(&dir, &refs)?
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
     let categories = status_categories(&dir);
     Ok(build_bead_graph(&rows, &categories))
 }
@@ -2301,7 +2305,10 @@ fn kv_get_inner(project_id: &str, key: &str) -> Result<Option<String>, String> {
     let parsed: Option<Value> = serde_json::from_str(cap.stdout.trim()).ok();
     if cap.status.success() {
         let value = parsed.ok_or_else(|| "Unexpected output from bd kv get".to_string())?;
-        return Ok(value.get("value").and_then(Value::as_str).map(str::to_string));
+        return Ok(value
+            .get("value")
+            .and_then(Value::as_str)
+            .map(str::to_string));
     }
     if parsed.as_ref().and_then(|v| v.get("found")) == Some(&Value::Bool(false)) {
         return Ok(None);
@@ -3311,8 +3318,14 @@ mod tests {
     #[test]
     fn bulk_input_rejects_empty_and_unsafe_values() {
         let too_many: Vec<String> = (0..201).map(|i| format!("bd-{i}")).collect();
-        assert_eq!(validate_bulk_ids(&[]), Err("Select at least one bead".to_string()));
-        assert_eq!(validate_bulk_ids(&too_many), Err("Too many beads".to_string()));
+        assert_eq!(
+            validate_bulk_ids(&[]),
+            Err("Select at least one bead".to_string())
+        );
+        assert_eq!(
+            validate_bulk_ids(&too_many),
+            Err("Too many beads".to_string())
+        );
         assert_eq!(
             validate_bulk_ids(&["--force".to_string()]),
             Err("Bead id is invalid".to_string())
@@ -3327,12 +3340,18 @@ mod tests {
             status: Some("closed".to_string()),
             ..Default::default()
         };
-        assert_eq!(validate_bulk_patch(&closed), Err("Status is invalid".to_string()));
+        assert_eq!(
+            validate_bulk_patch(&closed),
+            Err("Status is invalid".to_string())
+        );
         let high = BulkPatch {
             priority: Some(5),
             ..Default::default()
         };
-        assert_eq!(validate_bulk_patch(&high), Err("Priority is invalid".to_string()));
+        assert_eq!(
+            validate_bulk_patch(&high),
+            Err("Priority is invalid".to_string())
+        );
         let flag_assignee = BulkPatch {
             assignee: Some("--force".to_string()),
             ..Default::default()
@@ -3345,19 +3364,34 @@ mod tests {
             add_labels: Some(vec!["bad label".to_string()]),
             ..Default::default()
         };
-        assert_eq!(validate_bulk_patch(&bad_label), Err("Label is invalid".to_string()));
+        assert_eq!(
+            validate_bulk_patch(&bad_label),
+            Err("Label is invalid".to_string())
+        );
     }
 
     #[test]
     fn bead_id_and_tail_guards_reject_flags_and_out_of_range_windows() {
         assert!(validate_bead_id("bd-a2k").is_ok());
-        assert_eq!(validate_bead_id("--force"), Err("Bead id is invalid".to_string()));
+        assert_eq!(
+            validate_bead_id("--force"),
+            Err("Bead id is invalid".to_string())
+        );
         assert_eq!(validate_bead_id(""), Err("Bead id is invalid".to_string()));
         assert!(validate_tail_request(0, 1).is_ok());
         assert!(validate_tail_request(5, 1000).is_ok());
-        assert_eq!(validate_tail_request(-1, 10), Err("Event window is invalid".to_string()));
-        assert_eq!(validate_tail_request(0, 0), Err("Event window is invalid".to_string()));
-        assert_eq!(validate_tail_request(0, 1001), Err("Event window is invalid".to_string()));
+        assert_eq!(
+            validate_tail_request(-1, 10),
+            Err("Event window is invalid".to_string())
+        );
+        assert_eq!(
+            validate_tail_request(0, 0),
+            Err("Event window is invalid".to_string())
+        );
+        assert_eq!(
+            validate_tail_request(0, 1001),
+            Err("Event window is invalid".to_string())
+        );
     }
 
     #[test]
