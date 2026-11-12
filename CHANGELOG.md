@@ -16,8 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Project Overview** is the new landing view of a project: a one-line summary (open · in progress · closed this week), **Needs attention** (open P0s, blocked beads, in-progress beads with no update for 7+ days), epic progress, ready to pick up, in progress with assignees, and the latest decisions and learnings from Knowledge.
 - Due dates, estimates and snooze (defer until a date) on beads, with overdue and due-soon indicators and a "due this week" board filter.
 - Label chips with autocomplete in the bead detail.
-- Relations editor in the bead detail: add and remove blocks, blocked by, related, duplicates and supersedes links.
-- Command palette (`Cmd/Ctrl+K`) to jump to beads, projects, views and actions.
+- Relations editor in the bead detail: add blocks, blocked by, related, duplicates and supersedes links, and remove blocks, blocked by and related links.
+- Command palette (`Cmd/Ctrl+K`) to jump to beads, projects and actions.
 - Keyboard shortcuts for board navigation and bead editing, with a `?` help dialog.
 - Ready view with a Claim action, using `bd ready --explain`.
 - Agents panel with leases, heartbeats, human gates (reclaim and resolve) and agent pools.

@@ -18,7 +18,7 @@ Visual kanban board and multi-project dashboard for [`bd` (beads)](https://githu
 - Create beads, add comments, edit fields, and delete beads, enabled by default.
 - Schedule: due dates, estimates and snooze (defer until a date) on every bead, with overdue, due-soon and "due this week" filters on the board.
 - Label chips with autocomplete, and a relations editor (blocks, blocked by, related, duplicates, supersedes) in the bead detail.
-- Command palette (`Cmd/Ctrl+K`) to jump to beads, projects, views and actions, plus keyboard shortcuts for navigation and editing (press `?` for the list).
+- Command palette (`Cmd/Ctrl+K`) to jump to beads, projects and actions, plus keyboard shortcuts for navigation and editing (press `?` for the list).
 - Ready view with one-click claim, backed by `bd ready --explain`.
 - Agents panel: who holds a lease, heartbeats, human gates and agent pools.
 - Inbox and My work, built from the events journal, with a per-project read cursor.
