@@ -301,16 +301,6 @@ function LinearPanel({
             <dd className="font-mono text-foreground">{status.total_issues}</dd>
           </div>
           <div className="flex items-center justify-between py-3">
-            <dt className="text-muted-foreground">Linked to Linear</dt>
-            <dd className="font-mono text-foreground">
-              {status.with_linear_ref}
-            </dd>
-          </div>
-          <div className="flex items-center justify-between py-3">
-            <dt className="text-muted-foreground">Waiting to push</dt>
-            <dd className="font-mono text-foreground">{status.pending_push}</dd>
-          </div>
-          <div className="flex items-center justify-between py-3">
             <dt className="text-muted-foreground">Last sync</dt>
             <dd className="font-mono text-foreground">
               {status.last_sync === '' ? 'Never' : status.last_sync}
