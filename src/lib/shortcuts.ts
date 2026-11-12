@@ -26,9 +26,19 @@ export const SHORTCUTS: Shortcut[] = [
     group: 'Global',
   },
   { id: 'search', keys: ['/'], label: 'Search this board', group: 'Global' },
-  { id: 'new-bead', keys: ['C'], label: 'New bead', group: 'Global' },
+  {
+    id: 'new-bead',
+    keys: ['C'],
+    label: 'New bead (Ready: claim row)',
+    group: 'Global',
+  },
   { id: 'shortcuts', keys: ['?'], label: 'Show shortcuts', group: 'Global' },
-  { id: 'close', keys: ['Esc'], label: 'Close', group: 'Global' },
+  {
+    id: 'close',
+    keys: ['Esc'],
+    label: 'Close (List: clear selection)',
+    group: 'Global',
+  },
   {
     id: 'go-board',
     keys: ['G', 'B'],
@@ -70,7 +80,12 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'due', keys: ['D'], label: 'Due date', group: 'Bead' },
   { id: 'relation', keys: ['R'], label: 'Add relation', group: 'Bead' },
   { id: 'edit', keys: ['E'], label: 'Edit', group: 'Bead' },
-  { id: 'close-bead', keys: ['X'], label: 'Close with reason', group: 'Bead' },
+  {
+    id: 'close-bead',
+    keys: ['X'],
+    label: 'Close with reason (List: select row)',
+    group: 'Bead',
+  },
 ]
 
 export interface KeyboardEventLike {
