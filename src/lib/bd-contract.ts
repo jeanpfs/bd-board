@@ -1,6 +1,11 @@
 import type { RelationKind, RemovableRelationKind } from './relations.ts'
 import type { TailEventsResult } from './events.ts'
 import type {
+  LinearStatus,
+  LinearSyncOptions,
+  LinearSyncResult,
+} from './linear.ts'
+import type {
   Bead,
   BeadDetail,
   BeadUpdate,
@@ -45,6 +50,13 @@ export interface BdAdapter {
   getConfig: (projectId: string, key: string) => Promise<string>
   /** `bd config set <key> <value>`; an empty value clears the key. */
   setConfig: (projectId: string, key: string, value: string) => Promise<void>
+  /** `bd linear status --json`: connection state and sync counts, no credentials. */
+  linearStatus: (projectId: string) => Promise<LinearStatus>
+  /** `bd linear sync` with the given direction and flags; output is returned even on failure. */
+  linearSync: (
+    projectId: string,
+    opts: LinearSyncOptions,
+  ) => Promise<LinearSyncResult>
   /** Raw `bd ready --explain --json`; shape it with `parseReadyExplain`. */
   readyExplain: (projectId: string) => Promise<ReadyExplain>
   /** `bd dep add`, `bd dep relate`, `bd duplicate` or `bd supersede` from `id` to `target`. */

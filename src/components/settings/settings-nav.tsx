@@ -7,6 +7,7 @@ export const SETTINGS_SECTIONS = [
   'general',
   'statuses',
   'agents',
+  'integrations',
   'danger',
 ] as const
 
@@ -16,6 +17,7 @@ const LABEL: Record<SettingsSection, string> = {
   general: 'General',
   statuses: 'Statuses',
   agents: 'Agents & pools',
+  integrations: 'Integrations',
   danger: 'Danger zone',
 }
 

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { AgentsPoolsSection } from '@/components/settings/agents-pools-section'
+import { IntegrationsSection } from '@/components/settings/integrations-section'
 import { DangerSection } from '@/components/settings/danger-section'
 import { GeneralSection } from '@/components/settings/general-section'
 import { SettingsNav } from '@/components/settings/settings-nav'
@@ -43,6 +44,9 @@ export function SettingsPage({ project, section }: SettingsPageProps) {
         {shown === 'general' ? <GeneralSection project={found} /> : null}
         {shown === 'statuses' ? <StatusesSection project={project} /> : null}
         {shown === 'agents' ? <AgentsPoolsSection project={project} /> : null}
+        {shown === 'integrations' ? (
+          <IntegrationsSection project={project} />
+        ) : null}
         {shown === 'danger' ? (
           <DangerSection projectId={project} projectName={found.name} />
         ) : null}

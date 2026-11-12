@@ -1518,7 +1518,14 @@ fn build_unclaim_args(id: &str, force: bool, actor: Option<&str>) -> Result<Vec<
     Ok(args)
 }
 
-const CONFIG_KEYS: [&str; 3] = ["claim.pools", "status.custom", "events-journal"];
+const CONFIG_KEYS: [&str; 6] = [
+    "claim.pools",
+    "status.custom",
+    "events-journal",
+    "linear.api_key",
+    "linear.team_id",
+    "linear.project_id",
+];
 const CUSTOM_STATUS_CATEGORIES: [&str; 4] = ["active", "wip", "done", "frozen"];
 
 /// The config keys the board may read or write; anything else is refused.
@@ -1540,6 +1547,14 @@ fn is_pool_name(name: &str) -> bool {
     let mut chars = name.chars();
     matches!(chars.next(), Some(c) if c.is_ascii_alphanumeric())
         && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '@' | '-'))
+}
+
+/// Linear team and project ids: a conservative charset, at most 128 characters.
+fn is_linear_id(id: &str) -> bool {
+    let mut chars = id.chars();
+    id.len() <= 128
+        && matches!(chars.next(), Some(c) if c.is_ascii_alphanumeric())
+        && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
 }
 
 /// `name` or `name:category`; a bare name is filed as `active`, bd's default.
@@ -1576,6 +1591,12 @@ fn validate_config_value(key: &str, value: &str) -> Result<(), String> {
                 Err("claim.pools names are invalid".to_string())
             }
         }
+        "linear.api_key" if value.chars().any(char::is_whitespace) => {
+            Err("linear.api_key must not contain whitespace".to_string())
+        }
+        "linear.team_id" | "linear.project_id" if !value.is_empty() && !is_linear_id(value) => {
+            Err(format!("{key} is invalid"))
+        }
         _ => Ok(()),
     }
 }
@@ -1594,6 +1615,9 @@ fn build_set_config_args(key: &str, value: &str) -> Result<Vec<String>, String> 
 
 fn build_get_config_args(key: &str) -> Result<Vec<String>, String> {
     validate_config_key(key)?;
+    if key == "linear.api_key" {
+        return Err("linear.api_key is write-only".to_string());
+    }
     Ok(vec![
         "config".to_string(),
         "get".to_string(),
@@ -1919,6 +1943,54 @@ fn ready_explain_inner(project_id: &str) -> Result<Value, String> {
     bd_json(&dir, build_ready_explain_args())
 }
 
+fn build_linear_sync_args(
+    direction: &str,
+    relations: bool,
+    dry_run: bool,
+) -> Result<Vec<String>, String> {
+    let mut args = vec!["linear".to_string(), "sync".to_string()];
+    match direction {
+        "pull" => args.push("--pull".to_string()),
+        "push" => args.push("--push".to_string()),
+        "both" => {}
+        _ => return Err("linear direction is not allowed".to_string()),
+    }
+    if relations {
+        args.push("--relations".to_string());
+    }
+    if dry_run {
+        args.push("--dry-run".to_string());
+    }
+    Ok(args)
+}
+
+fn linear_status_inner(project_id: &str) -> Result<Value, String> {
+    let dir = resolve_dir(project_id)?;
+    bd_json(&dir, &["linear", "status", "--json"])
+}
+
+/// Runs `bd linear sync`; a non-zero exit is returned with its output, not as an error.
+fn linear_sync_inner(
+    project_id: &str,
+    direction: &str,
+    relations: bool,
+    dry_run: bool,
+) -> Result<Value, String> {
+    let dir = resolve_dir(project_id)?;
+    let args = build_linear_sync_args(direction, relations, dry_run)?;
+    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    let capture = exec_bd(&dir, &refs)?;
+    let output = [capture.stdout.trim(), capture.stderr.trim()]
+        .into_iter()
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
+    Ok(serde_json::json!({
+        "output": output,
+        "exitCode": capture.status.code().unwrap_or(-1),
+    }))
+}
+
 fn add_relation_inner(project_id: &str, id: &str, kind: &str, target: &str) -> Result<(), String> {
     let dir = resolve_dir(project_id)?;
     run_bd_mut(&dir, &build_add_relation_args(kind, id, target)?).map(|_| ())
@@ -2081,6 +2153,21 @@ pub fn get_config(project_id: String, key: String) -> Result<String, String> {
 #[tauri::command]
 pub fn ready_explain(project_id: String) -> Result<Value, String> {
     ready_explain_inner(&project_id)
+}
+
+#[tauri::command]
+pub fn linear_status(project_id: String) -> Result<Value, String> {
+    linear_status_inner(&project_id)
+}
+
+#[tauri::command]
+pub fn linear_sync(
+    project_id: String,
+    direction: String,
+    relations: bool,
+    dry_run: bool,
+) -> Result<Value, String> {
+    linear_sync_inner(&project_id, &direction, relations, dry_run)
 }
 
 #[tauri::command]
@@ -2371,6 +2458,56 @@ mod tests {
     #[test]
     fn set_config_args_rejects_flag_like_key() {
         assert!(build_set_config_args("--force", "x").is_err());
+    }
+
+    #[test]
+    fn linear_sync_args_cover_each_direction_and_flags() {
+        assert_eq!(
+            build_linear_sync_args("both", false, false).unwrap(),
+            vec!["linear", "sync"]
+        );
+        assert_eq!(
+            build_linear_sync_args("pull", false, false).unwrap(),
+            vec!["linear", "sync", "--pull"]
+        );
+        assert_eq!(
+            build_linear_sync_args("push", true, false).unwrap(),
+            vec!["linear", "sync", "--push", "--relations"]
+        );
+        assert_eq!(
+            build_linear_sync_args("both", true, true).unwrap(),
+            vec!["linear", "sync", "--relations", "--dry-run"]
+        );
+    }
+
+    #[test]
+    fn linear_sync_args_reject_unknown_direction() {
+        assert!(build_linear_sync_args("sideways", false, false).is_err());
+    }
+
+    #[test]
+    fn get_config_refuses_linear_api_key() {
+        assert!(build_get_config_args("linear.api_key").is_err());
+        assert!(build_get_config_args("linear.team_id").is_ok());
+    }
+
+    #[test]
+    fn linear_api_key_rejects_whitespace_and_newlines() {
+        assert!(build_set_config_args("linear.api_key", "lin api").is_err());
+        assert!(build_set_config_args("linear.api_key", "lin\nkey").is_err());
+        assert!(build_set_config_args("linear.api_key", "-lin").is_err());
+        assert!(build_set_config_args("linear.api_key", "lin_api_abc").is_ok());
+        assert!(build_set_config_args("linear.api_key", "").is_ok());
+    }
+
+    #[test]
+    fn linear_ids_use_conservative_charset() {
+        assert!(build_set_config_args("linear.team_id", "BIL").is_ok());
+        assert!(build_set_config_args("linear.project_id", "f1e2-d3c4.b5_a6").is_ok());
+        assert!(build_set_config_args("linear.team_id", "a b").is_err());
+        assert!(build_set_config_args("linear.team_id", "-BIL").is_err());
+        assert!(build_set_config_args("linear.project_id", "a/b").is_err());
+        assert!(build_set_config_args("linear.team_id", "").is_ok());
     }
 
     #[test]

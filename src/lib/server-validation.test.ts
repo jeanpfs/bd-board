@@ -5,7 +5,9 @@ import {
   parseClaimInput,
   parseCommentInput,
   parseConfigKeyInput,
+  parseGetConfigInput,
   parseSetConfigInput,
+  parseLinearSyncInput,
   parseCreateBeadInput,
   parseDeferInput,
   parseProjectInput,
@@ -419,6 +421,103 @@ describe('set config input', () => {
     expect(() =>
       parseSetConfigInput({ project: 'p', key: 'daemon.port', value: '1' }),
     ).toThrow('Config key is not allowed')
+  })
+})
+
+describe('linear config input', () => {
+  it('accepts an api key without whitespace and clearing with empty', () => {
+    expect(
+      parseSetConfigInput({
+        project: 'p',
+        key: 'linear.api_key',
+        value: 'lin_api_abc123',
+      }).value,
+    ).toBe('lin_api_abc123')
+    expect(
+      parseSetConfigInput({ project: 'p', key: 'linear.api_key', value: '' })
+        .value,
+    ).toBe('')
+  })
+
+  it('rejects api keys with whitespace, newlines or a leading dash', () => {
+    for (const value of ['lin api', 'lin_api_abc\n', 'a\tb', ' lin', '-lin']) {
+      expect(() =>
+        parseSetConfigInput({ project: 'p', key: 'linear.api_key', value }),
+      ).toThrow()
+    }
+  })
+
+  it('accepts conservative team and project ids and rejects unsafe ones', () => {
+    expect(
+      parseSetConfigInput({ project: 'p', key: 'linear.team_id', value: 'BIL' })
+        .value,
+    ).toBe('BIL')
+    expect(
+      parseSetConfigInput({
+        project: 'p',
+        key: 'linear.project_id',
+        value: 'f1e2-d3c4.b5_a6',
+      }).value,
+    ).toBe('f1e2-d3c4.b5_a6')
+    for (const value of ['a b', '-BIL', 'a/b', 'a\nb', '.hidden']) {
+      expect(() =>
+        parseSetConfigInput({ project: 'p', key: 'linear.team_id', value }),
+      ).toThrow()
+    }
+  })
+
+  it('refuses to read the api key back', () => {
+    expect(() =>
+      parseGetConfigInput({ project: 'p', key: 'linear.api_key' }),
+    ).toThrow('linear.api_key is write-only')
+    expect(
+      parseGetConfigInput({ project: 'p', key: 'linear.team_id' }).key,
+    ).toBe('linear.team_id')
+  })
+})
+
+describe('linear sync input', () => {
+  it('accepts each direction with boolean flags', () => {
+    expect(
+      parseLinearSyncInput({
+        project: 'p',
+        direction: 'pull',
+        relations: true,
+        dryRun: false,
+      }),
+    ).toEqual({
+      project: 'p',
+      direction: 'pull',
+      relations: true,
+      dryRun: false,
+    })
+    expect(
+      parseLinearSyncInput({
+        project: 'p',
+        direction: 'both',
+        relations: false,
+        dryRun: true,
+      }).direction,
+    ).toBe('both')
+  })
+
+  it('rejects unknown directions and non-boolean flags', () => {
+    expect(() =>
+      parseLinearSyncInput({
+        project: 'p',
+        direction: 'sideways',
+        relations: false,
+        dryRun: false,
+      }),
+    ).toThrow()
+    expect(() =>
+      parseLinearSyncInput({
+        project: 'p',
+        direction: 'pull',
+        relations: 'yes',
+        dryRun: false,
+      }),
+    ).toThrow()
   })
 })
 

@@ -194,9 +194,13 @@ const CONFIG_KEYS: Record<string, true> = {
   'claim.pools': true,
   'status.custom': true,
   'events-journal': true,
+  'linear.api_key': true,
+  'linear.team_id': true,
+  'linear.project_id': true,
 }
 
 const POOL_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._@-]*$/
+const LINEAR_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
 
 /** Validates a value for an allowlisted key before bd sees it. */
 export function parseSetConfigInput(input: unknown): {
@@ -224,7 +228,56 @@ export function parseSetConfigInput(input: unknown): {
       }
     }
   }
+  if (key === 'linear.api_key' && (/\s/.test(value) || value.startsWith('-'))) {
+    throw new Error(
+      'linear.api_key must not contain whitespace or start with -',
+    )
+  }
+  if (
+    (key === 'linear.team_id' || key === 'linear.project_id') &&
+    value !== '' &&
+    !LINEAR_ID_RE.test(value)
+  ) {
+    throw new Error(`${key} is invalid`)
+  }
   return { project, key, value }
+}
+
+/** Reads a config key; the Linear API key is write-only and never returned. */
+export function parseGetConfigInput(input: unknown): {
+  project: string
+  key: string
+} {
+  const parsed = parseConfigKeyInput(input)
+  if (parsed.key === 'linear.api_key') {
+    throw new Error('linear.api_key is write-only')
+  }
+  return parsed
+}
+
+/** Validates `bd linear sync` options from the Integrations form. */
+export function parseLinearSyncInput(input: unknown): {
+  project: string
+  direction: 'pull' | 'push' | 'both'
+  relations: boolean
+  dryRun: boolean
+} {
+  const data = record(input)
+  const direction = data['direction']
+  const relations = data['relations']
+  const dryRun = data['dryRun']
+  if (direction !== 'pull' && direction !== 'push' && direction !== 'both') {
+    throw new Error('Linear direction is not allowed')
+  }
+  if (typeof relations !== 'boolean' || typeof dryRun !== 'boolean') {
+    throw new Error('Linear sync flags must be booleans')
+  }
+  return {
+    project: requiredString(data, 'project', PROJECT_RE, 'Project'),
+    direction,
+    relations,
+    dryRun,
+  }
 }
 
 export function parseConfigKeyInput(input: unknown): {

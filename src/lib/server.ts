@@ -1,5 +1,7 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core'
 import type { RelationKind, RemovableRelationKind } from './relations.ts'
+import { parseLinearStatus } from './linear.ts'
+import type { LinearStatus, LinearSyncResult } from './linear.ts'
 import { createServerFn } from '@tanstack/react-start'
 
 import { bdAdapter } from './bd.ts'
@@ -8,17 +10,18 @@ import {
   parseRemoveRelationInput,
   parseBeadInput,
   parseClaimInput,
-  parseConfigKeyInput,
-  parseSetConfigInput,
   parseUnclaimInput,
   parseCloseBeadInput,
   parseCommentInput,
   parseCreateBeadInput,
   parseDeferInput,
   parseProjectInput,
+  parseSetConfigInput,
   parseStatusUpdateInput,
   parseTailEventsInput,
   parseUpdateBeadInput,
+  parseGetConfigInput,
+  parseLinearSyncInput,
 } from './server-validation.ts'
 import { parseReadyExplain } from './ready.ts'
 import { tailResult } from './events.ts'
@@ -106,7 +109,7 @@ const webUnclaimBead = createServerFn({ method: 'POST' })
   })
 
 const webGetConfig = createServerFn({ method: 'POST' })
-  .validator(parseConfigKeyInput)
+  .validator(parseGetConfigInput)
   .handler(async ({ data }) => bdAdapter.getConfig(data.project, data.key))
 
 const webSetConfig = createServerFn({ method: 'POST' })
@@ -115,6 +118,20 @@ const webSetConfig = createServerFn({ method: 'POST' })
     await bdAdapter.setConfig(data.project, data.key, data.value)
     return { ok: true as const }
   })
+
+const webLinearStatus = createServerFn({ method: 'POST' })
+  .validator(parseProjectInput)
+  .handler(async ({ data }) => bdAdapter.linearStatus(data.project))
+
+const webLinearSync = createServerFn({ method: 'POST' })
+  .validator(parseLinearSyncInput)
+  .handler(async ({ data }) =>
+    bdAdapter.linearSync(data.project, {
+      direction: data.direction,
+      relations: data.relations,
+      dryRun: data.dryRun,
+    }),
+  )
 
 const webReadyExplain = createServerFn({ method: 'POST' })
   .validator(parseProjectInput)
@@ -377,6 +394,41 @@ export async function setConfigFn({
     return { ok: true }
   }
   return webSetConfig({ data: checked })
+}
+
+export async function linearStatusFn({
+  data,
+}: {
+  data: { project: string }
+}): Promise<LinearStatus> {
+  if (isDesktopApp()) {
+    return parseLinearStatus(
+      await invoke<unknown>('linear_status', { projectId: data.project }),
+    )
+  }
+  return webLinearStatus({ data })
+}
+
+export async function linearSyncFn({
+  data,
+}: {
+  data: {
+    project: string
+    direction: 'pull' | 'push' | 'both'
+    relations: boolean
+    dryRun: boolean
+  }
+}): Promise<LinearSyncResult> {
+  const checked = parseLinearSyncInput(data)
+  if (isDesktopApp()) {
+    return invoke<LinearSyncResult>('linear_sync', {
+      projectId: checked.project,
+      direction: checked.direction,
+      relations: checked.relations,
+      dryRun: checked.dryRun,
+    })
+  }
+  return webLinearSync({ data: checked })
 }
 
 export async function readyExplainFn({

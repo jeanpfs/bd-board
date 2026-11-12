@@ -31,6 +31,12 @@ import { migrationGateError, parseMigrationGate } from './migration-gate.ts'
 import type { MigrationGate } from './migration-gate.ts'
 import { JOURNAL_DISABLED_MARKER, tailArgs, tailResult } from './events.ts'
 import type { TailEventsResult } from './events.ts'
+import { buildLinearSyncArgs, parseLinearStatus } from './linear.ts'
+import type {
+  LinearStatus,
+  LinearSyncOptions,
+  LinearSyncResult,
+} from './linear.ts'
 
 const execFileAsync = promisify(execFile)
 
@@ -1091,6 +1097,28 @@ async function getConfig(projectId: string, key: string): Promise<string> {
   return typeof out.value === 'string' ? out.value : ''
 }
 
+/** `bd linear status --json`: connection state and sync counts, no credentials. */
+async function linearStatus(projectId: string): Promise<LinearStatus> {
+  const dir = await resolveDir(projectId)
+  return parseLinearStatus(
+    await bdJson<unknown>(dir, ['linear', 'status', '--json']),
+  )
+}
+
+/** `bd linear sync`; a non-zero exit is returned with its output, not thrown. */
+async function linearSync(
+  projectId: string,
+  opts: LinearSyncOptions,
+): Promise<LinearSyncResult> {
+  const dir = await resolveDir(projectId)
+  const result = await bdExec(dir, buildLinearSyncArgs(opts))
+  const output = [result.stdout, result.stderr]
+    .map((part) => part.trim())
+    .filter((part) => part !== '')
+    .join('\n')
+  return { output, exitCode: result.code }
+}
+
 /** `bd ready --explain --json`, shaped for the Ready view. */
 async function readyExplain(projectId: string): Promise<ReadyExplain> {
   const dir = await resolveDir(projectId)
@@ -1173,6 +1201,8 @@ export const bdAdapter: BdAdapter = {
   unclaimBead,
   getConfig,
   setConfig,
+  linearStatus,
+  linearSync,
   updateBead,
   deferBead,
   undeferBead,
@@ -1209,6 +1239,8 @@ export {
   unclaimBead,
   getConfig,
   setConfig,
+  linearStatus,
+  linearSync,
   previewDeleteBead,
   deleteBead,
   buildPreviewDeleteBeadArgs,

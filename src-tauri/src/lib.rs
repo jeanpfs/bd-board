@@ -68,6 +68,8 @@ pub fn run() {
             desktop::get_config,
             desktop::set_config,
             desktop::ready_explain,
+            desktop::linear_status,
+            desktop::linear_sync,
             desktop::add_relation,
             desktop::remove_relation,
             desktop::defer_bead,
