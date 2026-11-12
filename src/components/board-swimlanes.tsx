@@ -375,11 +375,12 @@ export function BoardSwimlanes({
     )
   }
 
+  // The column titles sit outside the scrolling area, so nothing that scrolls
+  // can paint over or above them (a sticky header leaked cards in WKWebView).
+  // Both grids reserve the same scrollbar gutter to keep the columns aligned.
   return (
-    // No elastic overscroll: macOS WebKit drags the sticky header along with
-    // the bounce, so cards showed above the column titles.
-    <div className="min-h-0 flex-1 overflow-y-auto overscroll-none pb-2">
-      <div className="sticky top-0 z-10 grid grid-cols-1 gap-3 bg-background pt-3 pb-2.5 md:grid-cols-2 xl:grid-cols-4">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="grid grid-cols-1 gap-3 overflow-hidden pt-3 pb-2.5 [scrollbar-gutter:stable] md:grid-cols-2 xl:grid-cols-4">
         {COLUMN_KEYS.map((key) => (
           <StatusColumnHeader
             key={key}
@@ -390,19 +391,21 @@ export function BoardSwimlanes({
         ))}
       </div>
 
-      <div className="flex flex-col gap-3.5">
-        {lanes.map((lane) => (
-          <SwimLane
-            key={lane.key}
-            epic={lane.epic}
-            title={lane.title}
-            childBeads={lane.children}
-            sort={sort}
-            nested={nested}
-            onOpen={onOpen}
-            applyDrop={applyDrop}
-          />
-        ))}
+      <div className="min-h-0 flex-1 overflow-y-auto pb-2 [scrollbar-gutter:stable]">
+        <div className="flex flex-col gap-3.5">
+          {lanes.map((lane) => (
+            <SwimLane
+              key={lane.key}
+              epic={lane.epic}
+              title={lane.title}
+              childBeads={lane.children}
+              sort={sort}
+              nested={nested}
+              onOpen={onOpen}
+              applyDrop={applyDrop}
+            />
+          ))}
+        </div>
       </div>
     </div>
   )

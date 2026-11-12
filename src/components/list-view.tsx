@@ -174,7 +174,7 @@ export function ListView({
           role="table"
           aria-label="Beads"
           className={cn(
-            'min-h-0 flex-1 overflow-auto overscroll-none rounded-lg ring-1 ring-border',
+            'min-h-0 flex-1 overflow-auto rounded-lg ring-1 ring-border',
             className,
           )}
         >
