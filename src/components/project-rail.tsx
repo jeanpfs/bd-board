@@ -334,7 +334,11 @@ export function ProjectRail() {
                   params={{ project }}
                   search={{ tab: item.key }}
                   icon={item.icon}
-                  active={!pathname.endsWith('/settings') && tab === item.key}
+                  active={
+                    !pathname.endsWith('/settings') &&
+                    (tab === item.key ||
+                      (item.key === 'overview' && tab === 'insights'))
+                  }
                   collapsed={collapsed}
                 >
                   {item.label}

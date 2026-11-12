@@ -40,6 +40,7 @@ export type ProjectTab =
   | 'agents'
   | 'hierarchy'
   | 'view'
+  | 'insights'
 
 interface BoardHeaderProps {
   search: string

@@ -18,6 +18,7 @@ import {
   parseProjectInput,
   parseSetConfigInput,
   parseStatusUpdateInput,
+  parseStaleInput,
   parseTailEventsInput,
   parseUpdateBeadInput,
   parseGetConfigInput,
@@ -110,6 +111,10 @@ const webClaimBead = createServerFn({ method: 'POST' })
 const webListGates = createServerFn({ method: 'POST' })
   .validator(parseProjectInput)
   .handler(async ({ data }) => bdAdapter.listGates(data.project))
+
+const webStaleBeads = createServerFn({ method: 'POST' })
+  .validator(parseStaleInput)
+  .handler(async ({ data }) => bdAdapter.staleBeads(data.project, data.days))
 
 const webResolveGate = createServerFn({ method: 'POST' })
   .validator(parseBeadInput)
@@ -397,6 +402,20 @@ export async function listGatesFn({
     return invoke<Bead[]>('list_gates', { projectId: data.project })
   }
   return webListGates({ data })
+}
+
+export async function staleBeadsFn({
+  data,
+}: {
+  data: { project: string; days: number }
+}): Promise<Bead[]> {
+  if (isDesktopApp()) {
+    return invoke<Bead[]>('stale_beads', {
+      projectId: data.project,
+      days: data.days,
+    })
+  }
+  return webStaleBeads({ data })
 }
 
 export async function resolveGateFn({

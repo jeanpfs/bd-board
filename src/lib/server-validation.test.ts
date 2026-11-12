@@ -16,6 +16,7 @@ import {
   parseProjectInput,
   parseRelationInput,
   parseRemoveRelationInput,
+  parseStaleInput,
   parseStatusUpdateInput,
   parseTailEventsInput,
   parseUnclaimInput,
@@ -577,6 +578,27 @@ describe('events tail input', () => {
     expect(() =>
       parseTailEventsInput({ project: 'bd_board', since: 0, limit: 1001 }),
     ).toThrow()
+  })
+})
+
+describe('stale input', () => {
+  it('accepts a project and a day count from 1 to 365', () => {
+    expect(parseStaleInput({ project: 'bd_board', days: 10 })).toEqual({
+      project: 'bd_board',
+      days: 10,
+    })
+    expect(parseStaleInput({ project: 'bd_board', days: 365 })).toEqual({
+      project: 'bd_board',
+      days: 365,
+    })
+  })
+
+  it('rejects zero, negative, fractional and oversized day counts', () => {
+    for (const days of [0, -1, 1.5, 366]) {
+      expect(() => parseStaleInput({ project: 'bd_board', days })).toThrow(
+        'days must be a whole number from 1 to 365',
+      )
+    }
   })
 })
 

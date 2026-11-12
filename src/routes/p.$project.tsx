@@ -36,6 +36,8 @@ import { KnowledgeDetailModal } from '@/components/knowledge-detail-modal'
 import { CreateBeadDialog } from '@/components/create-bead-dialog'
 import { ProjectKnowledgePanel } from '@/components/project-knowledge-panel'
 import { AgentsView } from '@/components/agents-view'
+import { InsightsView } from '@/components/insights-view'
+import type { InsightsWeeks } from '@/components/insights-view'
 import { ViewPage } from '@/components/view-editor'
 import { LiveUpdatesIndicator } from '@/components/live-updates-indicator'
 import { Button } from '@/components/ui/button'
@@ -85,6 +87,7 @@ interface BoardSearch {
   due?: 'week' | 'overdue'
   snoozed?: '1'
   new?: '1'
+  range?: '4' | '8' | '13'
 }
 
 const BOARD_VIEWS = new Set(['status', 'epic', 'priority', 'list', 'timeline'])
@@ -105,6 +108,7 @@ const PROJECT_TABS = new Set([
   'agents',
   'hierarchy',
   'view',
+  'insights',
 ])
 const SORT_KEYS = new Set(['priority', 'recent', 'title'])
 
@@ -170,6 +174,10 @@ export const Route = createFileRoute('/p/$project')({
         ? search.due
         : undefined,
     snoozed: search.snoozed === '1' ? '1' : undefined,
+    range:
+      search.range === '4' || search.range === '8' || search.range === '13'
+        ? search.range
+        : undefined,
   }),
   component: BoardPage,
 })
@@ -743,6 +751,16 @@ function BoardPage() {
         ) : (
           <BoardSkeleton />
         )
+      ) : tab === 'insights' ? (
+        <InsightsView
+          project={project}
+          weeks={Number(boardSearch.range ?? '8') as InsightsWeeks}
+          beads={beads}
+          onWeeksChange={(weeks) =>
+            patchBoardSearch({ range: String(weeks) as BoardSearch['range'] })
+          }
+          onOpen={openBead}
+        />
       ) : tab === 'agents' ? (
         <AgentsView
           project={project}

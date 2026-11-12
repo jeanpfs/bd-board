@@ -24,6 +24,7 @@ import {
   buildCloseBeadArgs,
   buildCloseManyArgs,
   buildUpdateManyArgs,
+  buildStaleArgs,
   buildReadyExplainArgs,
   buildCountsFromGroups,
   buildDeferBeadArgs,
@@ -623,6 +624,17 @@ describe('claim and ready arguments', () => {
 describe('lease and gate command builders', () => {
   it('lists every gate as JSON', () => {
     expect(buildListGatesArgs()).toEqual(['gate', 'list', '--all', '--json'])
+  })
+
+  it('asks for beads stale for N days as JSON with no row cap', () => {
+    expect(buildStaleArgs(10)).toEqual([
+      'stale',
+      '--days',
+      '10',
+      '--json',
+      '--limit',
+      '0',
+    ])
   })
 
   it('resolves a gate with plain text output', () => {

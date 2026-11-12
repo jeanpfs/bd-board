@@ -137,6 +137,15 @@ export function ProjectOverview({
               <Link
                 to="/p/$project"
                 params={{ project }}
+                search={{ tab: 'insights' }}
+              >
+                Insights
+              </Link>
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <Link
+                to="/p/$project"
+                params={{ project }}
                 search={{ tab: 'board' }}
               >
                 <Columns3 aria-hidden="true" />

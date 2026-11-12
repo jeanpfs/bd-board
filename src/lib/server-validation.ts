@@ -254,6 +254,26 @@ export function parseTailEventsInput(input: unknown): {
   }
 }
 
+export function parseStaleInput(input: unknown): {
+  project: string
+  days: number
+} {
+  const data = record(input)
+  const days = data['days']
+  if (
+    typeof days !== 'number' ||
+    !Number.isInteger(days) ||
+    days < 1 ||
+    days > 365
+  ) {
+    throw new Error('days must be a whole number from 1 to 365')
+  }
+  return {
+    project: requiredString(data, 'project', PROJECT_RE, 'Project'),
+    days,
+  }
+}
+
 export function parseClaimInput(input: unknown): {
   project: string
   id: string

@@ -1487,6 +1487,25 @@ fn build_list_gates_args() -> &'static [&'static str] {
     &["gate", "list", "--all", "--json"]
 }
 
+fn build_stale_args(days: u32) -> Vec<String> {
+    vec![
+        "stale".to_string(),
+        "--days".to_string(),
+        days.to_string(),
+        "--json".to_string(),
+        "--limit".to_string(),
+        "0".to_string(),
+    ]
+}
+
+fn stale_days_checked(days: u32) -> Result<u32, String> {
+    if (1..=365).contains(&days) {
+        Ok(days)
+    } else {
+        Err("days must be a whole number from 1 to 365".to_string())
+    }
+}
+
 fn build_resolve_gate_args(id: &str) -> Vec<String> {
     vec!["gate".to_string(), "resolve".to_string(), id.to_string()]
 }
@@ -2038,6 +2057,22 @@ fn list_gates_inner(project_id: &str) -> Result<Vec<Bead>, String> {
         .collect())
 }
 
+fn stale_beads_inner(project_id: &str, days: u32) -> Result<Vec<Bead>, String> {
+    let days = stale_days_checked(days)?;
+    let dir = resolve_dir(project_id)?;
+    let owned = build_stale_args(days);
+    let args: Vec<&str> = owned.iter().map(String::as_str).collect();
+    let raw = bd_json(&dir, &args)?;
+    let categories = status_categories(&dir);
+    Ok(raw
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|value| map_bead(&value, &categories))
+        .collect())
+}
+
 fn resolve_gate_inner(project_id: &str, id: &str) -> Result<(), String> {
     let dir = resolve_dir(project_id)?;
     run_bd_mut(&dir, &build_resolve_gate_args(id)).map(|_| ())
@@ -2373,6 +2408,11 @@ pub fn claim_bead(project_id: String, id: String, actor: Option<String>) -> Resu
 #[tauri::command]
 pub fn list_gates(project_id: String) -> Result<Vec<Bead>, String> {
     list_gates_inner(&project_id)
+}
+
+#[tauri::command]
+pub fn stale_beads(project_id: String, days: u32) -> Result<Vec<Bead>, String> {
+    stale_beads_inner(&project_id, days)
 }
 
 #[tauri::command]
@@ -2717,6 +2757,22 @@ pub fn relocate_project(id: String, path: String) -> Result<RegistryEntry, Strin
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn stale_args_ask_for_json_with_no_row_cap() {
+        assert_eq!(
+            build_stale_args(10),
+            vec!["stale", "--days", "10", "--json", "--limit", "0"]
+        );
+    }
+
+    #[test]
+    fn stale_days_must_be_one_to_365() {
+        assert!(stale_days_checked(0).is_err());
+        assert!(stale_days_checked(1).is_ok());
+        assert!(stale_days_checked(365).is_ok());
+        assert!(stale_days_checked(366).is_err());
+    }
 
     #[test]
     fn set_config_args_writes_value_and_keeps_empty_value() {

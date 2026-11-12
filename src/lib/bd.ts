@@ -1039,6 +1039,11 @@ export function buildReadyExplainArgs(): string[] {
   return ['ready', '--explain', '--json', '--limit', '0']
 }
 
+/** Beads not updated for at least `days` days; `--days` must be 1 or more. */
+export function buildStaleArgs(days: number): string[] {
+  return ['stale', '--days', String(days), '--json', '--limit', '0']
+}
+
 async function claimBead(
   projectId: string,
   id: string,
@@ -1080,6 +1085,15 @@ async function listGates(projectId: string): Promise<Bead[]> {
   const dir = await resolveDir(projectId)
   const raw = asRows(await bdJson<unknown>(dir, buildListGatesArgs()))
   return raw.map((row) => mapRawBead(row))
+}
+
+async function staleBeads(projectId: string, days: number): Promise<Bead[]> {
+  const dir = await resolveDir(projectId)
+  const [raw, categories] = await Promise.all([
+    bdJson<unknown>(dir, buildStaleArgs(days)).then(asRows),
+    statusCategories(dir),
+  ])
+  return raw.map((row) => mapRawBead(row, categories))
 }
 
 async function resolveGate(projectId: string, id: string): Promise<void> {
@@ -1321,6 +1335,7 @@ export const bdAdapter: BdAdapter = {
   addRelation,
   removeRelation,
   listGates,
+  staleBeads,
   resolveGate,
   reclaimBead,
   unclaimBead,
@@ -1369,6 +1384,7 @@ export {
   deferBead,
   undeferBead,
   listGates,
+  staleBeads,
   resolveGate,
   reclaimBead,
   unclaimBead,
