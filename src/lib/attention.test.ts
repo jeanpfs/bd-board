@@ -84,6 +84,18 @@ describe('attentionList', () => {
     ])
   })
 
+  it('does not raise a snoozed (deferred) overdue bead as overdue', () => {
+    const dueYesterday = new Date(NOW - 86_400_000).toISOString()
+    const list = attentionList(
+      [
+        bead({ id: 'snoozed', status: 'deferred', due_at: dueYesterday }),
+        bead({ id: 'late', due_at: dueYesterday }),
+      ],
+      NOW,
+    )
+    expect(list.map((a) => [a.bead.id, a.kind])).toEqual([['late', 'overdue']])
+  })
+
   it('counts an in-progress bead as stale from exactly STALE_DAYS', () => {
     const ids = (n: number) =>
       attentionList(

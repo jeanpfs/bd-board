@@ -166,6 +166,12 @@ describe('isOverdue and isDueThisWeek', () => {
     )
   })
 
+  it('never counts a snoozed (deferred) bead as overdue', () => {
+    expect(isOverdue(bead({ due_at: due(1), status: 'deferred' }), now)).toBe(
+      false,
+    )
+  })
+
   it('covers today through six days ahead, seven local days, and excludes overdue', () => {
     expect(isDueThisWeek(bead({ due_at: due(11, 0) }), now)).toBe(true)
     expect(isDueThisWeek(bead({ due_at: due(17, 23) }), now)).toBe(true)

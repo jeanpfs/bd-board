@@ -54,9 +54,10 @@ export function dueState(dueAt: string, now: Date): DueState {
   return { kind: 'later', label: format(due, 'MMM d') }
 }
 
-/** Open bead whose due day is before today's local calendar day. */
+/** Open, non-snoozed bead whose due day is before today's local calendar day. */
 export function isOverdue(b: Bead, now: Date): boolean {
-  if (!b.due_at || mapStatus(b).column === 'closed') return false
+  if (!b.due_at || b.status === 'deferred') return false
+  if (mapStatus(b).column === 'closed') return false
   return dueState(b.due_at, now).kind === 'overdue'
 }
 
