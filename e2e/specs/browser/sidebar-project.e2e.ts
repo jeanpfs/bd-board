@@ -46,6 +46,7 @@ describe('sidebar collapse inside a project', () => {
       'Board',
       'Hierarchy',
       'Knowledge',
+      'Agents',
     ])
     expect(rows[0]).toEqual({
       title: 'Overview',

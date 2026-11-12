@@ -14,6 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Custom statuses (`bd config set status.custom "in_review:wip,…"`) land in the column of their bd category (active → Open, wip → In progress, done → Closed, frozen → Open as deferred) with a badge naming the status, and dashboard counts follow the same rule. Previously they all showed as plain Open beads.
 - Design-system foundations in `src/styles.css`: type roles (`text-badge` 11px floor, `text-body` 13px, `text-title` 18px, `text-metric` 26px, alongside Tailwind's `text-xs`/`text-sm`), a six-color project palette (`bg-project-1…6`, white initials ≥ 4.5:1) and layout spacing (`min-h-row`, `gap-section`, `px-page`, `w-rail`). New components: `Kbd`, `HoverCard` (shadcn, wired to `@/lib/utils`) and `ProjectChip`.
 - **Project Overview** is the new landing view of a project: a one-line summary (open · in progress · closed this week), **Needs attention** (open P0s, blocked beads, in-progress beads with no update for 7+ days), epic progress, ready to pick up, in progress with assignees, and the latest decisions and learnings from Knowledge.
+- Due dates, estimates and snooze (defer until a date) on beads, with overdue and due-soon indicators and a "due this week" board filter.
+- Label chips with autocomplete in the bead detail.
+- Relations editor in the bead detail: add and remove blocks, blocked by, related, duplicates and supersedes links.
+- Command palette (`Cmd/Ctrl+K`) to jump to beads, projects, views and actions.
+- Keyboard shortcuts for board navigation and bead editing, with a `?` help dialog.
+- Ready view with a Claim action, using `bd ready --explain`.
+- Agents panel with leases, heartbeats, human gates (reclaim and resolve) and agent pools.
+- Inbox and My work screens built from the bd events journal.
+- Project settings: general, custom statuses, agent pools and integrations.
+- Linear integration settings (team, API key, direction, mappings).
+- Saved views (project and personal) with filter, grouping and sort.
+- List view with grouping and bulk actions.
+- Epics timeline.
+- Insights screen with throughput, cycle time and burn-up.
 
 ### Changed
 
@@ -27,6 +41,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Projects with more than 50 beads were truncated; the board now lists every bead (`--limit 0`).
+- The desktop app never built bead links, so blockers and related beads on cards and the Ready view were wrong; it now derives them like the web runtime.
+- Web bead edits (title, description, labels, due, estimate) failed with "No bead updates provided".
+- Deferred (snoozed) beads were counted as ready.
 - Changing status from the bead detail panel no longer fails silently; errors show a toast.
 - bd errors reported as JSON on stderr are shown as their message instead of raw JSON.
 - Project actions menu (⋮) on dashboard cards and in the sidebar now opens. The trigger sat inside the project link and called `preventDefault()`, which Radix treats as "don't toggle"; it now renders beside the link. Dashboard cards for missing or broken projects also get the menu, so the path can be fixed or the project removed.
