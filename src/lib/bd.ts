@@ -105,21 +105,49 @@ export function bdErrorMessage(
   return `bd exited with status ${exitCode}`
 }
 
-/** `BD_BOARD_TIMING=1` logs every bd call with its duration to stderr. */
+/** `BD_BOARD_TIMING=1` logs every bd call with its queue wait and run time to stderr. */
 const TIMING = process.env.BD_BOARD_TIMING === '1'
 
-export async function bdExec(
+/**
+ * One bd process per project at a time. bd's embedded Dolt locks the
+ * database, so concurrent calls on one project contend and finish later in
+ * total than the same calls run in turn; different projects still run in
+ * parallel.
+ */
+const dirQueues = new Map<string, Promise<void>>()
+
+export function inTurn<T>(dir: string, run: () => Promise<T>): Promise<T> {
+  const previous = dirQueues.get(dir) ?? Promise.resolve()
+  const result = previous.then(run)
+  const tail = result.then(
+    () => undefined,
+    () => undefined,
+  )
+  dirQueues.set(dir, tail)
+  void tail.then(() => {
+    if (dirQueues.get(dir) === tail) dirQueues.delete(dir)
+  })
+  return result
+}
+
+export function bdExec(
   dir: string,
   args: string[],
 ): Promise<{ bin: string; code: number; stdout: string; stderr: string }> {
-  if (!TIMING) return bdExecOnce(dir, args)
-  const start = performance.now()
-  try {
-    return await bdExecOnce(dir, args)
-  } finally {
-    const ms = Math.round(performance.now() - start)
-    console.error(`[bd ${ms}ms] ${args.join(' ')} (${path.basename(dir)})`)
-  }
+  const queued = performance.now()
+  return inTurn(dir, async () => {
+    if (!TIMING) return bdExecOnce(dir, args)
+    const start = performance.now()
+    try {
+      return await bdExecOnce(dir, args)
+    } finally {
+      const wait = Math.round(start - queued)
+      const run = Math.round(performance.now() - start)
+      console.error(
+        `[bd wait ${wait}ms run ${run}ms] ${args.join(' ')} (${path.basename(dir)})`,
+      )
+    }
+  })
 }
 
 async function bdExecOnce(
@@ -375,8 +403,6 @@ async function discoverProject(entry: RegistryEntry): Promise<Project> {
   }
 
   try {
-    // Counting does not depend on the probe, so both run at once.
-    const countsPromise = counts(entry.path)
     const probeResult = await bdJson<{
       path?: string
       database_path?: string
@@ -388,7 +414,7 @@ async function discoverProject(entry: RegistryEntry): Promise<Project> {
     }
 
     const expectedBeads = path.join(entry.path, '.beads')
-    const { counts: projectCounts, migration } = await countsPromise
+    const { counts: projectCounts, migration } = await counts(entry.path)
     return {
       ...base,
       beadsPath: probeResult.path,

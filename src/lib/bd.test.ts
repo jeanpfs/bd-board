@@ -15,6 +15,7 @@ import {
   buildListGatesArgs,
   buildReclaimBeadArgs,
   asRows,
+  inTurn,
   mergeGateRows,
   parseReclaimCount,
   buildResolveGateArgs,
@@ -855,5 +856,60 @@ describe('bulk bd arguments', () => {
     expect(
       buildCloseManyArgs(['x-1', 'x-2'], { reason: 'dup', force: true }),
     ).toEqual(['close', 'x-1', 'x-2', '--reason', 'dup', '--force'])
+  })
+})
+
+describe('inTurn', () => {
+  // The tsconfig lib predates Promise.withResolvers.
+  function deferred<T>() {
+    let resolve!: (value: T) => void
+    const promise = new Promise<T>((done) => {
+      resolve = done
+    })
+    return { promise, resolve }
+  }
+
+  it('starts the next call on a project only after the previous one settles', async () => {
+    const first = deferred<string>()
+    let firstStarted = false
+    let secondStarted = false
+    const one = inTurn('/p/a', () => {
+      firstStarted = true
+      return first.promise
+    })
+    const two = inTurn('/p/a', async () => {
+      secondStarted = true
+      return 'two'
+    })
+
+    await vi.waitFor(() => expect(firstStarted).toBe(true))
+    expect(secondStarted).toBe(false)
+
+    first.resolve('one')
+    expect(await Promise.all([one, two])).toEqual(['one', 'two'])
+    expect(secondStarted).toBe(true)
+  })
+
+  it('keeps the queue moving after a failed call', async () => {
+    const failed = inTurn('/p/b', () => Promise.reject(new Error('boom')))
+    const next = inTurn('/p/b', async () => 'ran')
+    await expect(failed).rejects.toThrow('boom')
+    await expect(next).resolves.toBe('ran')
+  })
+
+  it('runs different projects at the same time', async () => {
+    const gate = deferred<void>()
+    const started: string[] = []
+    const job = (dir: string) =>
+      inTurn(dir, async () => {
+        started.push(dir)
+        await gate.promise
+      })
+    const both = Promise.all([job('/p/c'), job('/p/d')])
+
+    // Both start while neither has finished.
+    await vi.waitFor(() => expect(started).toEqual(['/p/c', '/p/d']))
+    gate.resolve()
+    await both
   })
 })

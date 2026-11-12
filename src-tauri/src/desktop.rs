@@ -297,20 +297,38 @@ struct BdCapture {
     status: std::process::ExitStatus,
 }
 
-/// `BD_BOARD_TIMING=1` logs every bd call with its duration to stderr.
+/// One bd process per project at a time. bd's embedded Dolt locks the
+/// database, so concurrent calls on one project contend and finish later in
+/// total than the same calls run in turn; different projects still run in
+/// parallel.
+static BD_DIR_LOCKS: Mutex<Option<HashMap<PathBuf, Arc<Mutex<()>>>>> = Mutex::new(None);
+
+fn bd_dir_lock(dir: &Path) -> Arc<Mutex<()>> {
+    let mut locks = BD_DIR_LOCKS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    locks
+        .get_or_insert_with(HashMap::new)
+        .entry(dir.to_path_buf())
+        .or_default()
+        .clone()
+}
+
+/// `BD_BOARD_TIMING=1` logs every bd call with its queue wait and run time to stderr.
 fn exec_bd(dir: &Path, args: &[&str]) -> Result<BdCapture, String> {
-    if env::var("BD_BOARD_TIMING").as_deref() != Ok("1") {
+    let timing = env::var("BD_BOARD_TIMING").as_deref() == Ok("1");
+    let queued = std::time::Instant::now();
+    let lock = bd_dir_lock(dir);
+    let _turn = lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if !timing {
         return exec_bd_once(dir, args);
     }
-    let started = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() % 100_000)
-        .unwrap_or(0);
+    let waited = queued.elapsed().as_millis();
     let start = std::time::Instant::now();
     let result = exec_bd_once(dir, args);
     eprintln!(
-        "[bd t={:05} {}ms] {} ({})",
-        started,
+        "[bd wait {}ms run {}ms] {} ({})",
+        waited,
         start.elapsed().as_millis(),
         args.join(" "),
         dir.file_name().and_then(|n| n.to_str()).unwrap_or("")
@@ -994,20 +1012,18 @@ fn discover_project(entry: &registry::RegistryEntry) -> Project {
         return base(Some("folder no longer exists".into()), true);
     }
 
-    // Counting does not depend on the probe, so both run at once.
-    let (location, (counts, migration)) = std::thread::scope(|scope| {
-        let counts = scope.spawn(|| project_counts(&dir_path));
-        (probe_beads_location(&dir_path), join_scoped(counts))
-    });
-    match location {
-        Ok(location) => Project {
-            beads_path: location.beads_path,
-            prefix: location.prefix,
-            external: location.external,
-            counts,
-            migration,
-            ..base(None, false)
-        },
+    match probe_beads_location(&dir_path) {
+        Ok(location) => {
+            let (counts, migration) = project_counts(&dir_path);
+            Project {
+                beads_path: location.beads_path,
+                prefix: location.prefix,
+                external: location.external,
+                counts,
+                migration,
+                ..base(None, false)
+            }
+        }
         Err(err) => base(Some(err), false),
     }
 }
@@ -1135,11 +1151,8 @@ fn build_counts_from_groups(rows: &[Value], categories: &HashMap<String, String>
 }
 
 fn project_counts(dir: &Path) -> (ProjectCounts, Option<MigrationGate>) {
-    let (categories, cap) = std::thread::scope(|scope| {
-        let categories = scope.spawn(|| status_categories(dir));
-        let cap = exec_bd(dir, &["count", "--by-status", "--json"]);
-        (join_scoped(categories), cap)
-    });
+    let categories = status_categories(dir);
+    let cap = exec_bd(dir, &["count", "--by-status", "--json"]);
     let Ok(cap) = cap else {
         return (build_counts_from_groups(&[], &categories), None);
     };
@@ -1263,13 +1276,10 @@ fn merge_gate_rows(rows: &serde_json::Value, gates: &serde_json::Value) -> Vec<s
 
 fn list_beads_inner(project_id: &str) -> Result<Vec<Bead>, String> {
     let dir = resolve_dir(project_id)?;
-    let (raw, gates, categories) = std::thread::scope(|scope| {
-        let gates = scope.spawn(|| bd_json(&dir, build_list_gates_args()));
-        let categories = scope.spawn(|| status_categories(&dir));
-        let raw = bd_json(&dir, build_list_beads_args());
-        (raw, join_scoped(gates), join_scoped(categories))
-    });
-    let rows = merge_gate_rows(&raw?, &gates?);
+    let raw = bd_json(&dir, build_list_beads_args())?;
+    let gates = bd_json(&dir, build_list_gates_args())?;
+    let categories = status_categories(&dir);
+    let rows = merge_gate_rows(&raw, &gates);
     Ok(build_bead_graph(&rows, &categories))
 }
 
@@ -1304,11 +1314,8 @@ fn get_bead_detail_inner(project_id: &str, id: &str) -> Result<BeadDetail, Strin
     let dir = resolve_dir(project_id)?;
     let show_args = build_show_bead_args(id);
     let show_refs: Vec<&str> = show_args.iter().map(String::as_str).collect();
-    let (raw_arr, raw_comments) = std::thread::scope(|scope| {
-        let comments = scope.spawn(|| bd_json(&dir, &["comments", id, "--json"]).ok());
-        (bd_json(&dir, &show_refs), join_scoped(comments))
-    });
-    let raw_arr = raw_arr?;
+    let raw_arr = bd_json(&dir, &show_refs)?;
+    let raw_comments = bd_json(&dir, &["comments", id, "--json"]).ok();
 
     let raw = raw_arr
         .as_array()
