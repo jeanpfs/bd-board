@@ -809,6 +809,7 @@ export function BeadDetailModal({
   )
 
   const detail = detailQuery.data
+  const statusBadge = bead ? mapStatus(bead).badge : undefined
   const column: BeadColumn = bead ? mapStatus(bead).column : 'open'
   const childBeads = bead?.childBeads ?? []
   const doneChildren = useMemo(
@@ -1154,13 +1155,13 @@ export function BeadDetailModal({
                   <Select
                     open={statusOpen}
                     onOpenChange={setStatusOpen}
-                    value={column}
-                    onValueChange={(v) =>
+                    value={statusBadge ? bead.status : column}
+                    onValueChange={(v) => {
+                      if (v === bead.status && statusBadge) return
                       // Closing asks for a reason and handles bd's close policy.
-                      v === 'closed'
-                        ? setCloseOpen(true)
-                        : statusMutation.mutate(v as BeadColumn)
-                    }
+                      if (v === 'closed') setCloseOpen(true)
+                      else statusMutation.mutate(v as BeadColumn)
+                    }}
                   >
                     <SelectTrigger
                       size="sm"
@@ -1170,6 +1171,20 @@ export function BeadDetailModal({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      {statusBadge ? (
+                        // Deferred, hooked, pinned and custom statuses have no
+                        // column of their own: show the real one as current.
+                        <SelectItem value={bead.status}>
+                          <span
+                            className={cn(
+                              'size-1.5 rounded-full',
+                              DOT_CLASS[column],
+                            )}
+                            aria-hidden="true"
+                          />
+                          {statusBadge.label}
+                        </SelectItem>
+                      ) : null}
                       {COLUMNS.map((c) => (
                         <SelectItem key={c.key} value={c.key}>
                           <span
