@@ -4,7 +4,9 @@ import {
   Clock,
   ClockAlert,
   DatabaseZap,
+  Hand,
   FolderX,
+  Unplug,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -38,6 +40,12 @@ export const SIGNAL_ICON: Record<
     label: 'Error',
   },
   migration: { icon: DatabaseZap, className: 'text-warn', label: 'Read-only' },
+  'lease-expired': {
+    icon: Unplug,
+    className: 'text-status-blocked',
+    label: 'Lease expired',
+  },
+  gate: { icon: Hand, className: 'text-warn', label: 'Waiting on you' },
 }
 
 /** Unboxed section: a quiet heading with optional meta, then content. */

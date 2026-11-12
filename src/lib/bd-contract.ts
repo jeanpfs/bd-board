@@ -27,6 +27,21 @@ export interface BdAdapter {
   ) => Promise<void>
   /** `bd update --claim`: atomic; fails when another actor holds the bead. */
   claimBead: (projectId: string, id: string, actor?: string) => Promise<void>
+  /** `bd gate list --all --json`: gate beads, mapped like other beads. */
+  listGates: (projectId: string) => Promise<Bead[]>
+  /** `bd gate resolve`: closes the gate, unblocking what waits on it. */
+  resolveGate: (projectId: string, id: string) => Promise<void>
+  /** `bd reclaim --id`: only leases already expired. */
+  reclaimBead: (projectId: string, id: string) => Promise<void>
+  /** `bd unclaim`; `force` releases another actor's claim. */
+  unclaimBead: (
+    projectId: string,
+    id: string,
+    force: boolean,
+    actor?: string,
+  ) => Promise<void>
+  /** `bd config get <key> --json`; empty string when unset. */
+  getConfig: (projectId: string, key: string) => Promise<string>
   /** Raw `bd ready --explain --json`; shape it with `parseReadyExplain`. */
   readyExplain: (projectId: string) => Promise<ReadyExplain>
   /** `bd dep add`, `bd dep relate`, `bd duplicate` or `bd supersede` from `id` to `target`. */

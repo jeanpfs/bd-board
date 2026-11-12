@@ -976,6 +976,67 @@ async function claimBead(
   await bdRaw(dir, buildClaimArgs(id, actor))
 }
 
+export function buildListGatesArgs(): string[] {
+  return ['gate', 'list', '--all', '--json']
+}
+
+export function buildResolveGateArgs(id: string): string[] {
+  return ['gate', 'resolve', id]
+}
+
+/** Reverts only leases already expired (`--older-than 0s`) for this bead. */
+export function buildReclaimBeadArgs(id: string): string[] {
+  return ['reclaim', '--id', id, '--older-than', '0s', '--json']
+}
+
+export function buildUnclaimBeadArgs(
+  id: string,
+  force: boolean,
+  actor?: string,
+): string[] {
+  const args = ['unclaim', id]
+  if (force) args.push('--force')
+  if (actor) args.push('--actor', actor)
+  return args
+}
+
+export function buildGetConfigArgs(key: string): string[] {
+  return ['config', 'get', key, '--json']
+}
+
+async function listGates(projectId: string): Promise<Bead[]> {
+  const dir = await resolveDir(projectId)
+  const raw = await bdJson<Record<string, unknown>[]>(dir, buildListGatesArgs())
+  return raw.map((row) => mapRawBead(row))
+}
+
+async function resolveGate(projectId: string, id: string): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildResolveGateArgs(id))
+}
+
+async function reclaimBead(projectId: string, id: string): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildReclaimBeadArgs(id))
+}
+
+async function unclaimBead(
+  projectId: string,
+  id: string,
+  force: boolean,
+  actor?: string,
+): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildUnclaimBeadArgs(id, force, actor))
+}
+
+/** A config value as text; an unset key reads as the empty string. */
+async function getConfig(projectId: string, key: string): Promise<string> {
+  const dir = await resolveDir(projectId)
+  const out = await bdJson<{ value?: unknown }>(dir, buildGetConfigArgs(key))
+  return typeof out.value === 'string' ? out.value : ''
+}
+
 /** `bd ready --explain --json`, shaped for the Ready view. */
 async function readyExplain(projectId: string): Promise<ReadyExplain> {
   const dir = await resolveDir(projectId)
@@ -1038,6 +1099,11 @@ export const bdAdapter: BdAdapter = {
   readyExplain,
   addRelation,
   removeRelation,
+  listGates,
+  resolveGate,
+  reclaimBead,
+  unclaimBead,
+  getConfig,
   updateBead,
   deferBead,
   undeferBead,
@@ -1067,6 +1133,11 @@ export {
   buildUndeferBeadArgs,
   deferBead,
   undeferBead,
+  listGates,
+  resolveGate,
+  reclaimBead,
+  unclaimBead,
+  getConfig,
   previewDeleteBead,
   deleteBead,
   buildPreviewDeleteBeadArgs,

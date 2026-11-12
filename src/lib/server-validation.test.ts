@@ -4,12 +4,14 @@ import {
   parseBeadInput,
   parseClaimInput,
   parseCommentInput,
+  parseConfigKeyInput,
   parseCreateBeadInput,
   parseDeferInput,
   parseProjectInput,
   parseRelationInput,
   parseRemoveRelationInput,
   parseStatusUpdateInput,
+  parseUnclaimInput,
   parseUpdateBeadInput,
 } from './server-validation'
 
@@ -312,5 +314,43 @@ describe('claim input', () => {
     expect(() =>
       parseClaimInput({ project: 'p', id: 'bd-1', actor: '--force' }),
     ).toThrow()
+  })
+})
+
+describe('unclaim input', () => {
+  it('defaults force to false and keeps a trimmed actor', () => {
+    expect(
+      parseUnclaimInput({ project: 'p', id: 'bd-1', actor: ' maya ' }),
+    ).toEqual({ project: 'p', id: 'bd-1', force: false, actor: 'maya' })
+  })
+
+  it('accepts force when given as a boolean', () => {
+    expect(
+      parseUnclaimInput({ project: 'p', id: 'bd-1', force: true }).force,
+    ).toBe(true)
+  })
+
+  it('rejects a non-boolean force and a flag-like actor', () => {
+    expect(() =>
+      parseUnclaimInput({ project: 'p', id: 'bd-1', force: 'yes' }),
+    ).toThrow('force must be true or false')
+    expect(() =>
+      parseUnclaimInput({ project: 'p', id: 'bd-1', actor: '--force' }),
+    ).toThrow('actor is invalid')
+  })
+})
+
+describe('config key input', () => {
+  it('accepts only the allowlisted keys', () => {
+    expect(parseConfigKeyInput({ project: 'p', key: 'claim.pools' })).toEqual({
+      project: 'p',
+      key: 'claim.pools',
+    })
+    expect(() =>
+      parseConfigKeyInput({ project: 'p', key: 'events-journal' }),
+    ).toThrow('Config key is not allowed')
+    expect(() => parseConfigKeyInput({ project: 'p', key: '../etc' })).toThrow(
+      'Config key is not allowed',
+    )
   })
 })

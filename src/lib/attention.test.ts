@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  ATTENTION_ORDER,
   STALE_DAYS,
   attentionList,
   closedThisWeek,
@@ -183,5 +184,77 @@ describe('closedThisWeek', () => {
         NOW,
       ),
     ).toBe(1)
+  })
+})
+
+describe('lease and gate attention', () => {
+  const MIN = 60_000
+  const inAt = (ms: number) => new Date(NOW + ms).toISOString()
+
+  it('flags an in-progress bead whose lease has expired', () => {
+    const [item] = attentionList(
+      [
+        bead({
+          id: 'a',
+          status: 'in_progress',
+          assignee: 'night-crew-2',
+          lease_expires_at: inAt(-6 * MIN),
+        }),
+      ],
+      NOW,
+    )
+    expect(item).toMatchObject({ kind: 'lease-expired' })
+    expect(item.detail).toBe('lease expired 6m ago')
+  })
+
+  it('does not flag a bead whose lease is still live', () => {
+    expect(
+      attentionList(
+        [
+          bead({
+            id: 'a',
+            status: 'in_progress',
+            lease_expires_at: inAt(18 * MIN),
+          }),
+        ],
+        NOW,
+      ),
+    ).toEqual([])
+  })
+
+  it('flags a blocked bead waiting on an open gate with the gate id', () => {
+    const gate = bead({ id: 'g1', issue_type: 'gate', status: 'open' })
+    const waiting = bead({
+      id: 'ldg-axk.3',
+      status: 'blocked',
+      links: [{ id: 'g1', type: 'blocks', direction: 'outgoing' }],
+    })
+    const items = attentionList([gate, waiting], NOW)
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({ kind: 'gate', bead: waiting })
+    expect(items[0].detail).toBe('waiting on gate g1')
+  })
+
+  it('does not flag a gate that is already closed', () => {
+    const gate = bead({ id: 'g1', issue_type: 'gate', status: 'closed' })
+    const waiting = bead({
+      id: 'w',
+      status: 'blocked',
+      links: [{ id: 'g1', type: 'blocks', direction: 'outgoing' }],
+    })
+    expect(attentionList([gate, waiting], NOW).map((i) => i.kind)).toEqual([
+      'blocked',
+    ])
+  })
+
+  it('ranks overdue, lease-expired, gate, then blocked', () => {
+    expect(ATTENTION_ORDER).toEqual([
+      'p0',
+      'overdue',
+      'lease-expired',
+      'gate',
+      'blocked',
+      'stale',
+    ])
   })
 })

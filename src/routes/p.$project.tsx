@@ -24,6 +24,7 @@ import { HierarchyView } from '@/components/hierarchy-view'
 import { KnowledgeDetailModal } from '@/components/knowledge-detail-modal'
 import { CreateBeadDialog } from '@/components/create-bead-dialog'
 import { ProjectKnowledgePanel } from '@/components/project-knowledge-panel'
+import { AgentsView } from '@/components/agents-view'
 import { LiveUpdatesIndicator } from '@/components/live-updates-indicator'
 import { Button } from '@/components/ui/button'
 import { isDueThisWeek, isOverdue } from '@/lib/schedule'
@@ -78,6 +79,7 @@ const PROJECT_TABS = new Set([
   'board',
   'ready',
   'knowledge',
+  'agents',
   'hierarchy',
 ])
 const SORT_KEYS = new Set(['priority', 'recent', 'title'])
@@ -591,6 +593,16 @@ function BoardPage() {
         ) : (
           <BoardSkeleton />
         )
+      ) : tab === 'agents' ? (
+        <AgentsView
+          project={project}
+          beads={beads}
+          now={new Date()}
+          onOpen={(id) => {
+            const bead = beadsById.get(id)
+            if (bead) openBead(bead)
+          }}
+        />
       ) : tab === 'knowledge' ? (
         <ProjectKnowledgePanel
           project={project}

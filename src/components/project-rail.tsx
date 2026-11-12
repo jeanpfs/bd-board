@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearch } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  Bot,
   BookOpen,
   ChevronsLeft,
   ChevronsRight,
@@ -40,6 +41,7 @@ const PROJECT_NAV: { key: ProjectTab; label: string; icon: LucideIcon }[] = [
   { key: 'board', label: 'Board', icon: Columns3 },
   { key: 'hierarchy', label: 'Hierarchy', icon: ListTree },
   { key: 'knowledge', label: 'Knowledge', icon: BookOpen },
+  { key: 'agents', label: 'Agents', icon: Bot },
 ]
 
 /** Why a project's row carries a dot, or null. Text goes to screen readers. */

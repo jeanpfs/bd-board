@@ -16,6 +16,7 @@ const TAB_LABEL: Record<ProjectTab, string> = {
   ready: 'Ready',
   hierarchy: 'Hierarchy',
   knowledge: 'Knowledge',
+  agents: 'Agents',
 }
 
 /**

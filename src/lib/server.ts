@@ -8,6 +8,8 @@ import {
   parseRemoveRelationInput,
   parseBeadInput,
   parseClaimInput,
+  parseConfigKeyInput,
+  parseUnclaimInput,
   parseCloseBeadInput,
   parseCommentInput,
   parseCreateBeadInput,
@@ -74,6 +76,35 @@ const webClaimBead = createServerFn({ method: 'POST' })
     await bdAdapter.claimBead(data.project, data.id, data.actor)
     return { ok: true as const }
   })
+
+const webListGates = createServerFn({ method: 'POST' })
+  .validator(parseProjectInput)
+  .handler(async ({ data }) => bdAdapter.listGates(data.project))
+
+const webResolveGate = createServerFn({ method: 'POST' })
+  .validator(parseBeadInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.resolveGate(data.project, data.id)
+    return { ok: true as const }
+  })
+
+const webReclaimBead = createServerFn({ method: 'POST' })
+  .validator(parseBeadInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.reclaimBead(data.project, data.id)
+    return { ok: true as const }
+  })
+
+const webUnclaimBead = createServerFn({ method: 'POST' })
+  .validator(parseUnclaimInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.unclaimBead(data.project, data.id, data.force, data.actor)
+    return { ok: true as const }
+  })
+
+const webGetConfig = createServerFn({ method: 'POST' })
+  .validator(parseConfigKeyInput)
+  .handler(async ({ data }) => bdAdapter.getConfig(data.project, data.key))
 
 const webReadyExplain = createServerFn({ method: 'POST' })
   .validator(parseProjectInput)
@@ -244,6 +275,72 @@ export async function claimBeadFn({
     return { ok: true }
   }
   return webClaimBead({ data })
+}
+
+export async function listGatesFn({
+  data,
+}: {
+  data: { project: string }
+}): Promise<Bead[]> {
+  if (isDesktopApp()) {
+    return invoke<Bead[]>('list_gates', { projectId: data.project })
+  }
+  return webListGates({ data })
+}
+
+export async function resolveGateFn({
+  data,
+}: {
+  data: { project: string; id: string }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('resolve_gate', { projectId: data.project, id: data.id })
+    return { ok: true }
+  }
+  return webResolveGate({ data })
+}
+
+export async function reclaimBeadFn({
+  data,
+}: {
+  data: { project: string; id: string }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('reclaim_bead', { projectId: data.project, id: data.id })
+    return { ok: true }
+  }
+  return webReclaimBead({ data })
+}
+
+export async function unclaimBeadFn({
+  data,
+}: {
+  data: { project: string; id: string; force?: boolean; actor?: string }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('unclaim_bead', {
+      projectId: data.project,
+      id: data.id,
+      force: data.force ?? false,
+      actor: data.actor?.trim() || undefined,
+    })
+    return { ok: true }
+  }
+  return webUnclaimBead({ data })
+}
+
+export async function getConfigFn({
+  data,
+}: {
+  data: { project: string; key: string }
+}): Promise<string> {
+  if (isDesktopApp()) {
+    return invoke<string>('get_config', {
+      projectId: data.project,
+      key: data.key,
+    })
+  }
+  return webGetConfig({ data })
 }
 
 export async function readyExplainFn({

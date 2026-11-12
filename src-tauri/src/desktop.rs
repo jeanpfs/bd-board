@@ -1416,6 +1416,50 @@ fn build_claim_args(id: &str, actor: Option<&str>) -> Result<Vec<String>, String
     Ok(args)
 }
 
+fn build_list_gates_args() -> &'static [&'static str] {
+    &["gate", "list", "--all", "--json"]
+}
+
+fn build_resolve_gate_args(id: &str) -> Vec<String> {
+    vec!["gate".to_string(), "resolve".to_string(), id.to_string()]
+}
+
+/// Reverts only leases already expired (`--older-than 0s`) for this bead.
+fn build_reclaim_args(id: &str) -> Vec<String> {
+    vec![
+        "reclaim".to_string(),
+        "--id".to_string(),
+        id.to_string(),
+        "--older-than".to_string(),
+        "0s".to_string(),
+        "--json".to_string(),
+    ]
+}
+
+fn build_unclaim_args(id: &str, force: bool, actor: Option<&str>) -> Result<Vec<String>, String> {
+    let mut args = vec!["unclaim".to_string(), id.to_string()];
+    if force {
+        args.push("--force".to_string());
+    }
+    if let Some(actor) = actor.map(str::trim).filter(|a| !a.is_empty()) {
+        if actor.starts_with('-') {
+            return Err("actor is invalid".to_string());
+        }
+        args.push("--actor".to_string());
+        args.push(actor.to_string());
+    }
+    Ok(args)
+}
+
+fn build_get_config_args(key: &str) -> Vec<String> {
+    vec![
+        "config".to_string(),
+        "get".to_string(),
+        key.to_string(),
+        "--json".to_string(),
+    ]
+}
+
 fn build_ready_explain_args() -> &'static [&'static str] {
     &["ready", "--explain", "--json", "--limit", "0"]
 }
@@ -1638,6 +1682,51 @@ fn claim_bead_inner(project_id: &str, id: &str, actor: Option<&str>) -> Result<(
     run_bd_mut(&dir, &build_claim_args(id, actor)?).map(|_| ())
 }
 
+fn list_gates_inner(project_id: &str) -> Result<Vec<Bead>, String> {
+    let dir = resolve_dir(project_id)?;
+    let raw = bd_json(&dir, build_list_gates_args())?;
+    let categories = status_categories(&dir);
+    Ok(raw
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|value| map_bead(&value, &categories))
+        .collect())
+}
+
+fn resolve_gate_inner(project_id: &str, id: &str) -> Result<(), String> {
+    let dir = resolve_dir(project_id)?;
+    run_bd_mut(&dir, &build_resolve_gate_args(id)).map(|_| ())
+}
+
+fn reclaim_bead_inner(project_id: &str, id: &str) -> Result<(), String> {
+    let dir = resolve_dir(project_id)?;
+    run_bd_mut(&dir, &build_reclaim_args(id)).map(|_| ())
+}
+
+fn unclaim_bead_inner(
+    project_id: &str,
+    id: &str,
+    force: bool,
+    actor: Option<&str>,
+) -> Result<(), String> {
+    let dir = resolve_dir(project_id)?;
+    run_bd_mut(&dir, &build_unclaim_args(id, force, actor)?).map(|_| ())
+}
+
+/// The config value as text; an unset key reads as the empty string.
+fn get_config_inner(project_id: &str, key: &str) -> Result<String, String> {
+    let dir = resolve_dir(project_id)?;
+    let raw = run_bd_mut(&dir, &build_get_config_args(key))?;
+    let value: Value = serde_json::from_str(raw.trim()).map_err(|err| err.to_string())?;
+    Ok(value
+        .get("value")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string())
+}
+
 fn ready_explain_inner(project_id: &str) -> Result<Value, String> {
     let dir = resolve_dir(project_id)?;
     bd_json(&dir, build_ready_explain_args())
@@ -1760,6 +1849,36 @@ pub fn close_bead(
 #[tauri::command]
 pub fn claim_bead(project_id: String, id: String, actor: Option<String>) -> Result<(), String> {
     claim_bead_inner(&project_id, &id, actor.as_deref())
+}
+
+#[tauri::command]
+pub fn list_gates(project_id: String) -> Result<Vec<Bead>, String> {
+    list_gates_inner(&project_id)
+}
+
+#[tauri::command]
+pub fn resolve_gate(project_id: String, id: String) -> Result<(), String> {
+    resolve_gate_inner(&project_id, &id)
+}
+
+#[tauri::command]
+pub fn reclaim_bead(project_id: String, id: String) -> Result<(), String> {
+    reclaim_bead_inner(&project_id, &id)
+}
+
+#[tauri::command]
+pub fn unclaim_bead(
+    project_id: String,
+    id: String,
+    force: bool,
+    actor: Option<String>,
+) -> Result<(), String> {
+    unclaim_bead_inner(&project_id, &id, force, actor.as_deref())
+}
+
+#[tauri::command]
+pub fn get_config(project_id: String, key: String) -> Result<String, String> {
+    get_config_inner(&project_id, &key)
 }
 
 #[tauri::command]
@@ -2253,6 +2372,39 @@ mod tests {
         assert_eq!(
             build_close_bead_args("bd-board-a2k", Some("done"), true),
             vec!["close", "bd-board-a2k", "--reason", "done", "--force"]
+        );
+    }
+
+    #[test]
+    fn lease_and_gate_args_match_the_bd_cli() {
+        assert_eq!(
+            build_list_gates_args(),
+            vec!["gate", "list", "--all", "--json"]
+        );
+        assert_eq!(build_resolve_gate_args("g1"), vec!["gate", "resolve", "g1"]);
+        assert_eq!(
+            build_reclaim_args("bd-board-a2k"),
+            vec!["reclaim", "--id", "bd-board-a2k", "--older-than", "0s", "--json"]
+        );
+        assert_eq!(
+            build_get_config_args("claim.pools"),
+            vec!["config", "get", "claim.pools", "--json"]
+        );
+    }
+
+    #[test]
+    fn unclaim_args_force_and_actor_are_optional() {
+        assert_eq!(
+            build_unclaim_args("bd-board-a2k", false, None).unwrap(),
+            vec!["unclaim", "bd-board-a2k"]
+        );
+        assert_eq!(
+            build_unclaim_args("bd-board-a2k", true, Some("maya")).unwrap(),
+            vec!["unclaim", "bd-board-a2k", "--force", "--actor", "maya"]
+        );
+        assert_eq!(
+            build_unclaim_args("bd-board-a2k", false, Some("--force")).unwrap_err(),
+            "actor is invalid"
         );
     }
 

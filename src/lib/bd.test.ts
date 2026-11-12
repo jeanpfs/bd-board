@@ -5,6 +5,11 @@ import * as path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  buildGetConfigArgs,
+  buildListGatesArgs,
+  buildReclaimBeadArgs,
+  buildResolveGateArgs,
+  buildUnclaimBeadArgs,
   buildBeadGraph,
   buildClaimArgs,
   buildCloseBeadArgs,
@@ -579,6 +584,48 @@ describe('claim and ready arguments', () => {
       '--json',
       '--limit',
       '0',
+    ])
+  })
+})
+
+describe('lease and gate command builders', () => {
+  it('lists every gate as JSON', () => {
+    expect(buildListGatesArgs()).toEqual(['gate', 'list', '--all', '--json'])
+  })
+
+  it('resolves a gate with plain text output', () => {
+    expect(buildResolveGateArgs('g1')).toEqual(['gate', 'resolve', 'g1'])
+  })
+
+  it('reclaims a bead whose lease is already expired', () => {
+    expect(buildReclaimBeadArgs('ldg-698.1')).toEqual([
+      'reclaim',
+      '--id',
+      'ldg-698.1',
+      '--older-than',
+      '0s',
+      '--json',
+    ])
+  })
+
+  it('adds --force to unclaim only when asked', () => {
+    expect(buildUnclaimBeadArgs('ldg-qj1', false)).toEqual([
+      'unclaim',
+      'ldg-qj1',
+    ])
+    expect(buildUnclaimBeadArgs('ldg-qj1', true)).toEqual([
+      'unclaim',
+      'ldg-qj1',
+      '--force',
+    ])
+  })
+
+  it('reads one config key as JSON', () => {
+    expect(buildGetConfigArgs('claim.pools')).toEqual([
+      'config',
+      'get',
+      'claim.pools',
+      '--json',
     ])
   })
 })

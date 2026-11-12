@@ -143,6 +143,43 @@ export function parseClaimInput(input: unknown): {
   }
 }
 
+export function parseUnclaimInput(input: unknown): {
+  project: string
+  id: string
+  force: boolean
+  actor: string | undefined
+} {
+  const data = record(input)
+  const force = data['force'] ?? false
+  if (typeof force !== 'boolean') throw new Error('force must be true or false')
+  const actor = optionalText(data, 'actor', 200)
+  if (actor?.startsWith('-')) throw new Error('actor is invalid')
+  return {
+    project: requiredString(data, 'project', PROJECT_RE, 'Project'),
+    id: requiredString(data, 'id', BEAD_ID_RE, 'Bead id'),
+    force,
+    actor,
+  }
+}
+
+/** Config keys the board may read. Only `claim.pools` is used today. */
+const CONFIG_KEYS: Record<string, true> = { 'claim.pools': true }
+
+export function parseConfigKeyInput(input: unknown): {
+  project: string
+  key: string
+} {
+  const data = record(input)
+  const key = data['key']
+  if (typeof key !== 'string' || !Object.hasOwn(CONFIG_KEYS, key)) {
+    throw new Error('Config key is not allowed')
+  }
+  return {
+    project: requiredString(data, 'project', PROJECT_RE, 'Project'),
+    key,
+  }
+}
+
 function relationParts<T extends RelationKind>(
   data: Record<string, unknown>,
   kind: T,

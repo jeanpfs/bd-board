@@ -18,7 +18,12 @@ import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAllProjectBeads } from '@/hooks/use-all-project-beads'
 import { useProjectActions } from '@/hooks/use-project-actions'
-import { attentionList, projectHeadline, projectProblem } from '@/lib/attention'
+import {
+  ATTENTION_ORDER,
+  attentionList,
+  projectHeadline,
+  projectProblem,
+} from '@/lib/attention'
 import { getStoredIdentity } from '@/lib/identity'
 import { getProjects } from '@/lib/server'
 import { relativeDate } from '@/lib/time'
@@ -227,8 +232,7 @@ function NeedsYou({
     // attentionList orders within a project; re-rank across projects.
     .sort(
       (a, b) =>
-        ['p0', 'overdue', 'blocked', 'stale'].indexOf(a.kind) -
-          ['p0', 'overdue', 'blocked', 'stale'].indexOf(b.kind) ||
+        ATTENTION_ORDER.indexOf(a.kind) - ATTENTION_ORDER.indexOf(b.kind) ||
         a.bead.priority - b.bead.priority,
     )
 

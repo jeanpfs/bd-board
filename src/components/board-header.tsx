@@ -35,6 +35,7 @@ export type ProjectTab =
   | 'board'
   | 'ready'
   | 'knowledge'
+  | 'agents'
   | 'hierarchy'
 
 interface BoardHeaderProps {
