@@ -5,6 +5,11 @@ import * as path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  buildQueryArgs,
+  buildParseQueryArgs,
+  buildKvGetArgs,
+  buildKvSetArgs,
+  parseKvGet,
   buildGetConfigArgs,
   buildSetConfigArgs,
   buildListGatesArgs,
@@ -707,5 +712,67 @@ describe('buildSetConfigArgs', () => {
 
   it('rejects a flag-like key', () => {
     expect(() => buildSetConfigArgs('--force', 'x')).toThrow()
+  })
+})
+
+describe('bd query and kv args', () => {
+  it('builds a query with the flags that return every match', () => {
+    expect(buildQueryArgs('type=bug AND updated>1d')).toEqual([
+      'query',
+      'type=bug AND updated>1d',
+      '--json',
+      '--limit',
+      '0',
+      '--all',
+    ])
+  })
+
+  it('builds a parse-only check for a query', () => {
+    expect(buildParseQueryArgs('type=bug')).toEqual([
+      'query',
+      'type=bug',
+      '--parse-only',
+    ])
+  })
+
+  it('refuses query and kv values that look like flags', () => {
+    expect(() => buildQueryArgs('-x')).toThrow()
+    expect(() => buildParseQueryArgs('-x')).toThrow()
+    expect(() => buildKvGetArgs('--all')).toThrow()
+    expect(() => buildKvSetArgs('-k', 'v')).toThrow()
+  })
+
+  it('builds kv get and set args', () => {
+    expect(buildKvGetArgs('bd-board.views')).toEqual([
+      'kv',
+      'get',
+      'bd-board.views',
+      '--json',
+    ])
+    expect(buildKvSetArgs('bd-board.views', '[]')).toEqual([
+      'kv',
+      'set',
+      'bd-board.views',
+      '[]',
+      '--json',
+    ])
+  })
+
+  it('reads a found kv value', () => {
+    expect(
+      parseKvGet(0, '{"found":true,"key":"k","schema_version":1,"value":"v"}', ''),
+    ).toBe('v')
+  })
+
+  it('reads a missing key (exit 1, found:false) as null', () => {
+    expect(
+      parseKvGet(1, '{"found":false,"key":"k","schema_version":1,"value":""}', ''),
+    ).toBeNull()
+  })
+
+  it('throws on other kv failures', () => {
+    expect(() => parseKvGet(2, '', 'database is locked')).toThrow(
+      'database is locked',
+    )
   })
 })

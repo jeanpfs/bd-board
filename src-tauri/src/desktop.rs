@@ -1938,6 +1938,114 @@ fn set_config_inner(project_id: &str, key: &str, value: &str) -> Result<(), Stri
     Ok(())
 }
 
+/// Shared views list key: the only kv key the board reads or writes.
+const VIEWS_KV_KEY: &str = "bd-board.views";
+const QUERY_MAX_LEN: usize = 500;
+
+fn validate_query_text(expr: &str) -> Result<(), String> {
+    if expr.trim().is_empty() {
+        return Err("Query is required.".to_string());
+    }
+    if expr.starts_with('-') || expr.contains(['\n', '\r']) {
+        return Err("query is invalid".to_string());
+    }
+    if expr.chars().count() > QUERY_MAX_LEN {
+        return Err("Query is too long.".to_string());
+    }
+    Ok(())
+}
+
+fn build_query_args(expr: &str) -> Result<Vec<String>, String> {
+    validate_query_text(expr)?;
+    Ok(vec![
+        "query".to_string(),
+        expr.to_string(),
+        "--json".to_string(),
+        "--limit".to_string(),
+        "0".to_string(),
+        "--all".to_string(),
+    ])
+}
+
+fn build_parse_query_args(expr: &str) -> Result<Vec<String>, String> {
+    validate_query_text(expr)?;
+    Ok(vec![
+        "query".to_string(),
+        expr.to_string(),
+        "--parse-only".to_string(),
+    ])
+}
+
+fn validate_kv_key(key: &str) -> Result<(), String> {
+    if key == VIEWS_KV_KEY {
+        Ok(())
+    } else {
+        Err("kv key is not allowed".to_string())
+    }
+}
+
+fn build_kv_get_args(key: &str) -> Result<Vec<String>, String> {
+    validate_kv_key(key)?;
+    Ok(vec![
+        "kv".to_string(),
+        "get".to_string(),
+        key.to_string(),
+        "--json".to_string(),
+    ])
+}
+
+fn build_kv_set_args(key: &str, value: &str) -> Result<Vec<String>, String> {
+    validate_kv_key(key)?;
+    if value.len() > 200_000 || serde_json::from_str::<Vec<Value>>(value).is_err() {
+        return Err("Shared views value is invalid".to_string());
+    }
+    Ok(vec![
+        "kv".to_string(),
+        "set".to_string(),
+        key.to_string(),
+        value.to_string(),
+        "--json".to_string(),
+    ])
+}
+
+fn query_beads_inner(project_id: &str, expr: &str) -> Result<Vec<Bead>, String> {
+    let dir = resolve_dir(project_id)?;
+    let args = build_query_args(expr)?;
+    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    let rows = bd_json(&dir, &refs)?.as_array().cloned().unwrap_or_default();
+    let categories = status_categories(&dir);
+    Ok(build_bead_graph(&rows, &categories))
+}
+
+fn validate_query_inner(project_id: &str, expr: &str) -> Result<(), String> {
+    let dir = resolve_dir(project_id)?;
+    run_bd_mut(&dir, &build_parse_query_args(expr)?)?;
+    Ok(())
+}
+
+/// The kv value, or None when the key is unset (bd exits 1 with `found: false`).
+fn kv_get_inner(project_id: &str, key: &str) -> Result<Option<String>, String> {
+    let args = build_kv_get_args(key)?;
+    let dir = resolve_dir(project_id)?;
+    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    let cap = exec_bd(&dir, &refs)?;
+    let parsed: Option<Value> = serde_json::from_str(cap.stdout.trim()).ok();
+    if cap.status.success() {
+        let value = parsed.ok_or_else(|| "Unexpected output from bd kv get".to_string())?;
+        return Ok(value.get("value").and_then(Value::as_str).map(str::to_string));
+    }
+    if parsed.as_ref().and_then(|v| v.get("found")) == Some(&Value::Bool(false)) {
+        return Ok(None);
+    }
+    Err(bd_failure(&cap))
+}
+
+fn kv_set_inner(project_id: &str, key: &str, value: &str) -> Result<(), String> {
+    let dir = resolve_dir(project_id)?;
+    run_bd_mut(&dir, &build_kv_set_args(key, value)?)?;
+    Ok(())
+}
+
 fn ready_explain_inner(project_id: &str) -> Result<Value, String> {
     let dir = resolve_dir(project_id)?;
     bd_json(&dir, build_ready_explain_args())
@@ -2148,6 +2256,26 @@ pub fn set_config(project_id: String, key: String, value: String) -> Result<(), 
 #[tauri::command]
 pub fn get_config(project_id: String, key: String) -> Result<String, String> {
     get_config_inner(&project_id, &key)
+}
+
+#[tauri::command]
+pub fn query_beads(project_id: String, query: String) -> Result<Vec<Bead>, String> {
+    query_beads_inner(&project_id, &query)
+}
+
+#[tauri::command]
+pub fn validate_query(project_id: String, query: String) -> Result<(), String> {
+    validate_query_inner(&project_id, &query)
+}
+
+#[tauri::command]
+pub fn kv_get(project_id: String, key: String) -> Result<Option<String>, String> {
+    kv_get_inner(&project_id, &key)
+}
+
+#[tauri::command]
+pub fn kv_set(project_id: String, key: String, value: String) -> Result<(), String> {
+    kv_set_inner(&project_id, &key, &value)
 }
 
 #[tauri::command]
@@ -2458,6 +2586,35 @@ mod tests {
     #[test]
     fn set_config_args_rejects_flag_like_key() {
         assert!(build_set_config_args("--force", "x").is_err());
+    }
+
+    #[test]
+    fn query_args_return_every_match_and_reject_flags() {
+        assert_eq!(
+            build_query_args("type=bug").unwrap(),
+            vec!["query", "type=bug", "--json", "--limit", "0", "--all"]
+        );
+        assert_eq!(
+            build_parse_query_args("type=bug").unwrap(),
+            vec!["query", "type=bug", "--parse-only"]
+        );
+        assert!(build_query_args("-all").is_err());
+        assert!(build_query_args("a\nb").is_err());
+        assert!(build_query_args("   ").is_err());
+    }
+
+    #[test]
+    fn kv_args_allow_only_the_views_key() {
+        assert_eq!(
+            build_kv_get_args(VIEWS_KV_KEY).unwrap(),
+            vec!["kv", "get", VIEWS_KV_KEY, "--json"]
+        );
+        assert_eq!(
+            build_kv_set_args(VIEWS_KV_KEY, "[]").unwrap(),
+            vec!["kv", "set", VIEWS_KV_KEY, "[]", "--json"]
+        );
+        assert!(build_kv_get_args("other.key").is_err());
+        assert!(build_kv_set_args(VIEWS_KV_KEY, "{}").is_err());
     }
 
     #[test]

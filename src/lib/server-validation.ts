@@ -1,4 +1,5 @@
 import { validateCustomStatusList } from './custom-statuses.ts'
+import { parseViews, queryTextError, VIEWS_KV_KEY } from './views.ts'
 import { LABEL_RE } from './labels'
 import { isRelationKind, isRemovableRelation } from './relations'
 import type { RelationKind, RemovableRelationKind } from './relations'
@@ -293,6 +294,58 @@ export function parseConfigKeyInput(input: unknown): {
     project: requiredString(data, 'project', PROJECT_RE, 'Project'),
     key,
   }
+}
+
+/** Validates a bd query expression before it reaches bd. */
+export function parseQueryInput(input: unknown): {
+  project: string
+  query: string
+} {
+  const data = record(input)
+  const query = data['query']
+  if (typeof query !== 'string') throw new Error('Query is required.')
+  const problem = queryTextError(query)
+  if (problem) throw new Error(problem)
+  return {
+    project: requiredString(data, 'project', PROJECT_RE, 'Project'),
+    query: query.trim(),
+  }
+}
+
+/** Only the shared views key is reachable from the board. */
+export function parseViewsKeyInput(input: unknown): {
+  project: string
+  key: string
+} {
+  const data = record(input)
+  if (data['key'] !== VIEWS_KV_KEY) throw new Error('kv key is not allowed')
+  return {
+    project: requiredString(data, 'project', PROJECT_RE, 'Project'),
+    key: VIEWS_KV_KEY,
+  }
+}
+
+/** Validates the shared views list before it is written to bd kv. */
+export function parseViewsWriteInput(input: unknown): {
+  project: string
+  key: string
+  value: string
+} {
+  const { project, key } = parseViewsKeyInput(input)
+  const value = record(input)['value']
+  if (typeof value !== 'string' || value.length > 200_000) {
+    throw new Error('Shared views value is invalid')
+  }
+  let entries: unknown
+  try {
+    entries = JSON.parse(value)
+  } catch {
+    throw new Error('Shared views value is invalid')
+  }
+  if (!Array.isArray(entries) || parseViews(value).length !== entries.length) {
+    throw new Error('Shared views value is invalid')
+  }
+  return { project, key, value }
 }
 
 function relationParts<T extends RelationKind>(

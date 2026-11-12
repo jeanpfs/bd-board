@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useParams, useSearch } from '@tanstack/react-router'
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearch,
+} from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Bot,
@@ -33,7 +39,7 @@ import {
   getStoredSidebarCollapsed,
   setStoredSidebarCollapsed,
 } from '@/lib/sidebar-collapse'
-import { isReady } from '@/lib/sort'
+import { ViewEditor, useSavedViews } from '@/components/view-editor'
 import { mapStatus } from '@/lib/types'
 
 import type { LucideIcon } from 'lucide-react'
@@ -222,10 +228,12 @@ export function ProjectRail() {
     retry: false,
   })
   const beads = project ? (beadsQuery.data ?? []) : []
-  const readyCount = beads.filter(isReady).length
   const blockedCount = beads.filter(
     (b) => mapStatus(b).column === 'blocked',
   ).length
+  const savedViews = useSavedViews(project ?? '')
+  const navigate = useNavigate()
+  const [creatingView, setCreatingView] = useState(false)
 
   const [identity, setIdentity] = useState<string | null>(null)
   useEffect(() => {
@@ -357,16 +365,47 @@ export function ProjectRail() {
           )}
 
           {!collapsed && project ? (
-            <RailGroup label="Quick filters">
+            <RailGroup label="Views">
               <RailLink
                 to="/p/$project"
                 params={{ project }}
                 search={{ tab: 'ready' }}
-                dotClassName="bg-status-closed"
-                count={readyCount}
+                active={tab === 'ready'}
               >
                 Ready
               </RailLink>
+              <RailLink
+                to="/p/$project"
+                params={{ project }}
+                search={{ tab: 'board', due: 'week' }}
+                active={tab === 'board' && searchParams.due === 'week'}
+              >
+                Due this week
+              </RailLink>
+              {savedViews.views.map((view) => (
+                <RailLink
+                  key={view.id}
+                  to="/p/$project"
+                  params={{ project }}
+                  search={{ tab: 'view', v: view.id }}
+                  active={tab === 'view' && searchParams.v === view.id}
+                >
+                  {view.name}
+                </RailLink>
+              ))}
+              <li className="px-2">
+                <button
+                  type="button"
+                  onClick={() => setCreatingView(true)}
+                  className="h-7 w-full rounded-md px-2 text-left text-body text-muted-foreground outline-none hover:bg-foreground/6 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
+                >
+                  + New view
+                </button>
+              </li>
+            </RailGroup>
+          ) : null}
+          {!collapsed && project ? (
+            <RailGroup label="Quick filters">
               <RailLink
                 to="/p/$project"
                 params={{ project }}
@@ -408,6 +447,20 @@ export function ProjectRail() {
             </RailGroup>
           ) : null}
         </div>
+        {creatingView ? (
+          <ViewEditor
+            project={project ?? ''}
+            existing={savedViews.views}
+            onSaved={(view) =>
+              void navigate({
+                to: '/p/$project',
+                params: { project: project ?? '' },
+                search: { tab: 'view', v: view.id },
+              })
+            }
+            onOpenChange={setCreatingView}
+          />
+        ) : null}
 
         <div
           className={cn(

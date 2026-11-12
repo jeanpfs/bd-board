@@ -50,6 +50,14 @@ export interface BdAdapter {
   getConfig: (projectId: string, key: string) => Promise<string>
   /** `bd config set <key> <value>`; an empty value clears the key. */
   setConfig: (projectId: string, key: string, value: string) => Promise<void>
+  /** `bd query <expr> --json --limit 0 --all`: beads matching the expression. */
+  queryBeads: (projectId: string, expr: string) => Promise<Bead[]>
+  /** `bd query <expr> --parse-only`; throws with bd's parse error. */
+  validateQuery: (projectId: string, expr: string) => Promise<void>
+  /** `bd kv get <key> --json`; null when the key is unset. */
+  kvGet: (projectId: string, key: string) => Promise<string | null>
+  /** `bd kv set <key> <value> --json`. */
+  kvSet: (projectId: string, key: string, value: string) => Promise<void>
   /** `bd linear status --json`: connection state and sync counts, no credentials. */
   linearStatus: (projectId: string) => Promise<LinearStatus>
   /** `bd linear sync` with the given direction and flags; output is returned even on failure. */

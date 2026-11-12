@@ -30,6 +30,7 @@ import { KnowledgeDetailModal } from '@/components/knowledge-detail-modal'
 import { CreateBeadDialog } from '@/components/create-bead-dialog'
 import { ProjectKnowledgePanel } from '@/components/project-knowledge-panel'
 import { AgentsView } from '@/components/agents-view'
+import { ViewPage } from '@/components/view-editor'
 import { LiveUpdatesIndicator } from '@/components/live-updates-indicator'
 import { Button } from '@/components/ui/button'
 import { isDueThisWeek, isOverdue } from '@/lib/schedule'
@@ -72,6 +73,7 @@ interface BoardSearch {
   assignee?: string
   tab?: ProjectTab
   view?: BoardView
+  v?: string
   sort?: SortKey
   nested?: string
   due?: 'week' | 'overdue'
@@ -87,6 +89,7 @@ const PROJECT_TABS = new Set([
   'knowledge',
   'agents',
   'hierarchy',
+  'view',
 ])
 const SORT_KEYS = new Set(['priority', 'recent', 'title'])
 
@@ -137,6 +140,10 @@ export const Route = createFileRoute('/p/$project')({
     view:
       typeof search.view === 'string' && BOARD_VIEWS.has(search.view)
         ? (search.view as BoardView)
+        : undefined,
+    v:
+      typeof search.v === 'string' && search.v.length > 0
+        ? search.v
         : undefined,
     sort:
       typeof search.sort === 'string' && SORT_KEYS.has(search.sort)
@@ -592,6 +599,13 @@ function BoardPage() {
           onOpenKnowledge={openKnowledge}
           onCreate={() => setCreateOpen(true)}
           onClaim={claim}
+        />
+      ) : tab === 'view' ? (
+        <ViewPage
+          project={project}
+          viewId={boardSearch.v}
+          onOpen={openBead}
+          onCreated={(view) => patchBoardSearch({ tab: 'view', v: view.id })}
         />
       ) : tab === 'ready' ? (
         readyQuery.isError ? (

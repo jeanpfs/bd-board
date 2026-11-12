@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   parseBeadInput,
+  parseQueryInput,
+  parseViewsKeyInput,
+  parseViewsWriteInput,
   parseClaimInput,
   parseCommentInput,
   parseConfigKeyInput,
@@ -543,6 +546,66 @@ describe('events tail input', () => {
     ).toThrow()
     expect(() =>
       parseTailEventsInput({ project: 'bd_board', since: 0, limit: 1001 }),
+    ).toThrow()
+  })
+})
+
+describe('query and shared views input', () => {
+  it('accepts a query and trims it', () => {
+    expect(
+      parseQueryInput({ project: 'ledger', query: '  type=bug  ' }),
+    ).toEqual({ project: 'ledger', query: 'type=bug' })
+  })
+
+  it('rejects queries bd cannot receive safely', () => {
+    expect(() => parseQueryInput({ project: 'ledger', query: '' })).toThrow()
+    expect(() =>
+      parseQueryInput({ project: 'ledger', query: '-all' }),
+    ).toThrow()
+    expect(() =>
+      parseQueryInput({ project: 'ledger', query: 'a\nb' }),
+    ).toThrow()
+    expect(() =>
+      parseQueryInput({ project: 'ledger', query: 'a'.repeat(501) }),
+    ).toThrow()
+  })
+
+  it('allows only the shared views kv key', () => {
+    expect(
+      parseViewsKeyInput({ project: 'ledger', key: 'bd-board.views' }),
+    ).toEqual({ project: 'ledger', key: 'bd-board.views' })
+    expect(() =>
+      parseViewsKeyInput({ project: 'ledger', key: 'anything.else' }),
+    ).toThrow()
+  })
+
+  it('accepts a well-formed shared views list on write', () => {
+    const value = JSON.stringify([
+      { id: 'open-bugs', name: 'Open bugs', query: 'type=bug', shared: true },
+    ])
+    expect(
+      parseViewsWriteInput({ project: 'ledger', key: 'bd-board.views', value }),
+    ).toEqual({ project: 'ledger', key: 'bd-board.views', value })
+  })
+
+  it('rejects a shared views list with invalid entries or non-array JSON', () => {
+    const bad = JSON.stringify([{ id: 'bad id', name: 'x', query: 'y' }])
+    expect(() =>
+      parseViewsWriteInput({ project: 'ledger', key: 'bd-board.views', value: bad }),
+    ).toThrow()
+    expect(() =>
+      parseViewsWriteInput({
+        project: 'ledger',
+        key: 'bd-board.views',
+        value: '{"a":1}',
+      }),
+    ).toThrow()
+    expect(() =>
+      parseViewsWriteInput({
+        project: 'ledger',
+        key: 'bd-board.views',
+        value: 'nope',
+      }),
     ).toThrow()
   })
 })

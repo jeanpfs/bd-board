@@ -22,6 +22,9 @@ import {
   parseUpdateBeadInput,
   parseGetConfigInput,
   parseLinearSyncInput,
+  parseQueryInput,
+  parseViewsKeyInput,
+  parseViewsWriteInput,
 } from './server-validation.ts'
 import { parseReadyExplain } from './ready.ts'
 import { tailResult } from './events.ts'
@@ -116,6 +119,28 @@ const webSetConfig = createServerFn({ method: 'POST' })
   .validator(parseSetConfigInput)
   .handler(async ({ data }) => {
     await bdAdapter.setConfig(data.project, data.key, data.value)
+    return { ok: true as const }
+  })
+
+const webQueryBeads = createServerFn({ method: 'POST' })
+  .validator(parseQueryInput)
+  .handler(async ({ data }) => bdAdapter.queryBeads(data.project, data.query))
+
+const webValidateQuery = createServerFn({ method: 'POST' })
+  .validator(parseQueryInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.validateQuery(data.project, data.query)
+    return { ok: true as const }
+  })
+
+const webKvGet = createServerFn({ method: 'POST' })
+  .validator(parseViewsKeyInput)
+  .handler(async ({ data }) => bdAdapter.kvGet(data.project, data.key))
+
+const webKvSet = createServerFn({ method: 'POST' })
+  .validator(parseViewsWriteInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.kvSet(data.project, data.key, data.value)
     return { ok: true as const }
   })
 
@@ -394,6 +419,69 @@ export async function setConfigFn({
     return { ok: true }
   }
   return webSetConfig({ data: checked })
+}
+
+export async function queryBeadsFn({
+  data,
+}: {
+  data: { project: string; query: string }
+}): Promise<Bead[]> {
+  const checked = parseQueryInput(data)
+  if (isDesktopApp()) {
+    return invoke<Bead[]>('query_beads', {
+      projectId: checked.project,
+      query: checked.query,
+    })
+  }
+  return webQueryBeads({ data: checked })
+}
+
+export async function validateQueryFn({
+  data,
+}: {
+  data: { project: string; query: string }
+}): Promise<{ ok: true }> {
+  const checked = parseQueryInput(data)
+  if (isDesktopApp()) {
+    await invoke('validate_query', {
+      projectId: checked.project,
+      query: checked.query,
+    })
+    return { ok: true }
+  }
+  return webValidateQuery({ data: checked })
+}
+
+export async function kvGetFn({
+  data,
+}: {
+  data: { project: string; key: string }
+}): Promise<string | null> {
+  const checked = parseViewsKeyInput(data)
+  if (isDesktopApp()) {
+    return invoke<string | null>('kv_get', {
+      projectId: checked.project,
+      key: checked.key,
+    })
+  }
+  return webKvGet({ data: checked })
+}
+
+export async function kvSetFn({
+  data,
+}: {
+  data: { project: string; key: string; value: string }
+}): Promise<{ ok: true }> {
+  const checked = parseViewsWriteInput(data)
+  if (isDesktopApp()) {
+    await invoke('kv_set', {
+      projectId: checked.project,
+      key: checked.key,
+      value: checked.value,
+    })
+    return { ok: true }
+  }
+  return webKvSet({ data: checked })
 }
 
 export async function linearStatusFn({

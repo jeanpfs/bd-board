@@ -1097,6 +1097,84 @@ async function getConfig(projectId: string, key: string): Promise<string> {
   return typeof out.value === 'string' ? out.value : ''
 }
 
+/** `bd query <expr> --json --all`: every bead matching the expression, no page limit. */
+export function buildQueryArgs(expr: string): string[] {
+  if (expr.startsWith('-')) throw new Error('query is invalid')
+  return ['query', expr, '--json', '--limit', '0', '--all']
+}
+
+/** `bd query <expr> --parse-only`: validates the expression without running it. */
+export function buildParseQueryArgs(expr: string): string[] {
+  if (expr.startsWith('-')) throw new Error('query is invalid')
+  return ['query', expr, '--parse-only']
+}
+
+/** `bd kv get <key> --json`; a missing key exits 1 with `found: false`. */
+export function buildKvGetArgs(key: string): string[] {
+  if (key.startsWith('-')) throw new Error('kv key is invalid')
+  return ['kv', 'get', key, '--json']
+}
+
+/** `bd kv set <key> <value> --json`. */
+export function buildKvSetArgs(key: string, value: string): string[] {
+  if (key.startsWith('-')) throw new Error('kv key is invalid')
+  return ['kv', 'set', key, value, '--json']
+}
+
+/**
+ * Reads a kv value from a `bd kv get` run. A missing key exits 1 with
+ * `{"found":false}`, which reads as null; any other failure throws.
+ */
+export function parseKvGet(
+  code: number,
+  stdout: string,
+  stderr: string,
+): string | null {
+  const trimmed = stdout.trim()
+  let parsed: { found?: unknown; value?: unknown } | null = null
+  try {
+    parsed = trimmed
+      ? (JSON.parse(trimmed) as { found?: unknown; value?: unknown })
+      : null
+  } catch {
+    parsed = null
+  }
+  if (parsed?.found === false) return null
+  if (code !== 0) {
+    throw new Error(stderr.trim() || `bd kv get exited with status ${code}`)
+  }
+  return typeof parsed?.value === 'string' ? parsed.value : ''
+}
+
+/** Beads matching a `bd query` expression, shaped like `listBeads`. */
+async function queryBeads(projectId: string, expr: string): Promise<Bead[]> {
+  const dir = await resolveDir(projectId)
+  const [raw, categories] = await Promise.all([
+    bdJson<unknown>(dir, buildQueryArgs(expr)).then(asRows),
+    statusCategories(dir),
+  ])
+  return buildBeadGraph(raw, categories)
+}
+
+/** Asks bd to parse a query; a parse error is thrown with bd's message. */
+async function validateQuery(projectId: string, expr: string): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildParseQueryArgs(expr))
+}
+
+/** The value of a kv key, or null when the key is unset. */
+async function kvGet(projectId: string, key: string): Promise<string | null> {
+  const dir = await resolveDir(projectId)
+  const result = await bdExec(dir, buildKvGetArgs(key))
+  return parseKvGet(result.code, result.stdout, result.stderr)
+}
+
+/** Writes a kv value through bd. */
+async function kvSet(projectId: string, key: string, value: string): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildKvSetArgs(key, value))
+}
+
 /** `bd linear status --json`: connection state and sync counts, no credentials. */
 async function linearStatus(projectId: string): Promise<LinearStatus> {
   const dir = await resolveDir(projectId)
@@ -1201,6 +1279,10 @@ export const bdAdapter: BdAdapter = {
   unclaimBead,
   getConfig,
   setConfig,
+  queryBeads,
+  validateQuery,
+  kvGet,
+  kvSet,
   linearStatus,
   linearSync,
   updateBead,
@@ -1239,6 +1321,10 @@ export {
   unclaimBead,
   getConfig,
   setConfig,
+  queryBeads,
+  validateQuery,
+  kvGet,
+  kvSet,
   linearStatus,
   linearSync,
   previewDeleteBead,

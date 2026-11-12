@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronRight } from 'lucide-react'
 
 import { ProjectChip } from '@/components/project-chip'
+import { useSavedViews } from '@/components/view-editor'
 import { getBeads, getProjects } from '@/lib/server'
 import { isGate } from '@/lib/lease'
 import { isOverdue } from '@/lib/schedule'
@@ -18,6 +19,7 @@ const TAB_LABEL: Record<ProjectTab, string> = {
   hierarchy: 'Hierarchy',
   knowledge: 'Knowledge',
   agents: 'Agents',
+  view: 'Views',
 }
 
 /**
@@ -47,6 +49,7 @@ export function ProjectTopbar() {
     staleTime: 3000,
     retry: false,
   })
+  const { views } = useSavedViews(project ?? '')
 
   if (!project || (tab === 'overview' && !onSettings)) {
     return null
@@ -55,6 +58,7 @@ export function ProjectTopbar() {
   const projects = projectsQuery.data ?? []
   const index = projects.findIndex((p) => p.id === project)
   const name = projects[index]?.name ?? project
+  const viewName = views.find((v) => v.id === search.v)?.name
   const beads = beadsQuery.data
   const open = beads?.filter((b) => {
     if (isGate(b)) return false
@@ -84,7 +88,7 @@ export function ProjectTopbar() {
           aria-hidden="true"
         />
         <span aria-current="page" className="font-semibold text-foreground">
-          {onSettings ? 'Settings' : TAB_LABEL[tab]}
+          {onSettings ? 'Settings' : tab === 'view' ? `Views › ${viewName ?? 'View'}` : TAB_LABEL[tab]}
         </span>
       </nav>
       {open !== undefined && ready !== undefined ? (
