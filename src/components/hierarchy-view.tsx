@@ -22,15 +22,25 @@ const STATUS_DOT_CLASS: Record<BeadColumn, string> = {
   closed: 'bg-status-closed',
 }
 
+const INDENT_PX = 18
+
+/** Id column sized so priority badges line up across every depth. */
+interface IdColumn {
+  chars: number
+  maxDepth: number
+}
+
 function TreeNode({
   bead,
   depth,
   childrenMap,
+  idColumn,
   onOpen,
 }: {
   bead: Bead
   depth: number
   childrenMap: Map<string, Bead[]>
+  idColumn: IdColumn
   onOpen: (bead: Bead) => void
 }) {
   const children = childrenMap.get(bead.id) ?? []
@@ -43,7 +53,7 @@ function TreeNode({
     <div>
       <div
         className="flex items-center gap-2 rounded-[7px] py-1.5 pr-2 transition-colors hover:bg-card-hover"
-        style={{ paddingLeft: 6 + depth * 18 }}
+        style={{ paddingLeft: 6 + depth * INDENT_PX }}
       >
         {hasChildren ? (
           <Button
@@ -78,7 +88,12 @@ function TreeNode({
             )}
             aria-hidden="true"
           />
-          <span className="shrink-0 font-mono text-badge text-muted-foreground">
+          <span
+            className="shrink-0 truncate font-mono text-badge text-muted-foreground"
+            style={{
+              width: `calc(${idColumn.chars}ch + ${(idColumn.maxDepth - depth) * INDENT_PX}px)`,
+            }}
+          >
             {bead.id}
           </span>
           <span
@@ -114,6 +129,7 @@ function TreeNode({
               bead={child}
               depth={depth + 1}
               childrenMap={childrenMap}
+              idColumn={idColumn}
               onOpen={onOpen}
             />
           ))}
@@ -129,6 +145,20 @@ export function HierarchyView({ beads, onOpen }: HierarchyViewProps) {
     () => [...getRootBeads(beads)].sort(compareBeads('priority')),
     [beads],
   )
+  const idColumn = useMemo(() => {
+    let chars = 0
+    let maxDepth = 0
+    const seen = new Set<string>()
+    const walk = (bead: Bead, depth: number) => {
+      if (seen.has(bead.id)) return
+      seen.add(bead.id)
+      chars = Math.max(chars, bead.id.length)
+      maxDepth = Math.max(maxDepth, depth)
+      for (const child of childrenMap.get(bead.id) ?? []) walk(child, depth + 1)
+    }
+    for (const root of roots) walk(root, 0)
+    return { chars, maxDepth }
+  }, [roots, childrenMap])
 
   if (roots.length === 0) {
     return (
@@ -149,6 +179,7 @@ export function HierarchyView({ beads, onOpen }: HierarchyViewProps) {
             bead={root}
             depth={0}
             childrenMap={childrenMap}
+            idColumn={idColumn}
             onOpen={onOpen}
           />
         ))}
