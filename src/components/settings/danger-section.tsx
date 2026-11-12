@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 
 import { Button } from '@/components/ui/button'
 import { ConfirmDeleteModal } from '@/components/confirm-delete-modal'
@@ -10,6 +11,7 @@ interface DangerSectionProps {
 
 /** Removing a project from the desktop registry. The web app cannot do this. */
 export function DangerSection({ projectId, projectName }: DangerSectionProps) {
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
 
   return (
@@ -44,6 +46,7 @@ export function DangerSection({ projectId, projectName }: DangerSectionProps) {
         onOpenChange={setOpen}
         projectId={projectId}
         projectName={projectName}
+        onRemoved={() => navigate({ to: '/' })}
       />
     </div>
   )

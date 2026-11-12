@@ -18,6 +18,12 @@ describe('parseCustomStatuses', () => {
     expect(parseCustomStatuses('')).toEqual([])
     expect(parseCustomStatuses('  ')).toEqual([])
   })
+  it('files a bare name under active, matching bd', () => {
+    expect(parseCustomStatuses('qa, review:wip')).toEqual([
+      { name: 'qa', category: 'active' },
+      { name: 'review', category: 'wip' },
+    ])
+  })
 
   it('ignores blank segments and trims whitespace', () => {
     expect(parseCustomStatuses(' qa:wip , ,')).toEqual([

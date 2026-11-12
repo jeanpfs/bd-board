@@ -1518,13 +1518,88 @@ fn build_unclaim_args(id: &str, force: bool, actor: Option<&str>) -> Result<Vec<
     Ok(args)
 }
 
-fn build_get_config_args(key: &str) -> Vec<String> {
-    vec![
+const CONFIG_KEYS: [&str; 3] = ["claim.pools", "status.custom", "events-journal"];
+const CUSTOM_STATUS_CATEGORIES: [&str; 4] = ["active", "wip", "done", "frozen"];
+
+/// The config keys the board may read or write; anything else is refused.
+fn validate_config_key(key: &str) -> Result<(), String> {
+    if CONFIG_KEYS.contains(&key) {
+        Ok(())
+    } else {
+        Err("config key is not allowed".to_string())
+    }
+}
+
+fn is_status_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    matches!(chars.next(), Some(c) if c.is_ascii_lowercase())
+        && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+}
+
+fn is_pool_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    matches!(chars.next(), Some(c) if c.is_ascii_alphanumeric())
+        && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '@' | '-'))
+}
+
+/// `name` or `name:category`; a bare name is filed as `active`, bd's default.
+fn is_custom_status_segment(segment: &str) -> bool {
+    let (name, category) = match segment.split_once(':') {
+        Some((name, category)) => (name, category),
+        None => (segment, "active"),
+    };
+    is_status_name(name) && CUSTOM_STATUS_CATEGORIES.contains(&category)
+}
+
+fn validate_config_value(key: &str, value: &str) -> Result<(), String> {
+    if value.starts_with('-') || value.contains(['\n', '\r']) {
+        return Err("config value is invalid".to_string());
+    }
+    match key {
+        "events-journal" if value != "true" && value != "false" => {
+            Err("events-journal must be true or false".to_string())
+        }
+        "status.custom" if !value.trim().is_empty() => {
+            if value
+                .split(',')
+                .all(|segment| is_custom_status_segment(segment.trim()))
+            {
+                Ok(())
+            } else {
+                Err("status.custom must list name or name:category entries".to_string())
+            }
+        }
+        "claim.pools" if !value.trim().is_empty() => {
+            if value.split(',').all(|pool| is_pool_name(pool.trim())) {
+                Ok(())
+            } else {
+                Err("claim.pools names are invalid".to_string())
+            }
+        }
+        _ => Ok(()),
+    }
+}
+
+fn build_set_config_args(key: &str, value: &str) -> Result<Vec<String>, String> {
+    validate_config_key(key)?;
+    validate_config_value(key, value)?;
+    Ok(vec![
+        "config".to_string(),
+        "set".to_string(),
+        key.to_string(),
+        value.to_string(),
+        "--json".to_string(),
+    ])
+}
+
+fn build_get_config_args(key: &str) -> Result<Vec<String>, String> {
+    validate_config_key(key)?;
+    Ok(vec![
         "config".to_string(),
         "get".to_string(),
         key.to_string(),
         "--json".to_string(),
-    ]
+    ])
 }
 
 fn build_ready_explain_args() -> &'static [&'static str] {
@@ -1822,14 +1897,21 @@ fn unclaim_bead_inner(
 
 /// The config value as text; an unset key reads as the empty string.
 fn get_config_inner(project_id: &str, key: &str) -> Result<String, String> {
+    let args = build_get_config_args(key)?;
     let dir = resolve_dir(project_id)?;
-    let raw = run_bd_mut(&dir, &build_get_config_args(key))?;
+    let raw = run_bd_mut(&dir, &args)?;
     let value: Value = serde_json::from_str(raw.trim()).map_err(|err| err.to_string())?;
     Ok(value
         .get("value")
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string())
+}
+
+fn set_config_inner(project_id: &str, key: &str, value: &str) -> Result<(), String> {
+    let dir = resolve_dir(project_id)?;
+    run_bd_mut(&dir, &build_set_config_args(key, value)?)?;
+    Ok(())
 }
 
 fn ready_explain_inner(project_id: &str) -> Result<Value, String> {
@@ -1984,6 +2066,11 @@ pub fn unclaim_bead(
     actor: Option<String>,
 ) -> Result<(), String> {
     unclaim_bead_inner(&project_id, &id, force, actor.as_deref())
+}
+
+#[tauri::command]
+pub fn set_config(project_id: String, key: String, value: String) -> Result<(), String> {
+    set_config_inner(&project_id, &key, &value)
 }
 
 #[tauri::command]
@@ -2268,6 +2355,56 @@ pub fn relocate_project(id: String, path: String) -> Result<RegistryEntry, Strin
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn set_config_args_writes_value_and_keeps_empty_value() {
+        assert_eq!(
+            build_set_config_args("claim.pools", "a,b").unwrap(),
+            vec!["config", "set", "claim.pools", "a,b", "--json"]
+        );
+        assert_eq!(
+            build_set_config_args("claim.pools", "").unwrap(),
+            vec!["config", "set", "claim.pools", "", "--json"]
+        );
+    }
+
+    #[test]
+    fn set_config_args_rejects_flag_like_key() {
+        assert!(build_set_config_args("--force", "x").is_err());
+    }
+
+    #[test]
+    fn config_args_refuse_keys_outside_the_allowlist() {
+        assert!(build_set_config_args("sync.remote", "x").is_err());
+        assert!(build_get_config_args("sync.remote").is_err());
+        assert!(build_get_config_args("status.custom").is_ok());
+    }
+
+    #[test]
+    fn config_args_refuse_flag_like_values() {
+        assert!(build_set_config_args("claim.pools", "--force").is_err());
+        assert!(build_set_config_args("status.custom", "-x:wip").is_err());
+    }
+
+    #[test]
+    fn events_journal_accepts_only_true_or_false() {
+        assert!(build_set_config_args("events-journal", "true").is_ok());
+        assert!(build_set_config_args("events-journal", "yes").is_err());
+    }
+
+    #[test]
+    fn status_custom_checks_names_and_categories() {
+        assert!(build_set_config_args("status.custom", "qa,in_review:wip").is_ok());
+        assert!(build_set_config_args("status.custom", "Bad Name:wip").is_err());
+        assert!(build_set_config_args("status.custom", "qa:nope").is_err());
+        assert!(build_set_config_args("status.custom", "qa,,ok").is_err());
+    }
+
+    #[test]
+    fn claim_pools_checks_names() {
+        assert!(build_set_config_args("claim.pools", "maya, ines-2").is_ok());
+        assert!(build_set_config_args("claim.pools", "bad name").is_err());
+    }
 
     #[test]
     fn tail_args_reads_json_from_cursor_with_limit() {
@@ -2582,7 +2719,7 @@ mod tests {
         assert_eq!(parse_reclaim_count(r#"{"count":2}"#), Ok(2));
         assert!(parse_reclaim_count("✓ done").is_err());
         assert_eq!(
-            build_get_config_args("claim.pools"),
+            build_get_config_args("claim.pools").unwrap(),
             vec!["config", "get", "claim.pools", "--json"]
         );
     }

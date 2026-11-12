@@ -404,9 +404,17 @@ function BoardPage() {
 
   useShortcuts({
     navigateTab: (next) =>
-      navigate({ to: '.', search: (prev) => ({ ...prev, tab: next }) }),
+      navigate({
+        to: '/p/$project',
+        params: { project },
+        search: (prev) => ({ ...prev, tab: next }),
+      }),
     newBead: () =>
-      navigate({ to: '.', search: (prev) => ({ ...prev, new: '1' }) }),
+      navigate({
+        to: '/p/$project',
+        params: { project },
+        search: (prev) => ({ ...prev, new: '1' }),
+      }),
     showShortcuts: openShortcutsDialog,
     focusSearch: () =>
       document.querySelector<HTMLInputElement>('[data-board-search]')?.focus(),

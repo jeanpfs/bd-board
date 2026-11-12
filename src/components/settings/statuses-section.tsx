@@ -4,7 +4,16 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  BUILT_IN_CATEGORY,
   CUSTOM_STATUS_CATEGORIES,
   parseCustomStatuses,
   serializeCustomStatuses,
@@ -16,6 +25,8 @@ import type {
   CustomStatusRow,
 } from '@/lib/custom-statuses'
 import { getBeads, getConfigFn, setConfigFn } from '@/lib/server'
+import { cn } from '@/lib/utils'
+import type { StatusCategory } from '@/lib/types'
 
 interface StatusesSectionProps {
   project: string
@@ -69,6 +80,13 @@ interface StatusesEditorProps {
   beadCounts: Map<string, number>
 }
 
+/** Neutral dot for active and frozen; colour only for wip and done, always with a label. */
+function categoryDotClass(category: StatusCategory): string {
+  if (category === 'wip') return 'bg-status-progress'
+  if (category === 'done') return 'bg-status-closed'
+  return 'bg-muted-foreground'
+}
+
 function StatusesEditor({ project, saved, beadCounts }: StatusesEditorProps) {
   const queryClient = useQueryClient()
   const [rows, setRows] = useState<CustomStatusRow[]>(() =>
@@ -79,7 +97,7 @@ function StatusesEditor({ project, saved, beadCounts }: StatusesEditorProps) {
   const [error, setError] = useState<string | null>(null)
 
   const value = serializeCustomStatuses(rows)
-  const dirty = value !== saved
+  const dirty = value !== serializeCustomStatuses(parseCustomStatuses(saved))
   const addProblem =
     name.trim() === ''
       ? null
@@ -138,11 +156,32 @@ function StatusesEditor({ project, saved, beadCounts }: StatusesEditorProps) {
           <span className="text-right">Beads</span>
           <span className="sr-only">Actions</span>
         </div>
-        {rows.length === 0 ? (
-          <p className="px-4 py-3 text-body text-muted-foreground">
-            No custom statuses yet.
-          </p>
-        ) : null}
+        {Object.entries(BUILT_IN_CATEGORY).map(([builtIn, builtInCategory]) => (
+          <div
+            key={builtIn}
+            className="grid grid-cols-[1fr_140px_80px_72px] items-center gap-3 border-b border-border px-4 py-2"
+          >
+            <span className="font-mono text-body text-foreground">
+              {builtIn}
+            </span>
+            <span className="flex items-center gap-2 text-body text-foreground">
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'size-2 rounded-full',
+                  categoryDotClass(builtInCategory),
+                )}
+              />
+              {builtInCategory}
+            </span>
+            <span className="text-right font-mono text-body text-muted-foreground">
+              {beadCounts.get(builtIn) ?? 0}
+            </span>
+            <span className="text-right text-xs text-muted-foreground">
+              built-in
+            </span>
+          </div>
+        ))}
         {rows.map((row) => (
           <div
             key={row.name}
@@ -154,7 +193,10 @@ function StatusesEditor({ project, saved, beadCounts }: StatusesEditorProps) {
             <span className="flex items-center gap-2 text-body text-foreground">
               <span
                 aria-hidden="true"
-                className="size-2 rounded-full bg-muted-foreground"
+                className={cn(
+                  'size-2 rounded-full',
+                  categoryDotClass(row.category),
+                )}
               />
               {row.category}
             </span>
@@ -176,8 +218,11 @@ function StatusesEditor({ project, saved, beadCounts }: StatusesEditorProps) {
         ))}
         <div className="flex items-start gap-3 border-t border-border px-4 py-3">
           <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <Label htmlFor="new-status-name" className="sr-only">
+              New status name
+            </Label>
             <Input
-              aria-label="New status name"
+              id="new-status-name"
               placeholder="status_name"
               value={name}
               onChange={(event) => setName(event.target.value)}
@@ -187,20 +232,24 @@ function StatusesEditor({ project, saved, beadCounts }: StatusesEditorProps) {
               <span className="text-xs text-destructive">{addProblem}</span>
             ) : null}
           </div>
-          <select
-            aria-label="New status category"
+          <Select
             value={category}
-            onChange={(event) =>
-              setCategory(event.target.value as CustomStatusCategory)
-            }
-            className="h-9 rounded-md border border-border bg-transparent px-2 text-body text-foreground"
+            onValueChange={(next) => setCategory(next as CustomStatusCategory)}
           >
-            {CUSTOM_STATUS_CATEGORIES.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger
+              aria-label="New status category"
+              className="w-[140px]"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CUSTOM_STATUS_CATEGORIES.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
             type="button"
             variant="outline"
@@ -221,7 +270,7 @@ function StatusesEditor({ project, saved, beadCounts }: StatusesEditorProps) {
       <div className="flex items-center justify-end gap-2">
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           disabled={!dirty || save.isPending}
           onClick={() => {
             setRows(parseCustomStatuses(saved))

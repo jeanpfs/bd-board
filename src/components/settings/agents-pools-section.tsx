@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { getConfigFn, setConfigFn } from '@/lib/server'
 
 interface AgentsPoolsSectionProps {
@@ -73,9 +74,9 @@ function PoolsEditor({ project, saved }: { project: string; saved: string }) {
       </div>
 
       <div className="flex flex-col gap-2 rounded-lg border border-border p-4">
-        <label htmlFor="claim-pools" className="text-body text-foreground">
+        <Label htmlFor="claim-pools" className="text-body text-foreground">
           Claim pools
-        </label>
+        </Label>
         <Input
           id="claim-pools"
           value={draft}
@@ -94,7 +95,7 @@ function PoolsEditor({ project, saved }: { project: string; saved: string }) {
       <div className="flex items-center justify-end gap-2">
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           disabled={!dirty || save.isPending}
           onClick={() => {
             setDraft(saved)

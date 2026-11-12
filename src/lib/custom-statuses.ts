@@ -1,4 +1,5 @@
 import { BUILT_IN_STATUSES } from './types.ts'
+import type { StatusCategory } from './types.ts'
 
 /** Categories a custom status may be filed under (bd's `status.custom`). */
 export const CUSTOM_STATUS_CATEGORIES = [
@@ -21,13 +22,24 @@ function isCategory(value: string): value is CustomStatusCategory {
   return (CUSTOM_STATUS_CATEGORIES as readonly string[]).includes(value)
 }
 
-/** Splits a `status.custom` value into rows; malformed segments are skipped. */
+/** bd's built-in statuses and the category bd files each one under (`bd statuses`). */
+export const BUILT_IN_CATEGORY: Record<string, StatusCategory> = {
+  open: 'active',
+  in_progress: 'wip',
+  blocked: 'wip',
+  deferred: 'frozen',
+  closed: 'done',
+  pinned: 'frozen',
+  hooked: 'wip',
+}
+
+/** Splits a `status.custom` value into rows; a bare name is `active`, bd's default. */
 export function parseCustomStatuses(value: string): CustomStatusRow[] {
   const rows: CustomStatusRow[] = []
   for (const segment of value.split(',')) {
     const parts = segment.trim().split(':')
-    if (parts.length !== 2) continue
-    const [name, category] = parts
+    if (parts.length > 2) continue
+    const [name, category = 'active'] = parts
     if (!name || !isCategory(category)) continue
     rows.push({ name, category })
   }
@@ -65,10 +77,10 @@ export function validateCustomStatusList(value: string): string | null {
       return 'Each status needs a name and a category'
     }
     const parts = segment.trim().split(':')
-    if (parts.length !== 2) {
-      return 'Each status must look like name:category'
+    if (parts.length > 2) {
+      return 'Each status must look like name or name:category'
     }
-    const [name, category] = parts
+    const [name, category = 'active'] = parts
     if (!isCategory(category)) {
       return `${category} is not a valid category`
     }

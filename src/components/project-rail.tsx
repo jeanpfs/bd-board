@@ -320,7 +320,7 @@ export function ProjectRail() {
                   params={{ project }}
                   search={{ tab: item.key }}
                   icon={item.icon}
-                  active={tab === item.key}
+                  active={!pathname.endsWith('/settings') && tab === item.key}
                   collapsed={collapsed}
                 >
                   {item.label}

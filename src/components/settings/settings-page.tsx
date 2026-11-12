@@ -6,7 +6,7 @@ import { GeneralSection } from '@/components/settings/general-section'
 import { SettingsNav } from '@/components/settings/settings-nav'
 import type { SettingsSection } from '@/components/settings/settings-nav'
 import { StatusesSection } from '@/components/settings/statuses-section'
-import { getProjects } from '@/lib/server'
+import { getProjects, isDesktopApp } from '@/lib/server'
 
 interface SettingsPageProps {
   project: string
@@ -32,14 +32,18 @@ export function SettingsPage({ project, section }: SettingsPageProps) {
     )
   }
 
+  // The web app cannot remove projects, so a danger deep link falls back to General.
+  const shown: SettingsSection =
+    section === 'danger' && !isDesktopApp() ? 'general' : section
+
   return (
     <div className="flex min-h-0 flex-1 gap-8 overflow-y-auto p-6">
-      <SettingsNav project={project} active={section} />
+      <SettingsNav project={project} active={shown} />
       <section className="flex min-w-0 max-w-2xl flex-1 flex-col gap-6">
-        {section === 'general' ? <GeneralSection project={found} /> : null}
-        {section === 'statuses' ? <StatusesSection project={project} /> : null}
-        {section === 'agents' ? <AgentsPoolsSection project={project} /> : null}
-        {section === 'danger' ? (
+        {shown === 'general' ? <GeneralSection project={found} /> : null}
+        {shown === 'statuses' ? <StatusesSection project={project} /> : null}
+        {shown === 'agents' ? <AgentsPoolsSection project={project} /> : null}
+        {shown === 'danger' ? (
           <DangerSection projectId={project} projectName={found.name} />
         ) : null}
       </section>

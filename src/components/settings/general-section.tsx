@@ -37,6 +37,8 @@ export function GeneralSection({ project }: GeneralSectionProps) {
         next ? 'true' : 'false',
       )
       queryClient.invalidateQueries({ queryKey: ['beads', project.id] })
+      queryClient.invalidateQueries({ queryKey: ['inbox', project.id] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
       toast.success(next ? 'Live updates on' : 'Live updates off')
     },
     onError: (error) =>
@@ -55,6 +57,22 @@ export function GeneralSection({ project }: GeneralSectionProps) {
           <dt className="text-muted-foreground">Path</dt>
           <dd className="truncate font-mono text-xs text-foreground">
             {project.dir}
+          </dd>
+        </dl>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+        <h3 className="text-body font-semibold text-foreground">Database</h3>
+        <dl className="grid grid-cols-[120px_1fr] gap-x-4 gap-y-2 text-body">
+          <dt className="text-muted-foreground">Schema</dt>
+          <dd className="text-foreground">
+            {project.migration
+              ? `Migration pending: v${project.migration.currentVersion} → v${project.migration.latestVersion}`
+              : 'Up to date'}
+          </dd>
+          <dt className="text-muted-foreground">Location</dt>
+          <dd className="truncate font-mono text-xs text-foreground">
+            {project.beadsPath}
           </dd>
         </dl>
       </div>

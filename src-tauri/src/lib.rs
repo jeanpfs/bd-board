@@ -66,6 +66,7 @@ pub fn run() {
             desktop::list_gates,
             desktop::resolve_gate,
             desktop::get_config,
+            desktop::set_config,
             desktop::ready_explain,
             desktop::add_relation,
             desktop::remove_relation,
