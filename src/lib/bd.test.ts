@@ -6,7 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   buildBeadGraph,
+  buildClaimArgs,
   buildCloseBeadArgs,
+  buildReadyExplainArgs,
   buildCountsFromGroups,
   buildDeferBeadArgs,
   buildCreateBeadArgs,
@@ -555,5 +557,28 @@ describe('buildProjectKnowledge', () => {
     expect(result.knowledge).toHaveLength(
       Math.min(KNOWLEDGE_LIMIT, manyComments.length),
     )
+  })
+})
+
+describe('claim and ready arguments', () => {
+  it('claims atomically, adding the actor when known', () => {
+    expect(buildClaimArgs('x-1')).toEqual(['update', 'x-1', '--claim'])
+    expect(buildClaimArgs('x-1', 'maya')).toEqual([
+      'update',
+      'x-1',
+      '--claim',
+      '--actor',
+      'maya',
+    ])
+  })
+
+  it('asks for every ready bead with explanations', () => {
+    expect(buildReadyExplainArgs()).toEqual([
+      'ready',
+      '--explain',
+      '--json',
+      '--limit',
+      '0',
+    ])
   })
 })

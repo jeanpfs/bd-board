@@ -1404,6 +1404,19 @@ fn build_close_bead_args(id: &str, reason: Option<&str>, force: bool) -> Vec<Str
     args
 }
 
+fn build_claim_args(id: &str, actor: Option<&str>) -> Vec<String> {
+    let mut args = vec!["update".to_string(), id.to_string(), "--claim".to_string()];
+    if let Some(actor) = actor.filter(|a| !a.is_empty()) {
+        args.push("--actor".to_string());
+        args.push(actor.to_string());
+    }
+    args
+}
+
+fn build_ready_explain_args() -> &'static [&'static str] {
+    &["ready", "--explain", "--json", "--limit", "0"]
+}
+
 /// Mirrors the editor's relation kinds: each maps to the bd command that creates it.
 fn build_add_relation_args(kind: &str, id: &str, target: &str) -> Result<Vec<String>, String> {
     let args: Vec<&str> = match kind {
@@ -1617,6 +1630,16 @@ fn close_bead_inner(
     run_bd_mut(&dir, &build_close_bead_args(id, reason, force)).map(|_| ())
 }
 
+fn claim_bead_inner(project_id: &str, id: &str, actor: Option<&str>) -> Result<(), String> {
+    let dir = resolve_dir(project_id)?;
+    run_bd_mut(&dir, &build_claim_args(id, actor)).map(|_| ())
+}
+
+fn ready_explain_inner(project_id: &str) -> Result<Value, String> {
+    let dir = resolve_dir(project_id)?;
+    bd_json(&dir, build_ready_explain_args())
+}
+
 fn add_relation_inner(project_id: &str, id: &str, kind: &str, target: &str) -> Result<(), String> {
     let dir = resolve_dir(project_id)?;
     run_bd_mut(&dir, &build_add_relation_args(kind, id, target)?).map(|_| ())
@@ -1729,6 +1752,16 @@ pub fn close_bead(
     force: bool,
 ) -> Result<(), String> {
     close_bead_inner(&project_id, &id, reason.as_deref(), force)
+}
+
+#[tauri::command]
+pub fn claim_bead(project_id: String, id: String, actor: Option<String>) -> Result<(), String> {
+    claim_bead_inner(&project_id, &id, actor.as_deref())
+}
+
+#[tauri::command]
+pub fn ready_explain(project_id: String) -> Result<Value, String> {
+    ready_explain_inner(&project_id)
 }
 
 #[tauri::command]
@@ -2217,6 +2250,23 @@ mod tests {
         assert_eq!(
             build_close_bead_args("bd-board-a2k", Some("done"), true),
             vec!["close", "bd-board-a2k", "--reason", "done", "--force"]
+        );
+    }
+
+    #[test]
+    fn claim_args_add_the_actor_only_when_known() {
+        assert_eq!(
+            build_claim_args("bd-board-a2k", None),
+            vec!["update", "bd-board-a2k", "--claim"]
+        );
+        assert_eq!(
+            build_claim_args("bd-board-a2k", Some("maya")),
+            vec!["update", "bd-board-a2k", "--claim", "--actor", "maya"]
+        );
+        assert_eq!(build_claim_args("bd-board-a2k", Some("")).len(), 3);
+        assert_eq!(
+            build_ready_explain_args(),
+            &["ready", "--explain", "--json", "--limit", "0"]
         );
     }
 

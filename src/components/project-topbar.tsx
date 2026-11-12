@@ -13,6 +13,7 @@ import type { ProjectTab } from '@/components/board-header'
 const TAB_LABEL: Record<ProjectTab, string> = {
   overview: 'Overview',
   board: 'Board',
+  ready: 'Ready',
   hierarchy: 'Hierarchy',
   knowledge: 'Knowledge',
 }

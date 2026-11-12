@@ -7,6 +7,7 @@ import {
   parseRelationInput,
   parseRemoveRelationInput,
   parseBeadInput,
+  parseClaimInput,
   parseCloseBeadInput,
   parseCommentInput,
   parseCreateBeadInput,
@@ -15,6 +16,7 @@ import {
   parseStatusUpdateInput,
   parseUpdateBeadInput,
 } from './server-validation.ts'
+import { parseReadyExplain } from './ready.ts'
 import { toErrorMessage } from './utils.ts'
 
 import type {
@@ -25,6 +27,7 @@ import type {
   BeadUpdate,
   DeletePlan,
   Project,
+  ReadyExplain,
   ProjectKnowledge,
 } from './types.ts'
 
@@ -64,6 +67,17 @@ const webCloseBead = createServerFn({ method: 'POST' })
     })
     return { ok: true as const }
   })
+
+const webClaimBead = createServerFn({ method: 'POST' })
+  .validator(parseClaimInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.claimBead(data.project, data.id, data.actor)
+    return { ok: true as const }
+  })
+
+const webReadyExplain = createServerFn({ method: 'POST' })
+  .validator(parseProjectInput)
+  .handler(async ({ data }) => bdAdapter.readyExplain(data.project))
 
 const webAddRelation = createServerFn({ method: 'POST' })
   .validator(parseRelationInput)
@@ -214,6 +228,35 @@ export async function closeBeadFn({
     return { ok: true }
   }
   return webCloseBead({ data })
+}
+
+export async function claimBeadFn({
+  data,
+}: {
+  data: { project: string; id: string; actor?: string }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('claim_bead', {
+      projectId: data.project,
+      id: data.id,
+      actor: data.actor,
+    })
+    return { ok: true }
+  }
+  return webClaimBead({ data })
+}
+
+export async function readyExplainFn({
+  data,
+}: {
+  data: { project: string }
+}): Promise<ReadyExplain> {
+  if (isDesktopApp()) {
+    return parseReadyExplain(
+      await invoke<unknown>('ready_explain', { projectId: data.project }),
+    )
+  }
+  return webReadyExplain({ data })
 }
 
 export async function addRelationFn({

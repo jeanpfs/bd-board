@@ -30,7 +30,12 @@ import type { LucideIcon } from 'lucide-react'
 import type { SortKey } from '@/lib/sort'
 
 export type BoardView = 'status' | 'epic' | 'priority'
-export type ProjectTab = 'overview' | 'board' | 'knowledge' | 'hierarchy'
+export type ProjectTab =
+  | 'overview'
+  | 'board'
+  | 'ready'
+  | 'knowledge'
+  | 'hierarchy'
 
 interface BoardHeaderProps {
   search: string

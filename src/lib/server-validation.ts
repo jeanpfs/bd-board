@@ -128,6 +128,21 @@ export function parseCloseBeadInput(input: unknown): {
   }
 }
 
+export function parseClaimInput(input: unknown): {
+  project: string
+  id: string
+  actor: string | undefined
+} {
+  const data = record(input)
+  const actor = optionalText(data, 'actor', 200)
+  if (actor?.startsWith('-')) throw new Error('actor is invalid')
+  return {
+    project: requiredString(data, 'project', PROJECT_RE, 'Project'),
+    id: requiredString(data, 'id', BEAD_ID_RE, 'Bead id'),
+    actor,
+  }
+}
+
 function relationParts<T extends RelationKind>(
   data: Record<string, unknown>,
   kind: T,

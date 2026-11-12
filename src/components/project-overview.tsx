@@ -45,6 +45,7 @@ export function ProjectOverview({
   onOpen,
   onOpenKnowledge,
   onCreate,
+  onClaim,
 }: {
   project: string
   name: string
@@ -53,6 +54,7 @@ export function ProjectOverview({
   onOpen: (bead: Bead) => void
   onOpenKnowledge: (id: string) => void
   onCreate: () => void
+  onClaim: (id: string) => void
 }) {
   // Recomputed when the bead list refreshes, not on every render.
   const now = useMemo(() => Date.now(), [beads])
@@ -236,13 +238,13 @@ export function ProjectOverview({
                   {ready.slice(0, READY_PREVIEW).map((bead) => (
                     <li
                       key={bead.id}
-                      className="border-b border-border/60 last:border-0"
+                      className="group flex items-center gap-2 border-b border-border/60 last:border-0"
                     >
                       <InteractiveRow
                         variant="plain"
                         size="flush"
                         onClick={() => onOpen(bead)}
-                        className={LIST_ROW}
+                        className={cn(LIST_ROW, 'min-w-0 flex-1')}
                       >
                         <PriorityBadge priority={bead.priority} />
                         <span className="shrink-0 font-mono text-xs text-muted-foreground">
@@ -252,6 +254,15 @@ export function ProjectOverview({
                           {bead.title}
                         </span>
                       </InteractiveRow>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onClaim(bead.id)}
+                        aria-label={`Claim ${bead.id}`}
+                        className="shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                      >
+                        Claim
+                      </Button>
                     </li>
                   ))}
                 </ul>
@@ -260,7 +271,7 @@ export function ProjectOverview({
                 <Link
                   to="/p/$project"
                   params={{ project }}
-                  search={{ tab: 'board', ready: '1' }}
+                  search={{ tab: 'ready' }}
                   className="self-start rounded px-3 text-body text-primary-text outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/60"
                 >
                   Show all {ready.length}

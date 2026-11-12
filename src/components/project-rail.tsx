@@ -336,7 +336,7 @@ export function ProjectRail() {
               <RailLink
                 to="/p/$project"
                 params={{ project }}
-                search={{ tab: 'board', ready: '1' }}
+                search={{ tab: 'ready' }}
                 dotClassName="bg-status-closed"
                 count={readyCount}
               >

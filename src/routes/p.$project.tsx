@@ -27,10 +27,18 @@ import { ProjectKnowledgePanel } from '@/components/project-knowledge-panel'
 import { LiveUpdatesIndicator } from '@/components/live-updates-indicator'
 import { Button } from '@/components/ui/button'
 import { isDueThisWeek, isOverdue } from '@/lib/schedule'
-import { getBeads, getProjects, updateBeadStatusFn } from '@/lib/server'
+import {
+  claimBeadFn,
+  getBeads,
+  getProjects,
+  readyExplainFn,
+  updateBeadStatusFn,
+} from '@/lib/server'
 import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
 import { beadMatches, compareBeads } from '@/lib/sort'
 import { toErrorMessage } from '@/lib/utils'
+import { claimErrorMessage } from '@/lib/ready'
+import { getStoredIdentity } from '@/lib/identity'
 import { closeRefusalReason } from '@/lib/close-policy'
 import {
   migrationGateFromMessage,
@@ -41,6 +49,7 @@ import { openShortcutsDialog } from '@/components/shortcuts-dialog'
 import { useShortcuts } from '@/hooks/use-shortcuts'
 import type { BeadAction } from '@/components/bead-detail-modal'
 import { ProjectOverview } from '@/components/project-overview'
+import { ReadyView } from '@/components/ready-view'
 
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import type { BoardView, ProjectTab } from '@/components/board-header'
@@ -64,7 +73,13 @@ interface BoardSearch {
 }
 
 const BOARD_VIEWS = new Set(['status', 'epic', 'priority'])
-const PROJECT_TABS = new Set(['overview', 'board', 'knowledge', 'hierarchy'])
+const PROJECT_TABS = new Set([
+  'overview',
+  'board',
+  'ready',
+  'knowledge',
+  'hierarchy',
+])
 const SORT_KEYS = new Set(['priority', 'recent', 'title'])
 
 function parsePriorityParam(value?: string): number[] {
@@ -197,6 +212,13 @@ function BoardPage() {
     retry: false,
   })
 
+  const readyQuery = useQuery({
+    queryKey: ['ready-explain', project],
+    queryFn: () => readyExplainFn({ data: { project } }),
+    enabled: tab === 'ready',
+    retry: false,
+  })
+
   // Shares the rail's query; the dashboard learns about pending migrations
   // from `bd count`, which still works on a gated database.
   const projectsQuery = useQuery({
@@ -302,6 +324,7 @@ function BoardPage() {
   }
 
   const [pendingAction, setPendingAction] = useState<BeadAction | null>(null)
+  const [claimingId, setClaimingId] = useState<string | null>(null)
 
   // A different bead (or closing the modal) drops any pending bead action.
   useEffect(() => {
@@ -370,6 +393,14 @@ function BoardPage() {
     moveCard,
     moveColumn,
     beadAction,
+    claimFocused: () => {
+      const row =
+        document.activeElement?.closest<HTMLElement>('[data-ready-id]')
+      const id = row?.dataset.readyId
+      if (!id) return false
+      claim(id)
+      return true
+    },
   })
 
   async function applyDrop(activeId: string, toColumn: BeadColumn) {
@@ -394,6 +425,23 @@ function BoardPage() {
       else toast.error(message)
     } finally {
       queryClient.invalidateQueries({ queryKey: ['beads', project] })
+    }
+  }
+
+  async function claim(id: string) {
+    setClaimingId(id)
+    try {
+      await claimBeadFn({
+        data: { project, id, actor: getStoredIdentity() ?? undefined },
+      })
+      toast.success(`Claimed ${id}`)
+    } catch (error) {
+      const message = toErrorMessage(error, 'Failed to claim bead')
+      toast.error(claimErrorMessage(message) ?? message)
+    } finally {
+      setClaimingId(null)
+      queryClient.invalidateQueries({ queryKey: ['beads', project] })
+      queryClient.invalidateQueries({ queryKey: ['ready-explain', project] })
     }
   }
 
@@ -512,7 +560,30 @@ function BoardPage() {
           onOpen={openBead}
           onOpenKnowledge={openKnowledge}
           onCreate={() => setCreateOpen(true)}
+          onClaim={claim}
         />
+      ) : tab === 'ready' ? (
+        readyQuery.isError ? (
+          <BoardError
+            message={toErrorMessage(
+              readyQuery.error,
+              'Failed to load ready beads',
+            )}
+            onRetry={() => readyQuery.refetch()}
+          />
+        ) : readyQuery.data ? (
+          <ReadyView
+            data={readyQuery.data}
+            beadsById={beadsById}
+            beads={beads}
+            claimingId={claimingId}
+            onClaim={claim}
+            onOpen={openBead}
+            onCreate={() => setCreateOpen(true)}
+          />
+        ) : (
+          <BoardSkeleton />
+        )
       ) : tab === 'knowledge' ? (
         <ProjectKnowledgePanel
           project={project}

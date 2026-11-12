@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   parseBeadInput,
+  parseClaimInput,
   parseCommentInput,
   parseCreateBeadInput,
   parseDeferInput,
@@ -291,5 +292,25 @@ describe('schedule input validation', () => {
     expect(() => parseUpdateBeadInput({ ...base, estimate: 1.5 })).toThrow(
       'Estimate is invalid',
     )
+  })
+})
+
+describe('claim input', () => {
+  it('accepts an id with an optional actor', () => {
+    expect(parseClaimInput({ project: 'p', id: 'bd-1' })).toEqual({
+      project: 'p',
+      id: 'bd-1',
+      actor: undefined,
+    })
+    expect(
+      parseClaimInput({ project: 'p', id: 'bd-1', actor: ' maya ' }).actor,
+    ).toBe('maya')
+  })
+
+  it('rejects bad ids and flag-like actors', () => {
+    expect(() => parseClaimInput({ project: 'p', id: '--force' })).toThrow()
+    expect(() =>
+      parseClaimInput({ project: 'p', id: 'bd-1', actor: '--force' }),
+    ).toThrow()
   })
 })

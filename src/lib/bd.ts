@@ -18,8 +18,10 @@ import type {
   ProjectKnowledgeEntry,
   RelatedBead,
   StatusCategory,
+  ReadyExplain,
 } from './types.ts'
 import { BUILT_IN_STATUSES, CATEGORY_COLUMN } from './types.ts'
+import { parseReadyExplain } from './ready.ts'
 import { buildAddRelationArgs, buildRemoveRelationArgs } from './relations.ts'
 import type { RelationKind, RemovableRelationKind } from './relations.ts'
 import { parseKnowledgeCommentText } from './knowledge.ts'
@@ -955,6 +957,31 @@ async function closeBead(
   await bdRaw(dir, buildCloseBeadArgs(id, opts))
 }
 
+export function buildClaimArgs(id: string, actor?: string): string[] {
+  const args = ['update', id, '--claim']
+  if (actor) args.push('--actor', actor)
+  return args
+}
+
+export function buildReadyExplainArgs(): string[] {
+  return ['ready', '--explain', '--json', '--limit', '0']
+}
+
+async function claimBead(
+  projectId: string,
+  id: string,
+  actor?: string,
+): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildClaimArgs(id, actor))
+}
+
+/** `bd ready --explain --json`, shaped for the Ready view. */
+async function readyExplain(projectId: string): Promise<ReadyExplain> {
+  const dir = await resolveDir(projectId)
+  return parseReadyExplain(await bdJson<unknown>(dir, buildReadyExplainArgs()))
+}
+
 export function buildCreateBeadArgs(opts: {
   title: string
   description?: string
@@ -1007,6 +1034,8 @@ export const bdAdapter: BdAdapter = {
   getProjectKnowledge,
   updateBeadStatus,
   closeBead,
+  claimBead,
+  readyExplain,
   addRelation,
   removeRelation,
   updateBead,
@@ -1026,6 +1055,8 @@ export {
   getProjectKnowledge,
   updateBeadStatus,
   closeBead,
+  claimBead,
+  readyExplain,
   addRelation,
   removeRelation,
   buildCloseBeadArgs,

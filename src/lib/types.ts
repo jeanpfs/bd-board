@@ -92,6 +92,29 @@ export interface Bead {
   links?: BeadLink[]
 }
 
+/** `bd ready --explain` row: a ready bead plus bd's reason and the blockers it outlived. */
+export interface ReadyRow extends Bead {
+  reason: string
+  /** Ids of blockers that were closed; empty when it never had any. */
+  resolved_blockers: string[]
+}
+
+export interface BlockerRef {
+  id: string
+  title: string
+  status: string
+  priority: number
+}
+
+export interface BlockedRow extends Bead {
+  blocked_by: BlockerRef[]
+}
+
+export interface ReadyExplain {
+  ready: ReadyRow[]
+  blocked: BlockedRow[]
+}
+
 export interface RelatedBead {
   id: string
   title: string

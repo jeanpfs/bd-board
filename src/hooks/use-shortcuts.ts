@@ -12,6 +12,8 @@ export interface ShortcutHandlers {
   moveCard: (direction: 'next' | 'prev') => void
   moveColumn: (direction: 'next' | 'prev') => void
   beadAction: (id: string) => void
+  /** Claims the focused Ready row; returns false when none has focus. */
+  claimFocused?: () => boolean
 }
 
 const TAB_BY_ID: Partial<Record<string, 'board' | 'hierarchy' | 'knowledge'>> =
@@ -91,6 +93,10 @@ export function useShortcuts(handlers: ShortcutHandlers) {
       }
       switch (id) {
         case 'new-bead':
+          if (h.claimFocused?.()) {
+            event.preventDefault()
+            return
+          }
           event.preventDefault()
           h.newBead()
           return

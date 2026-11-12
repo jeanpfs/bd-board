@@ -6,6 +6,7 @@ import type {
   DeletePlan,
   Project,
   ProjectKnowledge,
+  ReadyExplain,
 } from './types.ts'
 
 export interface BdAdapter {
@@ -24,6 +25,10 @@ export interface BdAdapter {
     id: string,
     opts: { reason?: string; force?: boolean },
   ) => Promise<void>
+  /** `bd update --claim`: atomic; fails when another actor holds the bead. */
+  claimBead: (projectId: string, id: string, actor?: string) => Promise<void>
+  /** Raw `bd ready --explain --json`; shape it with `parseReadyExplain`. */
+  readyExplain: (projectId: string) => Promise<ReadyExplain>
   /** `bd dep add`, `bd dep relate`, `bd duplicate` or `bd supersede` from `id` to `target`. */
   addRelation: (
     projectId: string,
