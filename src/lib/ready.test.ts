@@ -137,6 +137,13 @@ describe('claimErrorMessage', () => {
       ),
     ).toBe('Already claimed by claude-code')
   })
+  it('keeps a multi-word actor name', () => {
+    expect(
+      claimErrorMessage(
+        'Error updating demo-fiv: issue already claimed by Maya Chen',
+      ),
+    ).toBe('Already claimed by Maya Chen')
+  })
   it('returns null for other failures', () => {
     expect(claimErrorMessage('Error: no beads directory')).toBeNull()
     expect(claimErrorMessage('')).toBeNull()

@@ -117,7 +117,7 @@ export function ReadyView({
                         </span>
                         {row.bead.title}
                       </span>
-                      <span className="flex items-center gap-1.5 text-xs text-destructive">
+                      <span className="flex items-center gap-1.5 text-xs text-status-blocked">
                         <Ban aria-hidden="true" className="size-3.5 shrink-0" />
                         Blocked by{' '}
                         {row.bead.blocked_by
@@ -190,7 +190,6 @@ function ReadyItem({
   return (
     <li
       data-ready-id={bead.id}
-      tabIndex={0}
       className={cn(
         'flex items-center gap-2.5 border-t border-border py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
       )}

@@ -140,6 +140,6 @@ export function unblockedLabel(
 
 /** bd refuses a claim held by someone else: `issue already claimed by <actor>`. */
 export function claimErrorMessage(stderr: string): string | null {
-  const match = /already claimed by (\S+)/.exec(stderr)
-  return match ? `Already claimed by ${match[1]}` : null
+  const match = /already claimed by ([^\n"]+)/.exec(stderr)
+  return match ? `Already claimed by ${match[1].trim()}` : null
 }

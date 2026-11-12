@@ -219,6 +219,13 @@ function BoardPage() {
     retry: false,
   })
 
+  // Keep the Ready view in step with every beads refresh (feed, create, edit, close).
+  useEffect(() => {
+    if (tab === 'ready') {
+      queryClient.invalidateQueries({ queryKey: ['ready-explain', project] })
+    }
+  }, [beadsQuery.dataUpdatedAt, tab, project, queryClient])
+
   // Shares the rail's query; the dashboard learns about pending migrations
   // from `bd count`, which still works on a gated database.
   const projectsQuery = useQuery({

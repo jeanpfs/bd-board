@@ -239,7 +239,7 @@ export async function claimBeadFn({
     await invoke('claim_bead', {
       projectId: data.project,
       id: data.id,
-      actor: data.actor,
+      actor: data.actor?.trim() || undefined,
     })
     return { ok: true }
   }

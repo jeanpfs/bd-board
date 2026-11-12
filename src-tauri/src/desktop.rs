@@ -1404,13 +1404,16 @@ fn build_close_bead_args(id: &str, reason: Option<&str>, force: bool) -> Vec<Str
     args
 }
 
-fn build_claim_args(id: &str, actor: Option<&str>) -> Vec<String> {
+fn build_claim_args(id: &str, actor: Option<&str>) -> Result<Vec<String>, String> {
     let mut args = vec!["update".to_string(), id.to_string(), "--claim".to_string()];
-    if let Some(actor) = actor.filter(|a| !a.is_empty()) {
+    if let Some(actor) = actor.map(str::trim).filter(|a| !a.is_empty()) {
+        if actor.starts_with('-') {
+            return Err("actor is invalid".to_string());
+        }
         args.push("--actor".to_string());
         args.push(actor.to_string());
     }
-    args
+    Ok(args)
 }
 
 fn build_ready_explain_args() -> &'static [&'static str] {
@@ -1632,7 +1635,7 @@ fn close_bead_inner(
 
 fn claim_bead_inner(project_id: &str, id: &str, actor: Option<&str>) -> Result<(), String> {
     let dir = resolve_dir(project_id)?;
-    run_bd_mut(&dir, &build_claim_args(id, actor)).map(|_| ())
+    run_bd_mut(&dir, &build_claim_args(id, actor)?).map(|_| ())
 }
 
 fn ready_explain_inner(project_id: &str) -> Result<Value, String> {
@@ -2256,14 +2259,23 @@ mod tests {
     #[test]
     fn claim_args_add_the_actor_only_when_known() {
         assert_eq!(
-            build_claim_args("bd-board-a2k", None),
+            build_claim_args("bd-board-a2k", None).unwrap(),
             vec!["update", "bd-board-a2k", "--claim"]
         );
         assert_eq!(
-            build_claim_args("bd-board-a2k", Some("maya")),
+            build_claim_args("bd-board-a2k", Some("maya")).unwrap(),
             vec!["update", "bd-board-a2k", "--claim", "--actor", "maya"]
         );
-        assert_eq!(build_claim_args("bd-board-a2k", Some("")).len(), 3);
+        assert_eq!(
+            build_claim_args("bd-board-a2k", Some("  maya Chen  ")).unwrap(),
+            vec!["update", "bd-board-a2k", "--claim", "--actor", "maya Chen"]
+        );
+        assert_eq!(build_claim_args("bd-board-a2k", Some("")).unwrap().len(), 3);
+        assert_eq!(
+            build_claim_args("bd-board-a2k", Some("  ")).unwrap().len(),
+            3
+        );
+        assert!(build_claim_args("bd-board-a2k", Some("--force")).is_err());
         assert_eq!(
             build_ready_explain_args(),
             &["ready", "--explain", "--json", "--limit", "0"]
