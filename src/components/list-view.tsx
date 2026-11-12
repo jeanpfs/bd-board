@@ -109,11 +109,11 @@ export function listGroups({
     .filter(isEpic)
     .sort(compareBeads('priority'))
     .map((epic) => {
-      const children = beads.filter((b) => b.parent === epic.id && !isEpic(b))
+      const children = work.filter((b) => b.parent === epic.id)
       return {
         key: epic.id,
         label: epic.title,
-        beads: sorted(work.filter((b) => b.parent === epic.id)),
+        beads: sorted(children),
         progress: {
           done: children.filter((b) => mapStatus(b).column === 'closed').length,
           total: children.length,
@@ -146,12 +146,14 @@ export function ListView({
   onRowToggle,
   onOpen,
   now,
+  className,
 }: {
   groups: ListGroup[]
   selected: string[]
   onRowToggle: (id: string, shift: boolean) => void
   onOpen: (bead: Bead) => void
   now: Date
+  className?: string
 }) {
   const selectedSet = useMemo(() => new Set(selected), [selected])
   const total = groups.reduce((n, g) => n + g.beads.length, 0)
@@ -171,7 +173,10 @@ export function ListView({
         <div
           role="table"
           aria-label="Beads"
-          className="min-h-0 flex-1 overflow-auto rounded-lg ring-1 ring-border"
+          className={cn(
+            'min-h-0 flex-1 overflow-auto rounded-lg ring-1 ring-border',
+            className,
+          )}
         >
           <div
             role="row"

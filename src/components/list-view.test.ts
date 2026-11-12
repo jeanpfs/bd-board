@@ -76,6 +76,23 @@ describe('listGroups by epic', () => {
 
     expect(groups).toEqual([])
   })
+
+  it('counts epic progress over only the children that pass the filters', () => {
+    const groups = listGroups({
+      beads: [
+        bead({ id: 'e1', title: 'Launch', issue_type: 'epic' }),
+        bead({ id: 't1', parent: 'e1', priority: 1 }),
+        bead({ id: 't2', parent: 'e1', priority: 2, status: 'closed' }),
+      ],
+      filters: { ...NO_FILTERS, priorities: [1] },
+      groupBy: 'epic',
+      sort: 'priority',
+      now: NOW,
+    })
+
+    expect(groups[0].beads.map((b) => b.id)).toEqual(['t1'])
+    expect(groups[0].progress).toEqual({ done: 0, total: 1 })
+  })
 })
 
 describe('listGroups by priority and status', () => {

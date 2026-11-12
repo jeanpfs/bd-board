@@ -97,8 +97,13 @@ const LAST_BOARD_VIEW_KEY = 'bd-board:last-board-view'
 /** The grouping the list view uses: the last non-list board view, epic by default. */
 function readLastBoardView(): ListGroupBy {
   if (typeof window === 'undefined') return 'epic'
-  const stored = window.localStorage.getItem(LAST_BOARD_VIEW_KEY)
-  return stored === 'priority' || stored === 'status' ? stored : 'epic'
+  // localStorage throws in sandboxed frames; fall back to the default view.
+  try {
+    const stored = window.localStorage.getItem(LAST_BOARD_VIEW_KEY)
+    return stored === 'priority' || stored === 'status' ? stored : 'epic'
+  } catch {
+    return 'epic'
+  }
 }
 const PROJECT_TABS = new Set([
   'overview',
@@ -384,7 +389,11 @@ function BoardPage() {
   useEffect(() => {
     if (view !== 'epic' && view !== 'priority' && view !== 'status') return
     setLastBoardView(view)
-    window.localStorage.setItem(LAST_BOARD_VIEW_KEY, view)
+    try {
+      window.localStorage.setItem(LAST_BOARD_VIEW_KEY, view)
+    } catch {
+      // Ignore: the list falls back to the default grouping on next load.
+    }
   }, [view])
   const listGroupBy = lastBoardView
   const listData = useMemo(
@@ -803,6 +812,7 @@ function BoardPage() {
             />
           ) : null}
           <ListView
+            className={visibleSelected.length > 0 ? 'pb-24' : undefined}
             groups={listData}
             selected={selection.selected}
             onRowToggle={toggleRow}
