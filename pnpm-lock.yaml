@@ -155,8 +155,8 @@ importers:
         specifier: 1.5.1
         version: 1.5.1(expect-webdriverio@6.0.9)(supports-color@8.1.1)(tsx@4.23.15)(webdriverio@9.32.0(supports-color@8.1.1))
       '@wdio/types':
-        specifier: ^9.32.0
-        version: 9.32.0
+        specifier: ^10.2.0
+        version: 10.2.0
       cmdk:
         specifier: 1.1.1
         version: 1.1.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -2426,6 +2426,9 @@ packages:
   '@types/node@20.19.43':
     resolution: {integrity: sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA==}
 
+  '@types/node@22.20.5':
+    resolution: {integrity: sha512-U2+DNr+wSjpsTS/wZGYHq7GcwfuSmKiKvoPvK22zwTlRhU91yOniN4qRR5KhIjvif7ysw/dz/hKmfDH0Ris4aA==}
+
   '@types/node@24.19.2':
     resolution: {integrity: sha512-93d49wCWJkCyN87MxLpNN6KXPCwFw7bVUg79mGUV1OS40JGWwVCr8n61DXCSqz7CV6/VfPkb7xec7uP2M+QHWQ==}
 
@@ -2809,6 +2812,10 @@ packages:
     engines: {node: '>=18.20.0'}
     peerDependencies:
       webdriverio: ^9.0.0
+
+  '@wdio/types@10.2.0':
+    resolution: {integrity: sha512-a9qwqHzf0t2ctrXs+qUEhobH/VK0PmeoErCBWdN6DRxhTP8YiXQco4wjTj1z7H4k5xwZYxMT0KC0QzN/e4B73Q==}
+    engines: {node: '>=22.23.4 <23 || >=24.22.1 <25 || >=26.12.1'}
 
   '@wdio/types@9.31.2':
     resolution: {integrity: sha512-lQKaiQDCJJ6VC1K/cKzaAxCpwB9pL1U0VbmX2uGksMxO4EDbNuLvIxWryuUDJ7OaSYTjxILTKYFErdbT/xEikg==}
@@ -8605,6 +8612,10 @@ snapshots:
     dependencies:
       undici-types: 6.21.0
 
+  '@types/node@22.20.5':
+    dependencies:
+      undici-types: 6.21.0
+
   '@types/node@24.19.2':
     dependencies:
       undici-types: 7.24.6
@@ -9108,6 +9119,10 @@ snapshots:
       - expect-webdriverio
       - supports-color
       - tsx
+
+  '@wdio/types@10.2.0':
+    dependencies:
+      '@types/node': 22.20.5
 
   '@wdio/types@9.31.2':
     dependencies:
