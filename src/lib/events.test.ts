@@ -7,6 +7,7 @@ import {
   groupByDay,
   isForMe,
   parseEventLines,
+  resumeAfterFloor,
   tailArgs,
   tailResult,
   unreadCount,
@@ -139,6 +140,51 @@ describe('describeEvents', () => {
       verb: 'claimed',
       detail: 'assigned, moved to In progress',
     })
+  })
+
+  it('says claimed with no previous record when the bead started within 5s of the event', () => {
+    const [item] = describeEvents(
+      [
+        {
+          seq: 7,
+          ts: '2026-11-11T10:01:00Z',
+          op: 'update',
+          issue_id: 'ldg-698.4',
+          actor: 'claude-code',
+          issue: bead({
+            id: 'ldg-698.4',
+            status: 'in_progress',
+            assignee: 'claude-code',
+            started_at: '2026-11-11T10:00:57Z',
+          }),
+        },
+      ],
+      new Map(),
+    )
+
+    expect(item).toMatchObject({ verb: 'claimed' })
+  })
+
+  it('does not say claimed with no previous record and no started_at', () => {
+    const [item] = describeEvents(
+      [
+        {
+          seq: 8,
+          ts: '2026-11-11T10:01:00Z',
+          op: 'update',
+          issue_id: 'ldg-698.5',
+          actor: 'claude-code',
+          issue: bead({
+            id: 'ldg-698.5',
+            status: 'in_progress',
+            assignee: 'claude-code',
+          }),
+        },
+      ],
+      new Map(),
+    )
+
+    expect(item.verb).not.toBe('claimed')
   })
 
   it('describes a due date change without a previous record as the new due date', () => {
@@ -428,5 +474,20 @@ describe('formatClock', () => {
     expect(formatClock(new Date(2026, 10, 12, 14, 42).toISOString())).toBe(
       '14:42',
     )
+  })
+})
+
+describe('resumeAfterFloor', () => {
+  it('resumes at floor minus one so the floor record itself is read', () => {
+    expect(resumeAfterFloor(0, 5)).toBe(4)
+  })
+
+  it('moves the cursor forward from a stale position', () => {
+    expect(resumeAfterFloor(2, 5)).toBe(4)
+  })
+
+  it('returns undefined when the cursor already covers the floor', () => {
+    expect(resumeAfterFloor(4, 5)).toBeUndefined()
+    expect(resumeAfterFloor(7, 5)).toBeUndefined()
   })
 })

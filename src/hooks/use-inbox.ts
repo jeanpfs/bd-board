@@ -3,7 +3,7 @@ import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query'
 
 import { projectProblem } from '@/lib/attention'
 import { getStoredIdentity } from '@/lib/identity'
-import { describeEvents, unreadCount } from '@/lib/events'
+import { describeEvents, resumeAfterFloor, unreadCount } from '@/lib/events'
 import type { BdEvent, InboxItem } from '@/lib/events'
 import { tailEventsFn } from '@/lib/server'
 import type { Bead, Project } from '@/lib/types'
@@ -71,10 +71,11 @@ async function advanceProjectInbox(
       }
     }
     if (page.truncated) {
-      // Records before the floor are gone; continue from the floor.
-      if (page.truncated.floor <= since) break
+      // bd resumes after `since`; floor-1 makes the floor record itself come back.
+      const resume = resumeAfterFloor(since, page.truncated.floor)
+      if (resume === undefined) break
       pruned = true
-      since = page.truncated.floor
+      since = resume
       continue
     }
     fresh.push(...page.events)

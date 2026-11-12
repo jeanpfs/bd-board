@@ -5,7 +5,10 @@ import {
   Bookmark,
   Bot,
   CircleCheck,
+  Copy,
   Hand,
+  Link2,
+  ListTree,
   Minus,
   MessageSquare,
 } from 'lucide-react'
@@ -26,7 +29,7 @@ import {
 } from '@/components/ui/select'
 import { useInbox } from '@/hooks/use-inbox'
 import type { InboxEntry, ProjectInboxState } from '@/hooks/use-inbox'
-import { formatClock, groupByDay, isForMe } from '@/lib/events'
+import { formatClock, formatDay, groupByDay, isForMe } from '@/lib/events'
 import { getStoredIdentity } from '@/lib/identity'
 import { isAgentActor } from '@/lib/lease'
 import { enableEventsJournalFn } from '@/lib/server'
@@ -249,6 +252,7 @@ export function InboxView({
             identity={identity}
             indexById={indexById}
             agents={agentActors}
+            showDay
           />
         </>
       )}
@@ -263,6 +267,7 @@ function InboxGroup({
   identity,
   indexById,
   agents,
+  showDay = false,
 }: {
   title: string
   items: InboxEntry[]
@@ -270,6 +275,8 @@ function InboxGroup({
   identity: string | null
   indexById: Map<string, number>
   agents: Set<string>
+  /** Earlier rows show the day rather than the clock. */
+  showDay?: boolean
 }) {
   if (items.length === 0) return null
   return (
@@ -292,6 +299,7 @@ function InboxGroup({
               unread={unread}
               index={indexById.get(entry.projectId) ?? 0}
               agent={agents.has(entry.actor ?? '')}
+              showDay={showDay}
             />
           )
         })}
@@ -311,11 +319,26 @@ function entryIcon(entry: InboxEntry): LucideIcon {
     case 'comment':
       return MessageSquare
     case 'dep_add':
-      return Ban
+    case 'dep_remove':
+      return depIcon(entry.depKind)
     case 'create':
       return Bookmark
     default:
       return Minus
+  }
+}
+
+/** Blocks get the ban sign; other links get a kind-specific mark. */
+function depIcon(kind: string | undefined): LucideIcon {
+  switch (kind) {
+    case 'blocks':
+      return Ban
+    case 'duplicates':
+      return Copy
+    case 'parent-child':
+      return ListTree
+    default:
+      return Link2
   }
 }
 
@@ -324,11 +347,13 @@ function InboxRow({
   unread,
   index,
   agent,
+  showDay,
 }: {
   entry: InboxEntry
   unread: boolean
   index: number
   agent: boolean
+  showDay: boolean
 }) {
   const actor = entry.actor ?? ''
   const Icon = entryIcon(entry)
@@ -363,10 +388,7 @@ function InboxRow({
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-body">
             <span className="font-medium text-foreground">{actor}</span>
-            <span className="flex items-center gap-1 text-muted-foreground">
-              <Icon className="size-3.5 shrink-0" aria-hidden="true" />
-              {entry.verb}
-            </span>
+            <span className="text-muted-foreground">{entry.verb}</span>
             <span className="font-mono text-xs text-muted-foreground">
               {entry.issueId}
             </span>
@@ -374,17 +396,18 @@ function InboxRow({
               {entry.title}
             </span>
           </span>
-          {entry.detail || entry.quote ? (
-            <span className="text-body text-muted-foreground">
-              {entry.detail}
-              {entry.quote ? (
-                <span className="text-foreground"> “{entry.quote}”</span>
-              ) : null}
-            </span>
-          ) : null}
+          <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-body text-muted-foreground">
+            <Icon className="size-3.5 shrink-0" aria-hidden="true" />
+            {entry.detail ? <span>{entry.detail}</span> : null}
+            {entry.quote ? (
+              <span className="text-foreground">“{entry.quote}”</span>
+            ) : null}
+          </span>
         </span>
         <span className="flex shrink-0 flex-col items-end gap-1 text-xs text-muted-foreground">
-          <time dateTime={entry.ts}>{formatClock(entry.ts)}</time>
+          <time dateTime={entry.ts}>
+            {showDay ? formatDay(entry.ts) : formatClock(entry.ts)}
+          </time>
           <ProjectChip name={entry.projectName} index={index} />
         </span>
       </Link>

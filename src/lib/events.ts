@@ -50,6 +50,8 @@ export interface InboxItem {
   quote?: string
   /** Assignee and creator of the bead, used to decide whether it is for a person. */
   involves: string[]
+  /** Dependency kind for dep_add and dep_remove lines (blocks, related, duplicates, parent-child). */
+  depKind?: string
 }
 
 /** Parses JSONL from `bd events tail`; blank, non-JSON and non-numeric-seq lines are skipped. */
@@ -211,6 +213,7 @@ export function describeEvents(
       involves: [issue?.assignee, issue?.created_by].filter(
         (name): name is string => name !== undefined,
       ),
+      depKind: event.dep?.kind,
     })
   }
   return items
@@ -234,6 +237,19 @@ export function unreadCount(
 
 /** stderr text bd prints when the events journal is off for a project. */
 export const JOURNAL_DISABLED_MARKER = 'events journal is disabled'
+
+/**
+ * Where to resume after bd reports the journal floor. `--since N` returns records
+ * after N, so the floor record is only included from `floor - 1`. Undefined when
+ * that would not move the cursor forward (the walk would loop).
+ */
+export function resumeAfterFloor(
+  since: number,
+  floor: number,
+): number | undefined {
+  const resume = floor - 1
+  return resume > since ? resume : undefined
+}
 
 /** `bd events tail` arguments shared by the journal feed and the inbox page reads. */
 export function tailArgs(

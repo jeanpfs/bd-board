@@ -27,7 +27,7 @@ import {
 import { isReady } from '@/lib/sort'
 import { mapStatus } from '@/lib/types'
 import type { Bead } from '@/lib/types'
-import { cn, toErrorMessage } from '@/lib/utils'
+import { cn, initials, toErrorMessage } from '@/lib/utils'
 
 /** Lease TTL set by `bd ready --claim`; scales the lease bar. */
 const LEASE_TTL_MS = 5 * 60_000
@@ -68,16 +68,6 @@ const LEASE_BAR_CLASS = {
   expiring: 'bg-warn',
   expired: 'bg-status-blocked',
 } as const
-
-/** `maya` -> `MA`, `night-crew-2` -> `NC`. */
-function initials(name: string): string {
-  const parts = name.split(/[^a-z0-9]+/i).filter(Boolean)
-  const letters =
-    parts.length > 1
-      ? parts[0][0] + parts[1][0]
-      : (parts[0] ?? name).slice(0, 2)
-  return letters.toUpperCase()
-}
 
 function ageSince(value: string | undefined, now: Date): string {
   if (!value) return '—'
