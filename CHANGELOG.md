@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - List view with grouping and bulk actions.
 - Epics timeline.
 - Insights screen with throughput, cycle time and burn-up.
+- **New entry** in Knowledge: pick a type, the bead it belongs to and the text; it is saved as a `TYPE: …` comment on that bead.
 
 ### Changed
 
@@ -38,9 +39,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Home** answers "what needs me" across all projects: one **Needs you** list (open P0s, blocked or stale beads, missing folders, pending migrations, each with an action), lean project cards ordered by urgency (one headline number, full counts on hover), **My work** for the chosen assignee, and **Recently updated**. The four summary tiles and the per-card progress ring and legend are gone.
 - **Sidebar**: a project switcher at the top replaces the logo row and, inside a project, the projects list; the project's views (Overview, Board, Hierarchy, Knowledge) moved from the header tabs into the sidebar; the signed-in assignee and the collapse toggle sit in the footer. Group labels are plain text instead of uppercase mono.
 - The project header is a breadcrumb (`ledger › Board`) with a short summary; the Overview carries its own title instead.
+- With no project registered, the app opens on a start screen (Open project / Init project) without the sidebar or page header.
 
 ### Fixed
 
+- Hierarchy priority badges line up in one column regardless of id length or depth.
+- Agents table header lines up with its rows.
 - Projects with more than 50 beads were truncated; the board now lists every bead (`--limit 0`).
 - The desktop app never built bead links, so blockers and related beads on cards and the Ready view were wrong; it now derives them like the web runtime.
 - Web bead edits (title, description, labels, due, estimate) failed with "No bead updates provided".

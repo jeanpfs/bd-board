@@ -95,3 +95,11 @@ export function parseKnowledgeCommentText(
 
   return { type, content }
 }
+
+/** The comment text bd stores for a knowledge entry; parseKnowledgeCommentText reads it back. */
+export function formatKnowledgeComment(
+  type: KnowledgeType,
+  content: string,
+): string {
+  return `${KNOWLEDGE_TYPE_PREFIX[type]}: ${content.trim()}`
+}

@@ -6,6 +6,7 @@ import {
   BookOpen,
   Filter,
   MessageSquare,
+  Plus,
   Search,
 } from 'lucide-react'
 
@@ -21,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { NewKnowledgeDialog } from '@/components/new-knowledge-dialog'
 import { getProjectKnowledgeFn } from '@/lib/server'
 import {
   KNOWLEDGE_TYPE_DOT_CLASS,
@@ -125,6 +127,8 @@ export function ProjectKnowledgePanel({
 }: ProjectKnowledgePanelProps) {
   const [search, setSearch] = useState('')
   const [type, setType] = useState<TypeFilter>('all')
+  const [creating, setCreating] = useState(false)
+  const beads = useMemo(() => [...beadsById.values()], [beadsById])
 
   const query = useQuery({
     queryKey: ['project-knowledge', project],
@@ -226,7 +230,19 @@ export function ProjectKnowledgePanel({
             </SelectContent>
           </Select>
         </div>
+
+        <Button size="sm" className="ml-auto" onClick={() => setCreating(true)}>
+          <Plus className="size-4" aria-hidden="true" />
+          New entry
+        </Button>
       </div>
+
+      <NewKnowledgeDialog
+        project={project}
+        beads={beads}
+        open={creating}
+        onOpenChange={setCreating}
+      />
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.18fr)_minmax(22rem,0.82fr)]">
         <section className="flex min-h-0 flex-col rounded-[10px] bg-canvas ring-1 ring-inset ring-border">

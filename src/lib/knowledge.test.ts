@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseKnowledgeCommentText } from './knowledge'
+import {
+  KNOWLEDGE_TYPES,
+  formatKnowledgeComment,
+  parseKnowledgeCommentText,
+} from './knowledge'
 
 describe('parseKnowledgeCommentText', () => {
   it('extracts structured knowledge prefixes from comments', () => {
@@ -48,5 +52,17 @@ describe('parseKnowledgeCommentText', () => {
     expect(
       parseKnowledgeCommentText('Almost LEARNED: but not a prefix'),
     ).toBeNull()
+  })
+})
+
+describe('formatKnowledgeComment', () => {
+  it('writes text that reads back as the same type and content', () => {
+    for (const type of KNOWLEDGE_TYPES) {
+      const text = formatKnowledgeComment(type, '  Line one\nline two  ')
+      expect(parseKnowledgeCommentText(text)).toEqual({
+        type,
+        content: 'Line one\nline two',
+      })
+    }
   })
 })
