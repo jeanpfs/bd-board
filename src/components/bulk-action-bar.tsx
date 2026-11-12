@@ -85,9 +85,13 @@ export function BulkActionBar({
       <span className="text-sm font-medium tabular-nums">
         {ids.length} selected
       </span>
-      <Button size="sm" variant="ghost" onClick={onClear}>
+      <Button
+        size="sm"
+        variant="ghost"
+        aria-label="Clear selection"
+        onClick={onClear}
+      >
         <X className="size-3.5" aria-hidden="true" />
-        Clear
       </Button>
 
       <div className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
@@ -174,7 +178,7 @@ export function BulkActionBar({
       >
         <PopoverTrigger asChild>
           <Button size="sm" variant="outline" disabled={busy}>
-            Add label
+            Labels
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-72 gap-2">
@@ -200,7 +204,7 @@ export function BulkActionBar({
       <Popover open={dueOpen} onOpenChange={setDueOpen}>
         <PopoverTrigger asChild>
           <Button size="sm" variant="outline" disabled={busy}>
-            Due
+            Due date
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-48 gap-1">
@@ -240,7 +244,7 @@ export function BulkActionBar({
         ) : (
           <CheckCircle2 className="size-3.5" aria-hidden="true" />
         )}
-        Close {ids.length}
+        Close…
       </Button>
     </div>
   )
