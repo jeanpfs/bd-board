@@ -3,18 +3,22 @@ import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query'
 
 import { projectProblem } from '@/lib/attention'
 import { getStoredIdentity } from '@/lib/identity'
-import { describeEvents, resumeAfterFloor, unreadCount } from '@/lib/events'
+import { describeEvents, unreadCount } from '@/lib/events'
 import type { BdEvent, InboxItem } from '@/lib/events'
 import { tailEventsFn } from '@/lib/server'
-import { inboxStartSeq } from '@/lib/inbox-seq'
+import {
+  inboxStartSeq,
+  shouldSeedCursor,
+  truncationResume,
+} from '@/lib/inbox-seq'
 import type { Bead, Project } from '@/lib/types'
 
 /** Journal records requested per `events tail` call. */
 const PAGE_SIZE = 500
 /** Newest entries kept per project. */
 const WINDOW = 200
-/** Pages read on a cold start with no read cursor; later polls fetch the rest. */
-const COLD_PAGE_BUDGET = 4
+/** Pages read per poll; a poll that hits the budget leaves the project backfilling. */
+const PAGE_BUDGET = 4
 /** Polling interval for each project's journal. */
 const POLL_MS = 30_000
 /** One read cursor per project, stored under this prefix. */
@@ -32,6 +36,10 @@ export interface ProjectInbox {
   entries: InboxEntry[]
   /** Highest journal seq seen; the "mark all read" cursor. */
   latestSeq: number
+  /** Journal seq the next poll reads after. */
+  readSeq: number
+  /** The newest page is not reached yet; the read cursor waits for it. */
+  backfilling: boolean
   /** The journal was pruned before the first record we could read. */
   pruned: boolean
   /** The events journal is off for this project. */
@@ -50,21 +58,27 @@ export interface ProjectInboxState {
 }
 
 /**
- * Reads only records after the cached seq. The first load starts near the read
- * cursor (or seq 0 with none, capped to a few pages) and pages forward; later
- * polls fetch just what is new.
+ * Reads only records after the stored position, at most PAGE_BUDGET pages per
+ * poll. With a read cursor the first read starts one window before it; with
+ * none it starts at the oldest retained record and jumps to the newest window
+ * when bd reports truncation. `backfilling` stays set until a short page
+ * reaches the head.
  */
 async function advanceProjectInbox(
   project: Project,
   prev: ProjectInbox | undefined,
   cursor: number | undefined,
 ): Promise<ProjectInbox> {
-  let since = prev?.latestSeq ?? inboxStartSeq(cursor, WINDOW)
+  let since = prev?.readSeq ?? inboxStartSeq(cursor, WINDOW)
   let pruned = prev?.pruned ?? false
   const fresh: BdEvent[] = []
   let pages = 0
+  let backfilling = false
   for (;;) {
-    if (!prev && cursor === undefined && pages >= COLD_PAGE_BUDGET) break
+    if (pages >= PAGE_BUDGET) {
+      backfilling = true
+      break
+    }
     pages += 1
     const page = await tailEventsFn({
       data: { project: project.id, since, limit: PAGE_SIZE },
@@ -73,14 +87,20 @@ async function advanceProjectInbox(
       return {
         entries: [],
         latestSeq: 0,
+        readSeq: 0,
         pruned: false,
         disabled: true,
+        backfilling: false,
         lastByBead: new Map(),
       }
     }
     if (page.truncated) {
-      // bd resumes after `since`; floor-1 makes the floor record itself come back.
-      const resume = resumeAfterFloor(since, page.truncated.floor)
+      const resume = truncationResume(
+        since,
+        page.truncated.floor,
+        page.truncated.head,
+        WINDOW,
+      )
       if (resume === undefined) break
       pruned = true
       since = resume
@@ -107,8 +127,10 @@ async function advanceProjectInbox(
     entries: [...newest, ...(prev?.entries ?? [])].slice(0, WINDOW),
     latestSeq:
       fresh.length > 0 ? fresh[fresh.length - 1].seq : (prev?.latestSeq ?? 0),
+    readSeq: since,
     pruned,
     disabled: false,
+    backfilling,
     lastByBead,
   }
 }
@@ -188,6 +210,7 @@ export function useInbox(projects: Project[]) {
   const states = useQueries({
     queries: readable.map((project) => ({
       queryKey: ['inbox', project.id],
+      enabled: cursorQuery.isSuccess,
       queryFn: () =>
         advanceProjectInbox(
           project,
@@ -227,8 +250,15 @@ export function useInbox(projects: Project[]) {
     const next = { ...readCursors }
     let changed = false
     for (const [projectId, state] of states) {
-      if (!state.data || state.data.disabled) continue
-      if (readCursors[projectId] !== undefined) continue
+      if (!state.data) continue
+      if (
+        !shouldSeedCursor(
+          readCursors[projectId],
+          state.data.backfilling,
+          state.data.disabled,
+        )
+      )
+        continue
       next[projectId] = state.data.latestSeq
       saveReadCursor(projectId, state.data.latestSeq)
       changed = true
