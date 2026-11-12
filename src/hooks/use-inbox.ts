@@ -6,12 +6,15 @@ import { getStoredIdentity } from '@/lib/identity'
 import { describeEvents, resumeAfterFloor, unreadCount } from '@/lib/events'
 import type { BdEvent, InboxItem } from '@/lib/events'
 import { tailEventsFn } from '@/lib/server'
+import { inboxStartSeq } from '@/lib/inbox-seq'
 import type { Bead, Project } from '@/lib/types'
 
 /** Journal records requested per `events tail` call. */
 const PAGE_SIZE = 500
 /** Newest entries kept per project. */
 const WINDOW = 200
+/** Pages read on a cold start with no read cursor; later polls fetch the rest. */
+const COLD_PAGE_BUDGET = 4
 /** Polling interval for each project's journal. */
 const POLL_MS = 30_000
 /** One read cursor per project, stored under this prefix. */
@@ -47,17 +50,22 @@ export interface ProjectInboxState {
 }
 
 /**
- * Reads only records after the cached seq. The first load starts at seq 0 and
- * pages forward; later polls fetch just what is new.
+ * Reads only records after the cached seq. The first load starts near the read
+ * cursor (or seq 0 with none, capped to a few pages) and pages forward; later
+ * polls fetch just what is new.
  */
 async function advanceProjectInbox(
   project: Project,
   prev: ProjectInbox | undefined,
+  cursor: number | undefined,
 ): Promise<ProjectInbox> {
-  let since = prev?.latestSeq ?? 0
+  let since = prev?.latestSeq ?? inboxStartSeq(cursor, WINDOW)
   let pruned = prev?.pruned ?? false
   const fresh: BdEvent[] = []
+  let pages = 0
   for (;;) {
+    if (!prev && cursor === undefined && pages >= COLD_PAGE_BUDGET) break
+    pages += 1
     const page = await tailEventsFn({
       data: { project: project.id, since, limit: PAGE_SIZE },
     })
@@ -184,6 +192,7 @@ export function useInbox(projects: Project[]) {
         advanceProjectInbox(
           project,
           queryClient.getQueryData<ProjectInbox>(['inbox', project.id]),
+          readCursors[project.id],
         ),
       staleTime: POLL_MS / 3,
       refetchInterval: POLL_MS,
