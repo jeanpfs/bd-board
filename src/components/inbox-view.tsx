@@ -226,7 +226,7 @@ export function InboxView({
       {visible.length === 0 ? (
         <p className="text-body text-muted-foreground">
           {scope === 'mine' && identity === null
-            ? "Pick yourself under Assigned to me in a project's sidebar to see your activity here."
+            ? "Pick yourself under Who are you? at the bottom of a project's sidebar to see your activity here."
             : 'No activity to show.'}
         </p>
       ) : (

@@ -76,8 +76,8 @@ export function MyWorkList({
   if (!identity) {
     return (
       <p className="px-3 text-body text-muted-foreground">
-        Pick yourself under <em>Assigned to me</em> in a project&apos;s sidebar
-        to see your beads here.
+        Pick yourself under <em>Who are you?</em> at the bottom of a
+        project&apos;s sidebar to see your beads here.
       </p>
     )
   }

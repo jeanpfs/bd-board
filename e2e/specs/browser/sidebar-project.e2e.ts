@@ -17,15 +17,6 @@ describe('sidebar collapse inside a project', () => {
     await $('nav[aria-label="Project"] li a').waitForExist({ timeout: 20000 })
   })
 
-  it('hides the Quick filters group when collapsed', async () => {
-    await expect($('nav[aria-label="Quick filters"]')).toBeDisplayed()
-
-    await $('[aria-label="Collapse sidebar"]').click()
-    await waitForSidebarWidth(COLLAPSED)
-
-    expect(await $$('nav[aria-label="Quick filters"]')).toHaveLength(0)
-  })
-
   it('renders the project views as centered icons with a title tooltip', async () => {
     await $('[aria-label="Collapse sidebar"]').click()
     await waitForSidebarWidth(COLLAPSED)

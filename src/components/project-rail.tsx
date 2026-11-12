@@ -43,7 +43,6 @@ import {
   setStoredSidebarCollapsed,
 } from '@/lib/sidebar-collapse'
 import { ViewEditor, useSavedViews } from '@/components/view-editor'
-import { mapStatus } from '@/lib/types'
 
 import type { LucideIcon } from 'lucide-react'
 import type { ProjectTab } from '@/components/board-header'
@@ -237,9 +236,6 @@ export function ProjectRail() {
   })
   const beads = project ? (beadsQuery.data ?? []) : []
   const readyCount = beads.filter(isReady).length
-  const blockedCount = beads.filter(
-    (b) => mapStatus(b).column === 'blocked',
-  ).length
   const savedViews = useSavedViews(project ?? '')
   const navigate = useNavigate()
   const [creatingView, setCreatingView] = useState(false)
@@ -267,9 +263,6 @@ export function ProjectRail() {
     for (const b of beads) if (b.assignee) seen.add(b.assignee)
     return [...seen].sort()
   }, [beads])
-  const mineCount = identity
-    ? beads.filter((b) => b.assignee === identity).length
-    : 0
 
   function chooseIdentity(value: string) {
     setStoredIdentity(value)
@@ -425,48 +418,6 @@ export function ProjectRail() {
               ))}
             </RailGroup>
           ) : null}
-          {!collapsed && project ? (
-            <RailGroup label="Quick filters">
-              <RailLink
-                to="/p/$project"
-                params={{ project }}
-                search={{ tab: 'board', view: 'status' }}
-                dotClassName="bg-status-blocked"
-                count={blockedCount}
-              >
-                Blocked
-              </RailLink>
-              {identity ? (
-                <RailLink
-                  to="/p/$project"
-                  params={{ project }}
-                  search={{ tab: 'board', assignee: identity }}
-                  dotClassName="bg-primary-text"
-                  count={mineCount}
-                >
-                  Assigned to me
-                </RailLink>
-              ) : assigneeOptions.length > 0 ? (
-                <li className="px-2">
-                  <select
-                    defaultValue=""
-                    onChange={(event) => chooseIdentity(event.target.value)}
-                    aria-label="Which assignee is me?"
-                    className="h-7 w-full appearance-none rounded-md bg-transparent px-2 text-body text-muted-foreground outline-none hover:bg-foreground/6 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
-                  >
-                    <option value="" disabled>
-                      Assigned to me…
-                    </option>
-                    {assigneeOptions.map((a) => (
-                      <option key={a} value={a}>
-                        {a}
-                      </option>
-                    ))}
-                  </select>
-                </li>
-              ) : null}
-            </RailGroup>
-          ) : null}
         </div>
         {creatingView ? (
           <ViewEditor
@@ -509,6 +460,22 @@ export function ProjectRail() {
                 <X className="size-3" aria-hidden="true" />
               </Button>
             </div>
+          ) : !collapsed && assigneeOptions.length > 0 ? (
+            <select
+              defaultValue=""
+              onChange={(event) => chooseIdentity(event.target.value)}
+              aria-label="Which assignee is me?"
+              className="h-7 min-w-0 flex-1 appearance-none rounded-md bg-transparent px-2 text-body text-muted-foreground outline-none hover:bg-foreground/6 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
+            >
+              <option value="" disabled>
+                Who are you?
+              </option>
+              {assigneeOptions.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
           ) : null}
           {project ? (
             <Link
