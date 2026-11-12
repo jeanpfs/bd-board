@@ -127,11 +127,39 @@ export function medianCycleDays(
   return median(days)
 }
 
-/** Median cycle days per issue type, slowest first. */
-export function cycleByType(beads: Bead[]): TypeCycle[] {
+interface Span {
+  start: number
+  end: number
+}
+
+/** The range ending with the week of `now`, and the `weeks` before it; [start, end) in epoch ms. */
+function spans(now: Date, weeks: number): { cur: Span; prev: Span } {
+  const first = startOfWeek(now, { weekStartsOn: 1 })
+  const curStart = addDays(first, -7 * (weeks - 1)).getTime()
+  const curEnd = addDays(first, 7).getTime()
+  const prevStart = addDays(new Date(curStart), -7 * weeks).getTime()
+  return {
+    cur: { start: curStart, end: curEnd },
+    prev: { start: prevStart, end: curStart },
+  }
+}
+
+function closedIn(beads: Bead[], span: Span): Bead[] {
+  return beads.filter((b) => {
+    const at = time(b.closed_at)
+    return at !== undefined && at >= span.start && at < span.end
+  })
+}
+
+/** Median cycle days per issue type for beads closed inside the range, slowest first. */
+export function cycleByType(
+  beads: Bead[],
+  now: Date,
+  weeks: number,
+): TypeCycle[] {
   const byType = new Map<string, number[]>()
-  for (const bead of beads) {
-    if (isGate(bead)) continue
+  const work = beads.filter((b) => !isGate(b))
+  for (const bead of closedIn(work, spans(now, weeks).cur)) {
     const d = cycleDays(bead)
     if (d === undefined) continue
     const list = byType.get(bead.issue_type) ?? []
@@ -154,6 +182,36 @@ export function trend(current: number, previous: number): -1 | 0 | 1 {
   return diff > 0 ? 1 : -1
 }
 
+/** Signed fixed-point text with a real minus sign: "+0.5", "−0.6", "0.0". */
+export function formatSigned(value: number, decimals: number): string {
+  const rounded = Number(value.toFixed(decimals))
+  if (rounded === 0) return (0).toFixed(decimals)
+  const body = Math.abs(rounded).toFixed(decimals)
+  return rounded > 0 ? `+${body}` : `−${body}`
+}
+
+/** Days with one decimal and a unit: "2.4d". */
+export function formatDays(days: number): string {
+  return `${days.toFixed(1)}d`
+}
+
+export type DeltaTone = 'good' | 'bad' | 'flat'
+
+/** Green when a change moves the right way, red when it moves the wrong way. */
+export function deltaTone(
+  direction: -1 | 0 | 1,
+  higherIsBetter: boolean,
+): DeltaTone {
+  if (direction === 0) return 'flat'
+  return direction > 0 === higherIsBetter ? 'good' : 'bad'
+}
+
+/** Axis label stride: every week at 4, every 2nd at 8, every 3rd at a quarter. */
+export function labelStep(weeks: number): number {
+  if (weeks <= 4) return 1
+  return weeks <= 8 ? 2 : 3
+}
+
 /**
  * Pace over the last `weeks` weeks (ending with the week of `now`) against the
  * `weeks` before them. Stale work comes from `bd stale`, not from here.
@@ -164,25 +222,15 @@ export function insightsSummary(
   now: Date,
 ): InsightsSummary {
   const work = beads.filter((b) => !isGate(b))
-  const first = startOfWeek(now, { weekStartsOn: 1 })
-  const curStart = addDays(first, -7 * (weeks - 1)).getTime()
-  const curEnd = addDays(first, 7).getTime()
-  const prevStart = addDays(new Date(curStart), -7 * weeks).getTime()
-  const prevEnd = curStart
-
-  const closedIn = (start: number, end: number): Bead[] =>
-    work.filter((b) => {
-      const at = time(b.closed_at)
-      return at !== undefined && at >= start && at < end
-    })
-  const cur = closedIn(curStart, curEnd)
-  const prev = closedIn(prevStart, prevEnd)
+  const { cur, prev } = spans(now, weeks)
+  const current = closedIn(work, cur)
+  const previous = closedIn(work, prev)
 
   return {
-    perWeek: cur.length / weeks,
-    perWeekPrev: prev.length / weeks,
-    medianDays: medianCycleDays(cur),
-    medianDaysPrev: medianCycleDays(prev),
+    perWeek: current.length / weeks,
+    perWeekPrev: previous.length / weeks,
+    medianDays: medianCycleDays(current),
+    medianDaysPrev: medianCycleDays(previous),
     openUrgent: work.filter(
       (b) => mapStatus(b).column !== 'closed' && b.priority <= 1,
     ).length,

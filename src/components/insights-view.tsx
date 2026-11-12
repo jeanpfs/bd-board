@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react'
 import { useMemo } from 'react'
+import type { CSSProperties } from 'react'
 
 import { PriorityBadge } from '@/components/priority-badge'
 import { InteractiveRow } from '@/components/ui/interactive-row'
@@ -9,10 +10,15 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
   burnUp,
   cycleByType,
+  deltaTone,
+  formatDays,
+  formatSigned,
   insightsSummary,
+  labelStep,
   trend,
   weeklyBuckets,
 } from '@/lib/insights'
+import type { DeltaTone } from '@/lib/insights'
 import { isGate } from '@/lib/lease'
 import { staleBeadsFn } from '@/lib/server'
 import type { Bead } from '@/lib/types'
@@ -34,8 +40,25 @@ const BAR_W = 330
 const BAR_H = 174
 const PAD = 24
 
-function formatDays(days: number): string {
-  return days < 10 ? `${days.toFixed(1)}d` : `${Math.round(days)}d`
+const NUM = 'font-mono tabular-nums'
+// Axis text is HTML over the SVG so it renders at the real 11px, not scaled.
+const TICK =
+  'pointer-events-none absolute whitespace-nowrap font-mono text-badge tabular-nums text-muted-foreground'
+
+const TONE_CLASS: Record<DeltaTone, string> = {
+  good: 'text-status-closed',
+  bad: 'text-status-blocked',
+  flat: 'text-muted-foreground',
+}
+
+/** Percent position of a viewBox point, so HTML labels track the scaled chart. */
+function at(x: number, y: number, w: number, h: number): CSSProperties {
+  return { left: `${(x / w) * 100}%`, top: `${(y / h) * 100}%` }
+}
+
+/** One decimal, as the summary shows it. */
+function round1(n: number): number {
+  return Number(n.toFixed(1))
 }
 
 function TrendIcon({ direction }: { direction: -1 | 0 | 1 }) {
@@ -46,6 +69,25 @@ function TrendIcon({ direction }: { direction: -1 | 0 | 1 }) {
     return <ArrowDownRight className="size-3.5" aria-label="down" />
   }
   return <Minus className="size-3.5" aria-label="flat" />
+}
+
+function Change({
+  direction,
+  tone,
+  text,
+}: {
+  direction: -1 | 0 | 1
+  tone: DeltaTone
+  text: string
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 align-middle font-mono text-xs tabular-nums ${TONE_CLASS[tone]}`}
+    >
+      <TrendIcon direction={direction} />
+      {text}
+    </span>
+  )
 }
 
 export function InsightsView({
@@ -71,7 +113,10 @@ export function InsightsView({
     [beads, now, weeks],
   )
   const burn = useMemo(() => burnUp(beads, now, weeks), [beads, now, weeks])
-  const cycles = useMemo(() => cycleByType(beads), [beads])
+  const cycles = useMemo(
+    () => cycleByType(beads, now, weeks),
+    [beads, now, weeks],
+  )
 
   const staleQuery = useQuery({
     queryKey: ['insights-stale', project],
@@ -80,14 +125,25 @@ export function InsightsView({
   })
   const stale = (staleQuery.data ?? []).filter((bead) => !isGate(bead))
 
-  const perWeekTrend = trend(summary.perWeek, summary.perWeekPrev)
+  const rateNow = round1(summary.perWeek)
+  const ratePrev = round1(summary.perWeekPrev)
+  const rateDirection = trend(rateNow, ratePrev)
+
+  const cycle = summary.medianDays === null ? null : round1(summary.medianDays)
+  const cyclePrev =
+    summary.medianDaysPrev === null ? null : round1(summary.medianDaysPrev)
+  const cycleDirection =
+    cycle === null || cyclePrev === null ? 0 : trend(cycle, cyclePrev)
+
   const lastBurn = burn.at(-1)
   const maxScope = Math.max(1, ...burn.map((p) => p.scope))
+  const yTicks = [...new Set([0, Math.ceil(maxScope / 2), maxScope])]
   const maxBar = Math.max(
     1,
     ...buckets.map((b) => Math.max(b.created, b.closed)),
   )
   const maxCycle = Math.max(1, ...cycles.map((c) => c.days))
+  const step = labelStep(weeks)
 
   const burnX = (i: number) =>
     PAD + (burn.length > 1 ? (i / (burn.length - 1)) * (BURN_W - PAD * 2) : 0)
@@ -135,20 +191,33 @@ export function InsightsView({
       </div>
 
       <p className="text-body text-foreground">
-        Closed <span className="font-mono tabular-nums">{summary.perWeek}</span>
-        /week over {weeks} weeks{' '}
-        <span className="inline-flex items-center gap-1 align-middle">
-          <TrendIcon direction={perWeekTrend} />
-          <span className="font-mono tabular-nums">{summary.perWeekPrev}</span>
+        Closing <span className={NUM}>{rateNow.toFixed(1)}</span> beads a week{' '}
+        <Change
+          direction={rateDirection}
+          tone={deltaTone(rateDirection, true)}
+          text={`(${formatSigned(rateNow - ratePrev, 1)})`}
+        />
+        {' · median cycle time '}
+        {cycle === null ? (
+          <span className={NUM}>—</span>
+        ) : (
+          <span className={NUM}>{formatDays(cycle)}</span>
+        )}{' '}
+        {cycle !== null && cyclePrev !== null ? (
+          <Change
+            direction={cycleDirection}
+            tone={deltaTone(cycleDirection, false)}
+            text={`(${formatSigned(cycle - cyclePrev, 1)}d)`}
+          />
+        ) : null}
+        {' · '}
+        <span className={NUM}>{summary.openUrgent}</span> open P0–P1,{' '}
+        <span className={NUM}>{summary.overdue}</span> overdue
+        {' · '}
+        <span className={NUM}>
+          {staleQuery.isSuccess ? stale.length : '—'}
         </span>{' '}
-        before · median cycle{' '}
-        <span className="font-mono tabular-nums">
-          {summary.medianDays === null ? '—' : formatDays(summary.medianDays)}
-        </span>{' '}
-        · <span className="font-mono tabular-nums">{summary.openUrgent}</span>{' '}
-        urgent open ·{' '}
-        <span className="font-mono tabular-nums">{summary.overdue}</span>{' '}
-        overdue
+        stale
       </p>
 
       <div className="grid gap-6 lg:grid-cols-[1.45fr_1fr]">
@@ -159,41 +228,80 @@ export function InsightsView({
               No work in this range.
             </p>
           ) : (
-            <svg
-              viewBox={`0 0 ${BURN_W} ${BURN_H}`}
-              className="mt-3 w-full"
-              role="img"
-              aria-label={`Burn-up: ${lastBurn.done} done of ${lastBurn.scope} scope`}
-            >
-              <path d={doneArea} className="fill-status-closed/20" />
-              <path
-                d={donePath}
-                className="fill-none stroke-status-closed"
-                strokeWidth={2}
-              />
-              <path
-                d={scopePath}
-                className="fill-none stroke-muted-foreground"
-                strokeDasharray="4 4"
-                strokeWidth={1.5}
-              />
-              <text
-                x={BURN_W - PAD}
-                y={burnY(lastBurn.done) - 6}
-                textAnchor="end"
-                className="fill-foreground font-mono text-badge"
+            <div className="relative mt-3">
+              <svg
+                viewBox={`0 0 ${BURN_W} ${BURN_H}`}
+                className="block w-full"
+                role="img"
+                aria-label={`Burn-up: ${lastBurn.done} done of ${lastBurn.scope} scope`}
+              >
+                {yTicks.map((tick) => (
+                  <line
+                    key={tick}
+                    x1={PAD}
+                    x2={BURN_W - PAD}
+                    y1={burnY(tick)}
+                    y2={burnY(tick)}
+                    className="stroke-border"
+                    strokeWidth={1}
+                  />
+                ))}
+                <path d={doneArea} className="fill-status-closed/20" />
+                <path
+                  d={donePath}
+                  className="fill-none stroke-status-closed"
+                  strokeWidth={2}
+                />
+                <path
+                  d={scopePath}
+                  className="fill-none stroke-muted-foreground"
+                  strokeDasharray="4 4"
+                  strokeWidth={1.5}
+                />
+              </svg>
+              {yTicks.map((tick) => (
+                <span
+                  key={tick}
+                  className={`${TICK} -translate-y-1/2`}
+                  style={{ ...at(0, burnY(tick), BURN_W, BURN_H), left: 0 }}
+                >
+                  {tick}
+                </span>
+              ))}
+              <span
+                className={`${TICK} -translate-x-full -translate-y-full text-foreground`}
+                style={at(
+                  BURN_W - PAD,
+                  burnY(lastBurn.done) - 4,
+                  BURN_W,
+                  BURN_H,
+                )}
               >
                 {lastBurn.done} done
-              </text>
-              <text
-                x={BURN_W - PAD}
-                y={burnY(lastBurn.scope) - 6}
-                textAnchor="end"
-                className="fill-muted-foreground font-mono text-badge"
+              </span>
+              <span
+                className={`${TICK} -translate-x-full -translate-y-full`}
+                style={at(
+                  BURN_W - PAD,
+                  burnY(lastBurn.scope) - 4,
+                  BURN_W,
+                  BURN_H,
+                )}
               >
                 {lastBurn.scope} scope
-              </text>
-            </svg>
+              </span>
+              {burn.map((_, i) =>
+                (burn.length - 1 - i) % step === 0 && buckets[i] ? (
+                  <span
+                    key={buckets[i].start.getTime()}
+                    className={`${TICK} -translate-x-1/2 -translate-y-full`}
+                    style={at(burnX(i), BURN_H - 2, BURN_W, BURN_H)}
+                  >
+                    {format(buckets[i].start, 'M/d')}
+                  </span>
+                ) : null,
+              )}
+            </div>
           )}
         </section>
 
@@ -215,42 +323,47 @@ export function InsightsView({
               Closed
             </span>
           </div>
-          <svg
-            viewBox={`0 0 ${BAR_W} ${BAR_H}`}
-            className="mt-2 w-full"
-            role="img"
-            aria-label="Created and closed beads per week"
-          >
-            {buckets.map((bucket, i) => {
-              const x = i * slot + slot / 2
-              return (
-                <g key={bucket.start.getTime()}>
-                  <rect
-                    x={x - barWidth}
-                    y={barY(bucket.created)}
-                    width={barWidth}
-                    height={BAR_H - PAD - barY(bucket.created)}
-                    className="fill-muted-foreground"
-                  />
-                  <rect
-                    x={x}
-                    y={barY(bucket.closed)}
-                    width={barWidth}
-                    height={BAR_H - PAD - barY(bucket.closed)}
-                    className="fill-status-closed"
-                  />
-                  <text
-                    x={x}
-                    y={BAR_H - 6}
-                    textAnchor="middle"
-                    className="fill-muted-foreground font-mono text-badge"
-                  >
-                    {format(bucket.start, 'M/d')}
-                  </text>
-                </g>
-              )
-            })}
-          </svg>
+          <div className="relative mt-2">
+            <svg
+              viewBox={`0 0 ${BAR_W} ${BAR_H}`}
+              className="block w-full"
+              role="img"
+              aria-label="Created and closed beads per week"
+            >
+              {buckets.map((bucket, i) => {
+                const x = i * slot + slot / 2
+                return (
+                  <g key={bucket.start.getTime()}>
+                    <rect
+                      x={x - barWidth}
+                      y={barY(bucket.created)}
+                      width={barWidth}
+                      height={BAR_H - PAD - barY(bucket.created)}
+                      className="fill-muted-foreground"
+                    />
+                    <rect
+                      x={x}
+                      y={barY(bucket.closed)}
+                      width={barWidth}
+                      height={BAR_H - PAD - barY(bucket.closed)}
+                      className="fill-status-closed"
+                    />
+                  </g>
+                )
+              })}
+            </svg>
+            {buckets.map((bucket, i) =>
+              (buckets.length - 1 - i) % step === 0 ? (
+                <span
+                  key={bucket.start.getTime()}
+                  className={`${TICK} -translate-x-1/2 -translate-y-full`}
+                  style={at(i * slot + slot / 2, BAR_H - 2, BAR_W, BAR_H)}
+                >
+                  {format(bucket.start, 'M/d')}
+                </span>
+              ) : null,
+            )}
+          </div>
         </section>
       </div>
 
@@ -263,19 +376,19 @@ export function InsightsView({
             </p>
           ) : (
             <ul className="mt-3 flex flex-col gap-2">
-              {cycles.map((cycle) => (
-                <li key={cycle.type} className="flex items-center gap-3">
+              {cycles.map((row) => (
+                <li key={row.type} className="flex items-center gap-3">
                   <span className="w-16 shrink-0 text-body text-foreground">
-                    {cycle.type}
+                    {row.type}
                   </span>
                   <div className="h-2 flex-1 rounded-sm bg-muted/60">
                     <div
                       className="h-2 rounded-sm bg-primary-text/70"
-                      style={{ width: `${(cycle.days / maxCycle) * 100}%` }}
+                      style={{ width: `${(row.days / maxCycle) * 100}%` }}
                     />
                   </div>
                   <span className="w-12 shrink-0 text-right font-mono text-xs tabular-nums text-foreground">
-                    {formatDays(cycle.days)}
+                    {formatDays(row.days)}
                   </span>
                 </li>
               ))}

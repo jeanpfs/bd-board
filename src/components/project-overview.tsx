@@ -129,19 +129,18 @@ export function ProjectOverview({
             </div>
             <p className="text-body text-muted-foreground">
               <Num>{summary.open}</Num> open · <Num>{summary.inProgress}</Num>{' '}
-              in progress · <Num>{summary.closed}</Num> closed this week
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" asChild>
+              in progress · <Num>{summary.closed}</Num> closed this week ·{' '}
               <Link
                 to="/p/$project"
                 params={{ project }}
                 search={{ tab: 'insights' }}
+                className="text-primary-text outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/60"
               >
                 Insights
               </Link>
-            </Button>
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" asChild>
               <Link
                 to="/p/$project"

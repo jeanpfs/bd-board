@@ -69,6 +69,7 @@ export function ProjectTopbar() {
   }).length
   const ready = beads?.filter(isReady).length
   const overdue = beads?.filter((b) => isOverdue(b, new Date())).length
+  const weeks = Number(search.range ?? 8)
   const isTimeline = tab === 'board' && search.view === 'timeline'
   const timeline = beads
     ? timelineSummary(epicSpans(beads, new Date()))
@@ -114,7 +115,12 @@ export function ProjectTopbar() {
           </span>
         )}
       </nav>
-      {isTimeline && timeline ? (
+      {tab === 'insights' ? (
+        <p className="truncate text-xs text-muted-foreground">
+          Project pace over the last {weeks} weeks: what closes, how long it
+          takes, and what stalled.
+        </p>
+      ) : isTimeline && timeline ? (
         <p className="truncate text-xs text-muted-foreground">
           {timeline.dated} epics with due dates, {timeline.undated} without ·{' '}
           {timeline.atRisk} at risk
