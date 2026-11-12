@@ -4,7 +4,6 @@ import {
   DragOverlay,
   KeyboardSensor,
   PointerSensor,
-  closestCorners,
   useDroppable,
   useSensor,
   useSensors,
@@ -22,6 +21,7 @@ import { StatusColumnHeader } from '@/components/status-column-header'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { isEpic, mapStatus } from '@/lib/types'
+import { pointerFirst } from '@/lib/board-dnd'
 import {
   PRIORITIES,
   PRIORITY_TEXT_CLASS,
@@ -31,7 +31,7 @@ import {
 } from '@/lib/sort'
 
 import type { ReactNode } from 'react'
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
+import type { DragEndEvent, DragOverEvent, DragStartEvent } from '@dnd-kit/core'
 import type { SortKey } from '@/lib/sort'
 import type { Bead, BeadColumn } from '@/lib/types'
 
@@ -85,11 +85,14 @@ function LaneCell({
   beads,
   onOpen,
   nested,
+  highlighted,
 }: {
   column: BeadColumn
   beads: Bead[]
   onOpen: (bead: Bead) => void
   nested: boolean
+  /** The card being dragged would land here (the pointer may be over one of its cards). */
+  highlighted: boolean
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column })
   const ids = useMemo(() => beads.map((b) => b.id), [beads])
@@ -99,7 +102,7 @@ function LaneCell({
       ref={setNodeRef}
       className={cn(
         'flex min-h-19 min-w-0 flex-col gap-2 rounded-[10px] bg-canvas p-2 ring-1 ring-inset ring-white/5 transition-colors',
-        isOver && 'bg-primary/5 ring-primary/30',
+        (isOver || highlighted) && 'bg-primary/5 ring-primary/30',
       )}
     >
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
@@ -137,6 +140,7 @@ function SwimLane({
 }) {
   const [open, setOpen] = useState(defaultOpen)
   const [activeBead, setActiveBead] = useState<Bead | null>(null)
+  const [overColumn, setOverColumn] = useState<BeadColumn | null>(null)
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, {
@@ -166,8 +170,13 @@ function SwimLane({
     setActiveBead(dragged ?? beadsById.get(String(event.active.id)) ?? null)
   }
 
+  function onDragOver(event: DragOverEvent) {
+    setOverColumn(event.over ? columnOfId(String(event.over.id)) : null)
+  }
+
   function onDragEnd(event: DragEndEvent) {
     setActiveBead(null)
+    setOverColumn(null)
     const { active, over } = event
     if (!over) return
     const to = columnOfId(String(over.id))
@@ -229,10 +238,14 @@ function SwimLane({
       {open ? (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCorners}
+          collisionDetection={pointerFirst}
           onDragStart={onDragStart}
+          onDragOver={onDragOver}
           onDragEnd={onDragEnd}
-          onDragCancel={() => setActiveBead(null)}
+          onDragCancel={() => {
+            setActiveBead(null)
+            setOverColumn(null)
+          }}
         >
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             {COLUMN_KEYS.map((key) => (
@@ -242,10 +255,17 @@ function SwimLane({
                 beads={byColumn[key]}
                 onOpen={onOpen}
                 nested={nested}
+                highlighted={
+                  overColumn === key &&
+                  activeBead !== null &&
+                  mapStatus(activeBead).column !== key
+                }
               />
             ))}
           </div>
-          <DragOverlay>
+          {/* No drop animation: the card is already in its new column (optimistic), so flying the
+              overlay back to where the card was picked up only looked like the move failed. */}
+          <DragOverlay dropAnimation={null}>
             {activeBead ? (
               <BeadCard bead={activeBead} onOpen={() => {}} overlay />
             ) : null}

@@ -17,6 +17,8 @@ interface KanbanColumnProps {
   onOpen: (bead: Bead) => void
   initialLimit?: number
   nested?: boolean
+  /** The card being dragged would land here (the pointer may be over one of its cards). */
+  highlighted?: boolean
 }
 
 export function KanbanColumn({
@@ -26,6 +28,7 @@ export function KanbanColumn({
   onOpen,
   initialLimit = 40,
   nested = false,
+  highlighted = false,
 }: KanbanColumnProps) {
   const [expanded, setExpanded] = useState(false)
   const { setNodeRef, isOver } = useDroppable({ id: column })
@@ -50,7 +53,7 @@ export function KanbanColumn({
         ref={setNodeRef}
         className={cn(
           'flex min-h-0 flex-1 flex-col rounded-[10px] bg-canvas ring-1 ring-inset ring-white/5 transition-colors',
-          isOver && 'bg-primary/5 ring-primary/30',
+          (isOver || highlighted) && 'bg-primary/5 ring-primary/30',
         )}
       >
         {beads.length === 0 ? (

@@ -5,6 +5,7 @@
 # Then start the app against them (the registry is read from $HOME/.config/bd-board/projects.json):
 #   HOME=/private/tmp/bdb-home BEADS_WORKSPACE_ROOT=/private/tmp/bdb-ws PATH=/private/tmp/bdb-home/.local/bin:$PATH pnpm dev
 # and record with record.mjs.
+# The `bd` found on PATH is linked into the demo HOME, so it must be the real binary, not a wrapper script.
 set -euo pipefail
 export HOME=/private/tmp/bdb-home
 export BEADS_WORKSPACE_ROOT=/private/tmp/bdb-ws
@@ -51,11 +52,18 @@ bd close "$l" -r "Deferred to next quarter" >/dev/null 2>&1 || true
 
 # Phases 2-5 screens: schedule, claims, gates, custom statuses. Best effort so older bd versions still seed.
 bd update "$d" --due "+3d" -e 120 >/dev/null 2>&1 || true
+# Epic due dates give the Timeline bars to draw.
+bd update "$E1" --due "+10d" >/dev/null 2>&1 || true
+bd update "$E2" --due "+18d" >/dev/null 2>&1 || true
 bd update "$e" --due "+1d" >/dev/null 2>&1 || true
 bd update "$h" --due "-2d" -e 90 >/dev/null 2>&1 || true
 bd update "$k" --due "+6d" -e 45 >/dev/null 2>&1 || true
 bd update "$j" --defer "+7d" >/dev/null 2>&1 || true
 bd update "$g" --claim --actor claude-code >/dev/null 2>&1 || true
+# A heartbeat after the claim is what makes claude-code an agent on the Agents screen.
+sleep 1 && bd heartbeat "$g" --actor claude-code >/dev/null 2>&1 || true
+# The live feed and the Inbox read the events journal.
+bd config set events-journal true >/dev/null 2>&1 || true
 bd gate create --blocks "$h" --reason "Needs legal sign-off on the tax wording" >/dev/null 2>&1 || true
 bd config set status.custom "in_review:wip" >/dev/null 2>&1 || true
 bd update "$b" -s in_review >/dev/null 2>&1 || true
