@@ -441,8 +441,8 @@ export function ViewPage({
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="truncate text-lg font-semibold">{view.name}</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="truncate text-title font-semibold">{view.name}</h1>
+          <p className="text-body text-muted-foreground">
             {view.shared
               ? 'shared with the project · saved in bd kv'
               : 'personal'}
