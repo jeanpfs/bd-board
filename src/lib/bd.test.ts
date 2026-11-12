@@ -370,6 +370,27 @@ describe('buildCountsFromGroups', () => {
 })
 
 describe('buildBeadGraph', () => {
+  it('drops the blocks edge to a resolved gate but keeps it for an open gate', () => {
+    const dep = (to: string) => ({
+      issue_id: 'w',
+      depends_on_id: to,
+      type: 'blocks',
+    })
+    const beads = buildBeadGraph([
+      { id: 'g1', title: 'g', status: 'closed', issue_type: 'gate' },
+      { id: 'g2', title: 'g', status: 'open', issue_type: 'gate' },
+      {
+        id: 'w',
+        title: 'w',
+        status: 'open',
+        issue_type: 'task',
+        dependencies: [dep('g1'), dep('g2')],
+      },
+    ])
+    const waiting = beads.find((b) => b.id === 'w')
+    expect(waiting?.links?.map((l) => l.id)).toEqual(['g2'])
+  })
+
   const issue = (
     id: string,
     dependencies?: Record<string, unknown>[],

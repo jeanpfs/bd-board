@@ -454,7 +454,15 @@ export function buildBeadGraph(
 ): Bead[] {
   const beads = rawBeads.map((raw) => mapRawBead(raw, categories))
   const knownIds = new Set(beads.map((b) => b.id))
-  const edges = collectEdges(rawBeads, knownIds)
+  const closedGates = new Set(
+    beads
+      .filter((b) => b.issue_type === 'gate' && b.status === 'closed')
+      .map((b) => b.id),
+  )
+  // A resolved gate no longer blocks; bd keeps the edge but drops the block.
+  const edges = collectEdges(rawBeads, knownIds).filter(
+    (edge) => !(edge.type === 'blocks' && closedGates.has(edge.to)),
+  )
 
   const linksById = new Map<string, BeadLink[]>()
   const parentById = new Map<string, string>()
