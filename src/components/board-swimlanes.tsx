@@ -376,7 +376,9 @@ export function BoardSwimlanes({
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+    // No elastic overscroll: macOS WebKit drags the sticky header along with
+    // the bounce, so cards showed above the column titles.
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-none pb-2">
       <div className="sticky top-0 z-10 grid grid-cols-1 gap-3 bg-background pt-3 pb-2.5 md:grid-cols-2 xl:grid-cols-4">
         {COLUMN_KEYS.map((key) => (
           <StatusColumnHeader
