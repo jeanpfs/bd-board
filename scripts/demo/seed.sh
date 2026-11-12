@@ -49,6 +49,17 @@ bd comments add "$m" "Reproduced: the provider retries after a 504 and we do not
 bd comments add "$m" "Fix plan: store the event id with a unique index and return 200 on repeats." >/dev/null 2>&1 || true
 bd close "$l" -r "Deferred to next quarter" >/dev/null 2>&1 || true
 
+# Phases 2-5 screens: schedule, claims, gates, custom statuses. Best effort so older bd versions still seed.
+bd update "$d" --due "+3d" -e 120 >/dev/null 2>&1 || true
+bd update "$e" --due "+1d" >/dev/null 2>&1 || true
+bd update "$h" --due "-2d" -e 90 >/dev/null 2>&1 || true
+bd update "$k" --due "+6d" -e 45 >/dev/null 2>&1 || true
+bd update "$j" --defer "+7d" >/dev/null 2>&1 || true
+bd update "$g" --claim --actor claude-code >/dev/null 2>&1 || true
+bd gate create --blocks "$h" --reason "Needs legal sign-off on the tax wording" >/dev/null 2>&1 || true
+bd config set status.custom "in_review:wip" >/dev/null 2>&1 || true
+bd update "$b" -s in_review >/dev/null 2>&1 || true
+
 # ---------------------------------------------------------------- orbit: mobile app
 mk orbit orb
 E=$(c "Offline mode" -t epic -p 1 -d "The app should stay usable without a connection and sync when it is back.")
@@ -71,8 +82,8 @@ c "Versioned docs" -t feature -p 3 >/dev/null
 # ---------------------------------------------------------------- bd-board registry
 cat > "$HOME/.config/bd-board/projects.json" <<JSON
 {"version":1,"projects":[
-{"id":"ledger","path":"$BEADS_WORKSPACE_ROOT/ledger/.beads","label":"ledger"},
-{"id":"orbit","path":"$BEADS_WORKSPACE_ROOT/orbit/.beads","label":"orbit"},
-{"id":"atlas","path":"$BEADS_WORKSPACE_ROOT/atlas/.beads","label":"atlas"}]}
+{"id":"ledger","path":"$ROOT/ledger/.beads","label":"ledger"},
+{"id":"orbit","path":"$ROOT/orbit/.beads","label":"orbit"},
+{"id":"atlas","path":"$ROOT/atlas/.beads","label":"atlas"}]}
 JSON
 echo seeded

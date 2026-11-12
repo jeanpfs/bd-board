@@ -1,4 +1,6 @@
-import { groupBeadLinks, mapStatus } from './types'
+import { isGate } from './lease.ts'
+import { isDueThisWeek, isOverdue } from './schedule.ts'
+import { groupBeadLinks, mapStatus } from './types.ts'
 
 import type { Bead } from './types'
 
@@ -57,10 +59,12 @@ export function compareBeads(sort: SortKey): (a: Bead, b: Bead) => number {
   }
 }
 
-/** Ready = open and not waiting on an unresolved dependency. */
+/** Ready = open work not waiting on an unresolved dependency; gates are never work. */
 export function isReady(bead: Bead): boolean {
   return (
-    mapStatus(bead.status).column === 'open' &&
+    !isGate(bead) &&
+    bead.status !== 'deferred' &&
+    mapStatus(bead).column === 'open' &&
     groupBeadLinks(bead.links).blockedBy.length === 0
   )
 }
@@ -71,7 +75,13 @@ export function beadMatches(
   priorities: number[],
   ready = false,
   assignee = '',
+  due?: 'week' | 'overdue',
+  snoozed = false,
+  now: Date = new Date(),
 ): boolean {
+  if (bead.status === 'deferred' && !snoozed) return false
+  if (due === 'week' && !isDueThisWeek(bead, now)) return false
+  if (due === 'overdue' && !isOverdue(bead, now)) return false
   if (ready && !isReady(bead)) return false
   if (assignee && bead.assignee !== assignee) return false
   if (

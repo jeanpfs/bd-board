@@ -3,6 +3,7 @@ use std::env;
 use std::process::Command;
 
 mod desktop;
+mod migration_gate;
 mod registry;
 
 #[derive(Serialize)]
@@ -58,6 +59,27 @@ pub fn run() {
             desktop::update_bead_status,
             desktop::update_bead,
             desktop::preview_delete_bead,
+            desktop::close_bead,
+            desktop::update_many,
+            desktop::close_many,
+            desktop::claim_bead,
+            desktop::unclaim_bead,
+            desktop::reclaim_bead,
+            desktop::stale_beads,
+            desktop::resolve_gate,
+            desktop::get_config,
+            desktop::set_config,
+            desktop::query_beads,
+            desktop::validate_query,
+            desktop::kv_get,
+            desktop::kv_set,
+            desktop::ready_explain,
+            desktop::linear_status,
+            desktop::linear_sync,
+            desktop::add_relation,
+            desktop::remove_relation,
+            desktop::defer_bead,
+            desktop::undefer_bead,
             desktop::delete_bead,
             desktop::create_bead,
             desktop::add_comment,
@@ -66,7 +88,7 @@ pub fn run() {
             desktop::relocate_project,
             desktop::watch_bead_feed,
             desktop::unwatch_bead_feed,
-            desktop::enable_events_journal,
+            desktop::tail_events,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -78,7 +100,7 @@ pub fn run() {
         });
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn desktop_probe() -> Result<DesktopProbe, String> {
     let bd_version = resolve_bd_version()?;
     let bd_binary = find_bd_binary()?.to_string_lossy().to_string();

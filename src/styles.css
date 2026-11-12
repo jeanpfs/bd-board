@@ -86,6 +86,14 @@
   --k-investigation: oklch(0.79 0.15 90);
   --k-must-check: oklch(0.72 0.17 22);
   --k-deviation: oklch(0.76 0.15 40);
+
+  /* Project chips: white initials stay ≥ 4.5:1 on every color. */
+  --project-1: oklch(0.47 0.11 268);
+  --project-2: oklch(0.46 0.08 200);
+  --project-3: oklch(0.48 0.09 45);
+  --project-4: oklch(0.47 0.1 330);
+  --project-5: oklch(0.46 0.09 150);
+  --project-6: oklch(0.47 0.09 100);
 }
 
 @theme inline {
@@ -152,6 +160,29 @@
   --color-status-progress: var(--status-progress);
   --color-status-blocked: var(--status-blocked);
   --color-status-closed: var(--status-closed);
+
+  --color-project-1: var(--project-1);
+  --color-project-2: var(--project-2);
+  --color-project-3: var(--project-3);
+  --color-project-4: var(--project-4);
+  --color-project-5: var(--project-5);
+  --color-project-6: var(--project-6);
+
+  /*
+   * Type roles (design system). Use these instead of text-[Npx]:
+   * badge 11 (floor: badges, kbd, initials) · xs 12 (metadata) ·
+   * body 13 (rows, section headings) · sm 14 (names, controls) ·
+   * title 18 (one page/dialog title) · metric 26 (one highlighted number).
+   */
+  --text-badge: 11px;
+  --text-body: 13px;
+  --text-title: 18px;
+  --text-metric: 26px;
+
+  --spacing-row: 44px;
+  --spacing-section: 36px;
+  --spacing-page: 40px;
+  --spacing-rail: 232px;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

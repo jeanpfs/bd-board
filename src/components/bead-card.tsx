@@ -16,13 +16,15 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { InteractiveRow } from '@/components/ui/interactive-row'
+import { PriorityBadge } from '@/components/priority-badge'
 import { SubtaskProgress } from '@/components/subtask-progress'
 import { cn, initials } from '@/lib/utils'
+import { dueState, formatEstimate } from '@/lib/schedule'
 import { groupBeadLinks, isEpic, mapStatus } from '@/lib/types'
-import { PRIORITY_TEXT_CLASS } from '@/lib/sort'
 
 import type { LucideIcon } from 'lucide-react'
 import type { Bead, BeadColumn } from '@/lib/types'
+import type { DueState } from '@/lib/schedule'
 
 interface BeadCardProps {
   bead: Bead
@@ -60,7 +62,7 @@ function NestedChildren({
         variant="ghost"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="h-auto w-full justify-start gap-1.5 rounded px-0 py-1 font-mono text-[10.5px] tracking-[0.02em] text-faint hover:bg-transparent hover:text-muted-foreground"
+        className="h-auto w-full justify-start gap-1.5 rounded px-0 py-1 font-mono text-badge tracking-[0.02em] text-faint hover:bg-transparent hover:text-muted-foreground"
       >
         {open ? (
           <ChevronDown className="size-3" aria-hidden="true" />
@@ -73,7 +75,6 @@ function NestedChildren({
       {open ? (
         <ul className="mt-1 ml-[5px] flex flex-col gap-1 border-l border-border-strong pl-2.5">
           {childBeads.map((child) => {
-            const priority = Math.max(0, Math.min(4, child.priority))
             return (
               <li key={child.id}>
                 <InteractiveRow
@@ -85,22 +86,18 @@ function NestedChildren({
                   <span
                     className={cn(
                       'size-1.5 shrink-0 rounded-full',
-                      STATUS_DOT_CLASS[mapStatus(child.status).column],
+                      STATUS_DOT_CLASS[mapStatus(child).column],
                     )}
                     aria-hidden="true"
                   />
-                  <span className="font-mono text-[10.5px] text-muted-foreground">
+                  <span className="font-mono text-badge text-muted-foreground">
                     {child.id}
                   </span>
-                  <span
-                    className={cn(
-                      'rounded-[4px] px-1 py-px font-mono text-[9px] leading-[1.4] font-semibold tabular-nums ring-1 ring-inset ring-current',
-                      PRIORITY_TEXT_CLASS[priority],
-                    )}
-                  >
-                    P{priority}
-                  </span>
-                  <span className="truncate text-[11.5px] text-foreground">
+                  <PriorityBadge
+                    priority={child.priority}
+                    className="leading-[1.4]"
+                  />
+                  <span className="truncate text-xs text-foreground">
                     {child.title}
                   </span>
                 </InteractiveRow>
@@ -136,6 +133,12 @@ function LinkStat({
   )
 }
 
+const DUE_TEXT_CLASS: Record<DueState['kind'], string> = {
+  overdue: 'text-status-blocked',
+  soon: 'text-warn',
+  later: 'text-muted-foreground',
+}
+
 export function BeadCard({
   bead,
   onOpen,
@@ -152,12 +155,15 @@ export function BeadCard({
   } = useSortable({ id: bead.id, data: { bead } })
 
   const epic = isEpic(bead)
-  const badge = mapStatus(bead.status).badge
+  const due =
+    bead.due_at && mapStatus(bead).column !== 'closed'
+      ? dueState(bead.due_at, new Date())
+      : null
+  const badge = mapStatus(bead).badge
   const labels = bead.labels ?? []
   const childBeads = bead.childBeads ?? []
   const childCount = bead.children?.length ?? childBeads.length
   const { blockedBy, blocking, related } = groupBeadLinks(bead.links)
-  const priority = Math.max(0, Math.min(4, bead.priority))
 
   const style = overlay
     ? undefined
@@ -191,22 +197,16 @@ export function BeadCard({
         variant="plain"
         size="flush"
         onClick={() => onOpen(bead)}
+        data-bead-id={bead.id}
         className="flex cursor-pointer flex-col gap-[7px] rounded-[8px] px-[10px] py-[9px]"
       >
         <span className="flex items-center gap-1.5 pr-5">
-          <span className="font-mono text-[11px] tracking-[0.01em] text-muted-foreground">
+          <span className="font-mono text-badge tracking-[0.01em] text-muted-foreground">
             {bead.id}
           </span>
-          <span
-            className={cn(
-              'rounded-[4px] px-1 py-px font-mono text-[10px] leading-[1.5] font-semibold tabular-nums ring-1 ring-inset ring-current',
-              PRIORITY_TEXT_CLASS[priority],
-            )}
-          >
-            P{priority}
-          </span>
+          <PriorityBadge priority={bead.priority} />
           {epic ? (
-            <span className="inline-flex items-center gap-1 rounded-[4px] bg-primary/30 px-1.5 py-px text-[10px] font-semibold tracking-[0.06em] text-primary-text uppercase ring-1 ring-inset ring-ring/45">
+            <span className="inline-flex items-center gap-1 rounded-[4px] bg-primary/30 px-1.5 py-px text-badge font-semibold tracking-[0.06em] text-primary-text uppercase ring-1 ring-inset ring-ring/45">
               <Layers className="size-2.5" aria-hidden="true" />
               Epic
             </span>
@@ -214,7 +214,7 @@ export function BeadCard({
           {badge ? (
             <span
               className={cn(
-                'rounded-[4px] px-1.5 py-px text-[10px] font-semibold tracking-[0.06em] uppercase',
+                'rounded-[4px] px-1.5 py-px text-badge font-semibold tracking-[0.06em] uppercase',
                 BADGE_TONES[badge.tone],
               )}
             >
@@ -223,7 +223,7 @@ export function BeadCard({
           ) : null}
         </span>
 
-        <span className="line-clamp-2 text-[12.75px] leading-[1.45] text-foreground">
+        <span className="line-clamp-2 text-body leading-[1.45] text-foreground">
           {bead.title}
         </span>
 
@@ -235,13 +235,13 @@ export function BeadCard({
           {labels.slice(0, 2).map((label) => (
             <span
               key={label}
-              className="max-w-[92px] truncate rounded-[4px] px-[5px] text-[10.5px] leading-[1.6] text-muted-foreground ring-1 ring-inset ring-border-strong"
+              className="max-w-[92px] truncate rounded-[4px] px-[5px] text-badge leading-[1.6] text-muted-foreground ring-1 ring-inset ring-border-strong"
             >
               {label}
             </span>
           ))}
 
-          <span className="ml-auto flex items-center gap-2 font-mono text-[11px] text-muted-foreground tabular-nums">
+          <span className="ml-auto flex items-center gap-2 font-mono text-badge text-muted-foreground tabular-nums">
             {childCount > 0 ? (
               <LinkStat
                 icon={ListTree}
@@ -277,12 +277,27 @@ export function BeadCard({
                 {bead.comment_count}
               </span>
             ) : null}
+            {due ? (
+              <span
+                className={cn(
+                  'whitespace-nowrap font-sans',
+                  DUE_TEXT_CLASS[due.kind],
+                )}
+              >
+                {due.label}
+              </span>
+            ) : null}
+            {bead.estimated_minutes ? (
+              <span className="whitespace-nowrap">
+                {formatEstimate(bead.estimated_minutes)}
+              </span>
+            ) : null}
             {bead.assignee ? (
               <Avatar
                 size="sm"
                 className="size-[19px] bg-white/9 ring-1 ring-inset ring-border-strong"
               >
-                <AvatarFallback className="bg-transparent text-[9px] font-semibold tracking-[0.03em] text-foreground">
+                <AvatarFallback className="bg-transparent text-badge font-semibold tracking-[0.03em] text-foreground">
                   {initials(bead.assignee)}
                 </AvatarFallback>
               </Avatar>

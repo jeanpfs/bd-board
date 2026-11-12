@@ -43,6 +43,8 @@ interface BoardSwimlanesProps {
   priorities: number[]
   ready: boolean
   assignee: string
+  due: 'week' | 'overdue' | undefined
+  snoozed: boolean
   sort: SortKey
   groupBy: SwimlaneGroup
   nested?: boolean
@@ -73,7 +75,7 @@ function groupByColumn(
   compare: (a: Bead, b: Bead) => number,
 ): Record<BeadColumn, Bead[]> {
   const grouped = emptyByColumn()
-  for (const b of beads) grouped[mapStatus(b.status).column].push(b)
+  for (const b of beads) grouped[mapStatus(b).column].push(b)
   for (const key of COLUMN_KEYS) grouped[key].sort(compare)
   return grouped
 }
@@ -106,7 +108,7 @@ function LaneCell({
         ))}
       </SortableContext>
       {beads.length === 0 ? (
-        <span className="flex flex-1 items-center justify-center py-3 font-mono text-[11px] text-white/22">
+        <span className="flex flex-1 items-center justify-center py-3 font-mono text-badge text-white/22">
           —
         </span>
       ) : null}
@@ -156,7 +158,7 @@ function SwimLane({
   function columnOfId(id: string): BeadColumn | null {
     if ((COLUMN_KEYS as string[]).includes(id)) return id as BeadColumn
     const bead = beadsById.get(id)
-    return bead ? mapStatus(bead.status).column : null
+    return bead ? mapStatus(bead).column : null
   }
 
   function onDragStart(event: DragStartEvent) {
@@ -180,7 +182,7 @@ function SwimLane({
           size="icon-xs"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          aria-label={open ? 'Recolher faixa' : 'Expandir faixa'}
+          aria-label={open ? 'Collapse lane' : 'Expand lane'}
         >
           {open ? (
             <ChevronDown className="size-4" aria-hidden="true" />
@@ -199,15 +201,15 @@ function SwimLane({
               className="size-3.5 shrink-0 text-primary-text"
               aria-hidden="true"
             />
-            <span className="font-mono text-[11px] text-muted-foreground">
+            <span className="font-mono text-badge text-muted-foreground">
               {epic.id}
             </span>
-            <span className="truncate text-[13px] font-medium tracking-[-0.005em] text-foreground">
+            <span className="truncate text-body font-medium tracking-[-0.005em] text-foreground">
               {epic.title}
             </span>
           </Button>
         ) : (
-          <span className="flex items-center gap-2 text-[13px] font-medium text-muted-foreground">
+          <span className="flex items-center gap-2 text-body font-medium text-muted-foreground">
             {title}
           </span>
         )}
@@ -218,7 +220,7 @@ function SwimLane({
               <SubtaskProgress childBeads={childBeads} showDots={false} />
             </span>
           ) : null}
-          <span className="font-mono text-[11.5px] tabular-nums text-muted-foreground">
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
             {done}/{childBeads.length}
           </span>
         </span>
@@ -267,6 +269,8 @@ export function BoardSwimlanes({
   priorities,
   ready,
   assignee,
+  due,
+  snoozed,
   sort,
   groupBy,
   nested = false,
@@ -275,7 +279,7 @@ export function BoardSwimlanes({
 }: BoardSwimlanesProps) {
   const { lanes, totals, hasAny } = useMemo(() => {
     const matches = (b: Bead) =>
-      beadMatches(b, search, priorities, ready, assignee)
+      beadMatches(b, search, priorities, ready, assignee, due, snoozed)
     const epicIds = new Set(beads.filter(isEpic).map((e) => e.id))
     // In nested mode, children of a non-epic parent are pulled out of the
     // lane grid and shown inline inside their parent's card instead — but an
@@ -295,7 +299,7 @@ export function BoardSwimlanes({
           <>
             <span
               className={cn(
-                'rounded-[4px] px-1.5 py-px font-mono text-[11px] font-semibold ring-1 ring-inset ring-current',
+                'rounded-[4px] px-1.5 py-px font-mono text-badge font-semibold ring-1 ring-inset ring-current',
                 PRIORITY_TEXT_CLASS[p],
               )}
             >
@@ -303,9 +307,7 @@ export function BoardSwimlanes({
             </span>
             <span className="text-foreground">{PRIORITY_WORD[p]}</span>
             {PRIORITY_HINT[p] ? (
-              <span className="text-[11.5px] text-faint">
-                · {PRIORITY_HINT[p]}
-              </span>
+              <span className="text-xs text-faint">· {PRIORITY_HINT[p]}</span>
             ) : null}
           </>
         ),
@@ -344,14 +346,24 @@ export function BoardSwimlanes({
     }
 
     const totalByColumn = emptyByColumn()
-    for (const b of work) totalByColumn[mapStatus(b.status).column].push(b)
+    for (const b of work) totalByColumn[mapStatus(b).column].push(b)
 
     return {
       lanes: builtLanes,
       totals: totalByColumn,
       hasAny: builtLanes.length > 0,
     }
-  }, [beads, search, priorities, ready, assignee, groupBy, nested])
+  }, [
+    beads,
+    search,
+    priorities,
+    ready,
+    assignee,
+    due,
+    snoozed,
+    groupBy,
+    nested,
+  ])
 
   if (!hasAny) {
     return (
@@ -363,9 +375,12 @@ export function BoardSwimlanes({
     )
   }
 
+  // The column titles sit outside the scrolling area, so nothing that scrolls
+  // can paint over or above them (a sticky header leaked cards in WKWebView).
+  // Both grids reserve the same scrollbar gutter to keep the columns aligned.
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto pb-2">
-      <div className="sticky top-0 z-10 grid grid-cols-1 gap-3 bg-background/92 pt-3 pb-2.5 backdrop-blur-[8px] md:grid-cols-2 xl:grid-cols-4">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="grid grid-cols-1 gap-3 overflow-hidden pt-3 pb-2.5 [scrollbar-gutter:stable] md:grid-cols-2 xl:grid-cols-4">
         {COLUMN_KEYS.map((key) => (
           <StatusColumnHeader
             key={key}
@@ -376,19 +391,21 @@ export function BoardSwimlanes({
         ))}
       </div>
 
-      <div className="flex flex-col gap-3.5">
-        {lanes.map((lane) => (
-          <SwimLane
-            key={lane.key}
-            epic={lane.epic}
-            title={lane.title}
-            childBeads={lane.children}
-            sort={sort}
-            nested={nested}
-            onOpen={onOpen}
-            applyDrop={applyDrop}
-          />
-        ))}
+      <div className="min-h-0 flex-1 overflow-y-auto pb-2 [scrollbar-gutter:stable]">
+        <div className="flex flex-col gap-3.5">
+          {lanes.map((lane) => (
+            <SwimLane
+              key={lane.key}
+              epic={lane.epic}
+              title={lane.title}
+              childBeads={lane.children}
+              sort={sort}
+              nested={nested}
+              onOpen={onOpen}
+              applyDrop={applyDrop}
+            />
+          ))}
+        </div>
       </div>
     </div>
   )

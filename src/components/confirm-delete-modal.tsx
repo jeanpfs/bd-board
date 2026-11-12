@@ -18,6 +18,7 @@ interface ConfirmDeleteModalProps {
   onOpenChange: (open: boolean) => void
   projectId: string
   projectName: string
+  onRemoved?: () => void
 }
 
 export function ConfirmDeleteModal({
@@ -25,6 +26,7 @@ export function ConfirmDeleteModal({
   onOpenChange,
   projectId,
   projectName,
+  onRemoved,
 }: ConfirmDeleteModalProps) {
   const queryClient = useQueryClient()
 
@@ -34,6 +36,7 @@ export function ConfirmDeleteModal({
       queryClient.invalidateQueries({ queryKey: ['projects'] })
       toast.success(`Project "${projectName}" removed`)
       onOpenChange(false)
+      onRemoved?.()
     },
     onError: (err) => {
       toast.error(toErrorMessage(err, 'Failed to delete project'))

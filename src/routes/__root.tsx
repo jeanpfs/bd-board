@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import {
   HeadContent,
   Scripts,
@@ -6,6 +7,8 @@ import {
 
 import { ProjectRail } from '@/components/project-rail'
 import { ProjectTopbar } from '@/components/project-topbar'
+import { CommandPalette } from '@/components/command-palette'
+import { ShortcutsDialog } from '@/components/shortcuts-dialog'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from '@/components/ui/sonner'
 
@@ -42,6 +45,12 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  // Effects run children first, so by now every listener (Mod+K, sidebar
+  // toggle) is attached. Tests wait for this before driving the app.
+  useEffect(() => {
+    document.documentElement.dataset.hydrated = 'true'
+  }, [])
+
   return (
     <html lang="en" className="dark">
       <head>
@@ -66,6 +75,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <Toaster richColors position="top-right" />
+          <CommandPalette />
+          <ShortcutsDialog />
         </TooltipProvider>
         <Scripts />
       </body>

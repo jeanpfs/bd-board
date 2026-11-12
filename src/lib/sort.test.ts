@@ -144,5 +144,38 @@ describe('isReady', () => {
     ).toBe(false)
     expect(isReady(bead({ status: 'blocked' }))).toBe(false)
     expect(isReady(bead({ status: 'closed' }))).toBe(false)
+    expect(isReady(bead({ status: 'deferred' }))).toBe(false)
+  })
+
+  it('is false for an open gate: gates are not claimable work', () => {
+    expect(isReady(bead({ status: 'open', issue_type: 'gate' }))).toBe(false)
+  })
+})
+
+describe('beadMatches due and snoozed filters', () => {
+  // Wed, Nov 11 2026
+  const now = new Date(2026, 10, 11, 12)
+  const at = (day: number) => new Date(2026, 10, day, 9).toISOString()
+  const run = (b: Bead, due?: 'week' | 'overdue', snoozed = false): boolean =>
+    beadMatches(b, '', [], false, '', due, snoozed, now)
+
+  it('keeps only beads due within the week for due=week', () => {
+    expect(run(bead({ due_at: at(14) }), 'week')).toBe(true)
+    expect(run(bead({ due_at: at(10) }), 'week')).toBe(false)
+    expect(run(bead({ due_at: at(25) }), 'week')).toBe(false)
+    expect(run(bead({}), 'week')).toBe(false)
+  })
+
+  it('keeps only overdue beads for due=overdue', () => {
+    expect(run(bead({ due_at: at(10) }), 'overdue')).toBe(true)
+    expect(run(bead({ due_at: at(14) }), 'overdue')).toBe(false)
+  })
+
+  it('hides deferred beads unless snoozed is on', () => {
+    const deferred = bead({ status: 'deferred', defer_until: at(20) })
+    expect(run(deferred)).toBe(false)
+    expect(run(deferred, undefined, true)).toBe(true)
+    expect(run(bead({ status: 'deferred' }))).toBe(false)
+    expect(run(bead({}))).toBe(true)
   })
 })

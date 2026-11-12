@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -22,7 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { createBeadFn } from '@/lib/server'
+import { LabelsInput } from '@/components/labels-input'
+import { labelCounts } from '@/lib/labels'
+import { createBeadFn, getBeads } from '@/lib/server'
 
 import type { Bead } from '@/lib/types'
 
@@ -59,12 +61,23 @@ export function CreateBeadDialog({
   const [parent, setParent] = useState(
     lockedParent ? lockedParent.id : NO_PARENT,
   )
+  const [labels, setLabels] = useState<string[]>([])
+  const beadsQuery = useQuery({
+    queryKey: ['beads', project],
+    queryFn: () => getBeads({ data: { project } }),
+    enabled: false,
+  })
+  const counts = useMemo(
+    () => labelCounts(beadsQuery.data ?? []),
+    [beadsQuery.data],
+  )
 
   function reset() {
     setTitle('')
     setDescription('')
     setType('task')
     setParent(lockedParent ? lockedParent.id : NO_PARENT)
+    setLabels([])
   }
 
   const mutation = useMutation({
@@ -75,6 +88,7 @@ export function CreateBeadDialog({
           title: title.trim(),
           description: description.trim() || undefined,
           type,
+          labels,
           parent: lockedParent
             ? lockedParent.id
             : type !== 'epic' && parent !== NO_PARENT
@@ -211,6 +225,16 @@ export function CreateBeadDialog({
                 </Select>
               </div>
             )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="bead-labels">Labels</Label>
+            <LabelsInput
+              id="bead-labels"
+              value={labels}
+              onChange={setLabels}
+              counts={counts}
+            />
           </div>
 
           <DialogFooter>

@@ -1,6 +1,17 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+use std::sync::{Mutex, MutexGuard};
+
+/// Commands run concurrently; each load-modify-save cycle holds this lock so
+/// two edits never overwrite each other or share the temp file.
+static WRITE_LOCK: Mutex<()> = Mutex::new(());
+
+fn write_lock() -> MutexGuard<'static, ()> {
+    WRITE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct RegistryEntry {
@@ -116,6 +127,7 @@ pub fn add(path: &std::path::Path, label: Option<String>) -> Result<RegistryEntr
         .to_string_lossy()
         .to_string();
 
+    let _guard = write_lock();
     let mut registry = load()?;
 
     // Check if entry with same canonical path already exists
@@ -144,6 +156,7 @@ pub fn add(path: &std::path::Path, label: Option<String>) -> Result<RegistryEntr
 }
 
 pub fn remove(id: &str) -> Result<(), String> {
+    let _guard = write_lock();
     let mut registry = load()?;
     let initial_len = registry.projects.len();
 
@@ -158,6 +171,7 @@ pub fn remove(id: &str) -> Result<(), String> {
 }
 
 pub fn rename(id: &str, new_label: String) -> Result<RegistryEntry, String> {
+    let _guard = write_lock();
     let mut registry = load()?;
 
     // Find and update the project
@@ -179,6 +193,7 @@ pub fn relocate(id: &str, new_path: String) -> Result<RegistryEntry, String> {
         .to_string_lossy()
         .to_string();
 
+    let _guard = write_lock();
     let mut registry = load()?;
 
     // Find and update the project path

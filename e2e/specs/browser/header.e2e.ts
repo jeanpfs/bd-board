@@ -2,41 +2,41 @@ import { fakeProject, resetBrowserApp } from '../../helpers.js'
 
 describe('project header', () => {
   beforeEach(async () => {
-    await resetBrowserApp('/p/tako', {
+    await resetBrowserApp('/p/tako?tab=board', {
       list_projects: [fakeProject('tako', 'tako')],
       list_beads: [],
       desktop_probe: null,
     })
-    await $('nav[aria-label="Projects"] li a').waitForExist({ timeout: 20000 })
+    await $('header nav[aria-label="Breadcrumb"]').waitForExist({
+      timeout: 20000,
+    })
   })
 
-  it('shows only the current project name, capitalized and bold', async () => {
-    const header = await browser.execute(() => {
-      const el = document.querySelector('header')
-      const label = el?.querySelector('span')
-      const style = label ? getComputedStyle(label) : null
+  it('shows the project and the current view as a breadcrumb', async () => {
+    const crumb = await browser.execute(() => {
+      const nav = document.querySelector('header nav[aria-label="Breadcrumb"]')
       return {
-        breadcrumbLinks: [...(el?.querySelectorAll('a') ?? [])]
-          .map((a) => (a as HTMLElement).innerText.trim())
-          .filter((text) => text === 'Projects'),
-        separators: (el?.innerText ?? '').includes('/'),
-        rendered: (label as HTMLElement | null)?.innerText.trim(),
-        source: label
-          ? label.textContent
-            ? label.textContent.trim()
-            : undefined
-          : null,
-        textTransform: style?.textTransform,
-        fontWeight: Number(style?.fontWeight ?? 0),
+        project: nav?.querySelector('a > span:last-child')?.textContent,
+        current: nav?.querySelector('[aria-current="page"]')?.textContent,
+        tablist: document.querySelector('header [role="tablist"]') !== null,
       }
     })
 
-    expect(header.breadcrumbLinks).toHaveLength(0)
-    expect(header.separators).toBe(false)
-    expect(header.rendered).toBe('Tako')
-    expect(header.source).toBe('tako')
-    expect(header.textTransform).toBe('capitalize')
-    expect(header.fontWeight).toBeGreaterThanOrEqual(600)
+    expect(crumb).toEqual({
+      project: 'tako',
+      current: 'Board',
+      tablist: false,
+    })
+  })
+
+  it('the project crumb goes back to the Overview, which has no topbar', async () => {
+    await $('header nav[aria-label="Breadcrumb"] a').click()
+    await browser.waitUntil(
+      async () => (await browser.getUrl()).includes('tab=overview'),
+      { timeout: 5000, timeoutMsg: 'navigation to the overview failed' },
+    )
+    await expect($('h1=tako')).toBeDisplayed()
+    expect(await $$('header nav[aria-label="Breadcrumb"]')).toHaveLength(0)
   })
 
   it('no longer renders the runtime label in the sidebar', async () => {
@@ -48,23 +48,23 @@ describe('project header', () => {
     expect(railText).not.toContain('web')
   })
 })
-describe('home page header', () => {
+describe('first run without projects', () => {
   beforeEach(async () => {
     await resetBrowserApp('/', {
       list_projects: [],
       list_beads: [],
       desktop_probe: null,
     })
-    await $('nav[aria-label="Projects"]').waitForExist({ timeout: 20000 })
   })
 
-  it('does not render ProjectTopbar when no project is active', async () => {
-    // Verify ProjectTopbar does not exist: no header with tablist role.
-    // (Note: page still has a <header> from PageHeader with project list, but no tablist)
-    const hasProjectTopbar = await browser.execute(
-      () => document.querySelector('header [role="tablist"]') !== null,
-    )
-    expect(hasProjectTopbar).toBe(false)
+  it('shows only the start screen: no sidebar, no project header', async () => {
+    await expect($('h1=Start with a project')).toBeDisplayed()
+    const chrome = await browser.execute(() => ({
+      sidebar: document.querySelector('aside') !== null,
+      breadcrumb:
+        document.querySelector('header nav[aria-label="Breadcrumb"]') !== null,
+    }))
+    expect(chrome).toEqual({ sidebar: false, breadcrumb: false })
   })
 })
 
@@ -92,34 +92,30 @@ describe('home page header with project navigation', () => {
       ;(window as unknown as Record<string, unknown>).__capturedErrors = errors
     })
 
-    // Verify: on home, ProjectTopbar does not exist (no header with tablist role)
-    let hasProjectTopbar = await browser.execute(
-      () => document.querySelector('header [role="tablist"]') !== null,
-    )
-    expect(hasProjectTopbar).toBe(false)
+    const hasBreadcrumb = () =>
+      browser.execute(
+        () =>
+          document.querySelector('header nav[aria-label="Breadcrumb"]') !==
+          null,
+      )
 
-    // Navigate to project
+    // On home there is no project topbar
+    expect(await hasBreadcrumb()).toBe(false)
+
+    // Navigate to the project: it opens on the Overview
     await $('nav[aria-label="Projects"] li a').click()
     await browser.waitUntil(
       async () => (await browser.getUrl()).includes('/p/') === true,
       { timeout: 5000, timeoutMsg: 'navigation to project failed' },
     )
+    await expect($('h1=tako')).toBeDisplayed()
 
-    // Verify: in project, ProjectTopbar exists and shows project name
-    await browser.waitUntil(
-      async () =>
-        browser.execute(
-          () => document.querySelector('header [role="tablist"]') !== null,
-        ),
-      { timeout: 5000, timeoutMsg: 'ProjectTopbar did not render' },
-    )
-
-    const projectName = await browser.execute(() => {
-      const header = document.querySelector('header')
-      const span = header?.querySelector('span')
-      return span?.textContent.trim()
+    // Switch to the board: the topbar shows the breadcrumb
+    await $('nav[aria-label="Project"]').$('a*=Board').click()
+    await browser.waitUntil(hasBreadcrumb, {
+      timeout: 5000,
+      timeoutMsg: 'ProjectTopbar did not render',
     })
-    expect(projectName).toBe('tako')
 
     // Navigate back to home via Home link
     await $('nav[aria-label="Home"] a').click()
@@ -128,11 +124,8 @@ describe('home page header with project navigation', () => {
       { timeout: 5000, timeoutMsg: 'navigation to home failed' },
     )
 
-    // Verify: back on home, ProjectTopbar is gone
-    hasProjectTopbar = await browser.execute(
-      () => document.querySelector('header [role="tablist"]') !== null,
-    )
-    expect(hasProjectTopbar).toBe(false)
+    // Back on home, ProjectTopbar is gone
+    expect(await hasBreadcrumb()).toBe(false)
 
     // Verify: no Rules of Hooks or other critical errors captured
     const errors = await browser.execute(

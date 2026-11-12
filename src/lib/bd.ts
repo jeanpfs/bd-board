@@ -10,15 +10,34 @@ import type {
   BeadLink,
   BeadUpdate,
   Comment,
+  DeletePlan,
   Project,
   ProjectComment,
   ProjectCounts,
   ProjectKnowledge,
   ProjectKnowledgeEntry,
   RelatedBead,
+  StatusCategory,
+  ReadyExplain,
+  BulkPatch,
 } from './types.ts'
+import { BUILT_IN_STATUSES, CATEGORY_COLUMN } from './types.ts'
+import { parseReadyExplain } from './ready.ts'
+import { buildAddRelationArgs, buildRemoveRelationArgs } from './relations.ts'
+import type { RelationKind, RemovableRelationKind } from './relations.ts'
 import { parseKnowledgeCommentText } from './knowledge.ts'
 import { loadRegistry } from './registry.ts'
+import type { RegistryEntry } from './registry.ts'
+import { migrationGateError, parseMigrationGate } from './migration-gate.ts'
+import type { MigrationGate } from './migration-gate.ts'
+import { JOURNAL_DISABLED_MARKER, tailArgs, tailResult } from './events.ts'
+import type { TailEventsResult } from './events.ts'
+import { buildLinearSyncArgs, parseLinearStatus } from './linear.ts'
+import type {
+  LinearStatus,
+  LinearSyncOptions,
+  LinearSyncResult,
+} from './linear.ts'
 
 const execFileAsync = promisify(execFile)
 
@@ -59,30 +78,21 @@ export function bdErrorMessage(
   const stdoutTrim = stdout.trim()
   const stderrTrim = stderr.trim()
 
-  // Try to parse stdout as JSON and extract message or error
-  if (stdoutTrim) {
+  // bd --json reports errors as JSON on stdout or, for some commands, stderr.
+  for (const candidate of [stdoutTrim, stderrTrim]) {
+    if (!candidate.startsWith('{')) continue
     try {
-      const json = JSON.parse(stdoutTrim) as Record<string, unknown>
-
-      // Check for message field
-      if (typeof json.message === 'string' && json.message) {
-        let result = json.message
-        if (typeof json.hint === 'string' && json.hint) {
-          result += ` (${json.hint})`
+      const json = JSON.parse(candidate) as Record<string, unknown>
+      for (const key of ['message', 'error']) {
+        const text = json[key]
+        if (typeof text === 'string' && text) {
+          return typeof json.hint === 'string' && json.hint
+            ? `${text} (${json.hint})`
+            : text
         }
-        return result
-      }
-
-      // Check for error field
-      if (typeof json.error === 'string' && json.error) {
-        let result = json.error
-        if (typeof json.hint === 'string' && json.hint) {
-          result += ` (${json.hint})`
-        }
-        return result
       }
     } catch {
-      // Not JSON, continue to stderr
+      // Not JSON, keep looking
     }
   }
 
@@ -95,7 +105,52 @@ export function bdErrorMessage(
   return `bd exited with status ${exitCode}`
 }
 
-export async function bdExec(
+/** `BD_BOARD_TIMING=1` logs every bd call with its queue wait and run time to stderr. */
+const TIMING = process.env.BD_BOARD_TIMING === '1'
+
+/**
+ * One bd process per project at a time. bd's embedded Dolt locks the
+ * database, so concurrent calls on one project contend and finish later in
+ * total than the same calls run in turn; different projects still run in
+ * parallel.
+ */
+const dirQueues = new Map<string, Promise<void>>()
+
+export function inTurn<T>(dir: string, run: () => Promise<T>): Promise<T> {
+  const previous = dirQueues.get(dir) ?? Promise.resolve()
+  const result = previous.then(run)
+  const tail = result.then(
+    () => undefined,
+    () => undefined,
+  )
+  dirQueues.set(dir, tail)
+  void tail.then(() => {
+    if (dirQueues.get(dir) === tail) dirQueues.delete(dir)
+  })
+  return result
+}
+
+export function bdExec(
+  dir: string,
+  args: string[],
+): Promise<{ bin: string; code: number; stdout: string; stderr: string }> {
+  const queued = performance.now()
+  return inTurn(dir, async () => {
+    if (!TIMING) return bdExecOnce(dir, args)
+    const start = performance.now()
+    try {
+      return await bdExecOnce(dir, args)
+    } finally {
+      const wait = Math.round(start - queued)
+      const run = Math.round(performance.now() - start)
+      console.error(
+        `[bd wait ${wait}ms run ${run}ms] ${args.join(' ')} (${path.basename(dir)})`,
+      )
+    }
+  })
+}
+
+async function bdExecOnce(
   dir: string,
   args: string[],
 ): Promise<{ bin: string; code: number; stdout: string; stderr: string }> {
@@ -137,12 +192,32 @@ export async function bdExec(
   throw new Error(`bd not found (tried: ${candidateList})`)
 }
 
+/** The error for a failed bd run, carrying a migration gate when bd reported one. */
+function bdFailure(result: {
+  code: number
+  stdout: string
+  stderr: string
+}): Error {
+  const message = bdErrorMessage(result.stdout, result.stderr, result.code)
+  const gate = parseMigrationGate(result.stdout, result.stderr)
+  if (!gate) return new Error(message)
+  // The text warning repeats the gate; keep only bd's own failure line.
+  const failure = result.stderr
+    .split('\n')
+    .reverse()
+    .find((line) => line.startsWith('Error:'))
+  return migrationGateError(gate, failure ?? message)
+}
+
 async function bdRaw(dir: string, args: string[]): Promise<string> {
   const result = await bdExec(dir, args)
-  if (result.code !== 0) {
-    throw new Error(bdErrorMessage(result.stdout, result.stderr, result.code))
-  }
+  if (result.code !== 0) throw bdFailure(result)
   return result.stdout
+}
+
+/** List-shaped bd output as rows: bd prints `null` for an empty list. */
+export function asRows(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? (value as Record<string, unknown>[]) : []
 }
 
 async function bdJson<T>(dir: string, args: string[]): Promise<T> {
@@ -161,22 +236,26 @@ async function bdJsonLines<T>(dir: string, args: string[]): Promise<T[]> {
     .map((line) => JSON.parse(line) as T)
 }
 
+const EMPTY_COUNTS: ProjectCounts = {
+  open: 0,
+  in_progress: 0,
+  blocked: 0,
+  closed: 0,
+  deferred: 0,
+  total: 0,
+}
+
 function buildCounts(
   rows: { status: string; c: string | number }[],
+  categories: Map<string, StatusCategory> = new Map(),
 ): ProjectCounts {
-  const totals: ProjectCounts = {
-    open: 0,
-    in_progress: 0,
-    blocked: 0,
-    closed: 0,
-    deferred: 0,
-    total: 0,
-  }
+  const totals = { ...EMPTY_COUNTS }
   for (const row of rows) {
     const n = Number(row.c)
     totals.total += n
     switch (row.status) {
       case 'open':
+      case 'pinned':
         totals.open += n
         break
       case 'in_progress':
@@ -192,6 +271,12 @@ function buildCounts(
       case 'deferred':
         totals.deferred += n
         break
+      default: {
+        // Custom status: count it where the board shows it.
+        const category = categories.get(row.status) ?? 'unspecified'
+        if (category === 'frozen') totals.deferred += n
+        else totals[CATEGORY_COLUMN[category]] += n
+      }
     }
   }
   return totals
@@ -199,124 +284,158 @@ function buildCounts(
 
 export function buildCountsFromGroups(
   groups: { group: string; count: number }[],
+  categories?: Map<string, StatusCategory>,
 ): ProjectCounts {
-  return buildCounts(groups.map((g) => ({ status: g.group, c: g.count })))
+  return buildCounts(
+    groups.map((g) => ({ status: g.group, c: g.count })),
+    categories,
+  )
 }
 
-async function counts(dir: string): Promise<ProjectCounts> {
+const STATUS_CATEGORIES = new Set<string>([
+  'active',
+  'wip',
+  'done',
+  'frozen',
+  'unspecified',
+])
+
+/** Custom status name → category, from `bd statuses --json`. */
+export function parseStatusCategories(result: {
+  custom_statuses?: { name?: unknown; category?: unknown }[]
+}): Map<string, StatusCategory> {
+  const categories = new Map<string, StatusCategory>()
+  for (const status of result.custom_statuses ?? []) {
+    if (typeof status.name !== 'string') continue
+    const category =
+      typeof status.category === 'string' &&
+      STATUS_CATEGORIES.has(status.category)
+        ? (status.category as StatusCategory)
+        : 'unspecified'
+    categories.set(status.name, category)
+  }
+  return categories
+}
+
+/** `bd statuses` rarely changes; this saves one bd process per list and per project probe. */
+const STATUS_TTL_MS = 60_000
+const statusCache = new Map<
+  string,
+  { at: number; value: Promise<Map<string, StatusCategory>> }
+>()
+
+/** Empty when bd can't tell (gated database): custom statuses then fall back to "unspecified". */
+function statusCategories(dir: string): Promise<Map<string, StatusCategory>> {
+  const hit = statusCache.get(dir)
+  if (hit && Date.now() - hit.at < STATUS_TTL_MS) return hit.value
+  const value = bdJson<Parameters<typeof parseStatusCategories>[0]>(dir, [
+    'statuses',
+    '--json',
+  ]).then(parseStatusCategories, () => new Map<string, StatusCategory>())
+  statusCache.set(dir, { at: Date.now(), value })
+  return value
+}
+
+/**
+ * `bd count` keeps working on a gated database (read-only on the old
+ * schema), so this is where the dashboard learns about a pending migration.
+ */
+async function counts(
+  dir: string,
+): Promise<{ counts: ProjectCounts; migration: MigrationGate | null }> {
   try {
-    const result = await bdJson<{
+    const [result, categories] = await Promise.all([
+      bdExec(dir, ['count', '--by-status', '--json']),
+      statusCategories(dir),
+    ])
+    const migration = parseMigrationGate(result.stdout, result.stderr)
+    if (result.code !== 0) return { counts: { ...EMPTY_COUNTS }, migration }
+    const json = JSON.parse(result.stdout) as {
       groups?: { group: string; count: number }[]
-    }>(dir, ['count', '--by-status', '--json'])
-    return buildCountsFromGroups(result.groups ?? [])
-  } catch {
-    return {
-      open: 0,
-      in_progress: 0,
-      blocked: 0,
-      closed: 0,
-      deferred: 0,
-      total: 0,
     }
+    return {
+      counts: buildCountsFromGroups(json.groups ?? [], categories),
+      migration,
+    }
+  } catch {
+    return { counts: { ...EMPTY_COUNTS }, migration: null }
+  }
+}
+
+/** Runs `fn` over `items` with at most `limit` in flight, keeping order. */
+async function mapLimit<TItem, TResult>(
+  items: TItem[],
+  limit: number,
+  fn: (item: TItem) => Promise<TResult>,
+): Promise<TResult[]> {
+  const results: TResult[] = new Array(items.length)
+  let next = 0
+  async function worker() {
+    while (next < items.length) {
+      const index = next++
+      results[index] = await fn(items[index])
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, worker),
+  )
+  return results
+}
+
+/** Projects probed at once; each runs three bd processes. */
+const DISCOVERY_CONCURRENCY = 4
+
+async function discoverProject(entry: RegistryEntry): Promise<Project> {
+  const base = {
+    id: entry.id,
+    name: entry.label,
+    dir: entry.path,
+    beadsPath: '',
+    prefix: null,
+    external: false,
+    missing: false,
+    migration: null,
+    counts: { ...EMPTY_COUNTS },
+  }
+
+  if (!fsSync.existsSync(entry.path)) {
+    return { ...base, missing: true, error: 'folder no longer exists' }
+  }
+
+  try {
+    const probeResult = await bdJson<{
+      path?: string
+      database_path?: string
+      prefix?: string
+    }>(entry.path, ['where', '--json'])
+
+    if (!probeResult.path) {
+      return { ...base, error: 'bd where returned no beads path' }
+    }
+
+    const expectedBeads = path.join(entry.path, '.beads')
+    const { counts: projectCounts, migration } = await counts(entry.path)
+    return {
+      ...base,
+      beadsPath: probeResult.path,
+      prefix: probeResult.prefix || null,
+      external: probeResult.path !== expectedBeads,
+      error: null,
+      migration,
+      counts: projectCounts,
+    }
+  } catch (err) {
+    return { ...base, error: err instanceof Error ? err.message : String(err) }
   }
 }
 
 async function discoverProjects(): Promise<Project[]> {
   const entries = await loadRegistry()
-  const results: Project[] = []
-
-  for (const entry of entries) {
-    // Check if folder exists
-    if (!fsSync.existsSync(entry.path)) {
-      results.push({
-        id: entry.id,
-        name: entry.label,
-        dir: entry.path,
-        beadsPath: '',
-        prefix: null,
-        external: false,
-        missing: true,
-        error: 'folder no longer exists',
-        counts: {
-          open: 0,
-          in_progress: 0,
-          blocked: 0,
-          closed: 0,
-          deferred: 0,
-          total: 0,
-        },
-      })
-      continue
-    }
-
-    // Probe beads location
-    try {
-      const probeResult = await bdJson<{
-        path?: string
-        database_path?: string
-        prefix?: string
-      }>(entry.path, ['where', '--json'])
-
-      if (!probeResult.path) {
-        results.push({
-          id: entry.id,
-          name: entry.label,
-          dir: entry.path,
-          beadsPath: '',
-          prefix: null,
-          external: false,
-          missing: false,
-          error: 'bd where returned no beads path',
-          counts: {
-            open: 0,
-            in_progress: 0,
-            blocked: 0,
-            closed: 0,
-            deferred: 0,
-            total: 0,
-          },
-        })
-        continue
-      }
-
-      const expectedBeads = path.join(entry.path, '.beads')
-      const external = probeResult.path !== expectedBeads
-
-      const projectCounts = await counts(entry.path)
-      results.push({
-        id: entry.id,
-        name: entry.label,
-        dir: entry.path,
-        beadsPath: probeResult.path,
-        prefix: probeResult.prefix || null,
-        external,
-        missing: false,
-        error: null,
-        counts: projectCounts,
-      })
-    } catch (err) {
-      const error = err instanceof Error ? err.message : String(err)
-      results.push({
-        id: entry.id,
-        name: entry.label,
-        dir: entry.path,
-        beadsPath: '',
-        prefix: null,
-        external: false,
-        missing: false,
-        error,
-        counts: {
-          open: 0,
-          in_progress: 0,
-          blocked: 0,
-          closed: 0,
-          deferred: 0,
-          total: 0,
-        },
-      })
-    }
-  }
-
+  const results = await mapLimit(
+    entries,
+    DISCOVERY_CONCURRENCY,
+    discoverProject,
+  )
   return results.sort((a, b) => {
     const diff = b.counts.total - a.counts.total
     return diff !== 0 ? diff : a.name.localeCompare(b.name)
@@ -328,6 +447,11 @@ async function resolveDir(projectId: string): Promise<string> {
   const entry = entries.find((e) => e.id === projectId)
   if (!entry) {
     throw new Error(`unknown project id: ${projectId}`)
+  }
+  // Without this check, execFile fails with ENOENT for the missing cwd and
+  // bdExec misreports it as "bd not found".
+  if (!fsSync.existsSync(entry.path)) {
+    throw new Error(`project directory no longer exists: ${entry.path}`)
   }
   return entry.path
 }
@@ -389,10 +513,21 @@ function pushLink(
   target.set(id, list)
 }
 
-export function buildBeadGraph(rawBeads: Record<string, unknown>[]): Bead[] {
-  const beads = rawBeads.map(mapRawBead)
+export function buildBeadGraph(
+  rawBeads: Record<string, unknown>[],
+  categories: Map<string, StatusCategory> = new Map(),
+): Bead[] {
+  const beads = rawBeads.map((raw) => mapRawBead(raw, categories))
   const knownIds = new Set(beads.map((b) => b.id))
-  const edges = collectEdges(rawBeads, knownIds)
+  const closedGates = new Set(
+    beads
+      .filter((b) => b.issue_type === 'gate' && b.status === 'closed')
+      .map((b) => b.id),
+  )
+  // A resolved gate no longer blocks; bd keeps the edge but drops the block.
+  const edges = collectEdges(rawBeads, knownIds).filter(
+    (edge) => !(edge.type === 'blocks' && closedGates.has(edge.to)),
+  )
 
   const linksById = new Map<string, BeadLink[]>()
   const parentById = new Map<string, string>()
@@ -449,7 +584,47 @@ function deriveChildren(beads: Bead[]): Bead[] {
   })
 }
 
-function mapRawBead(raw: Record<string, unknown>): Bead {
+/** Schedule and lifecycle fields; absent or empty values are left out, never null. */
+function scheduleFields(raw: Record<string, unknown>): Partial<Bead> {
+  const text = (key: string): string | undefined => {
+    const value = raw[key]
+    return typeof value === 'string' && value !== '' ? value : undefined
+  }
+  const minutes =
+    typeof raw['estimated_minutes'] === 'number'
+      ? raw['estimated_minutes']
+      : undefined
+  const fields = {
+    due_at: text('due_at'),
+    defer_until: text('defer_until'),
+    estimated_minutes: minutes,
+    started_at: text('started_at'),
+    lease_expires_at: text('lease_expires_at'),
+    heartbeat_at: text('heartbeat_at'),
+    close_reason: text('close_reason'),
+    external_ref: text('external_ref'),
+    created_by: text('created_by'),
+  }
+  return Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => value !== undefined),
+  )
+}
+
+/** `bd list` returns only its first page unless `--limit 0` asks for everything. */
+function buildListBeadsArgs(): string[] {
+  return ['list', '--all', '--limit', '0', '--json']
+}
+function mapRawBead(
+  raw: Record<string, unknown>,
+  categories: Map<string, StatusCategory> = new Map(),
+): Bead {
+  const status = raw['status'] as string
+  const category = Object.prototype.hasOwnProperty.call(
+    BUILT_IN_STATUSES,
+    status,
+  )
+    ? undefined
+    : categories.get(status)
   return {
     id: raw['id'] as string,
     title: raw['title'] as string,
@@ -457,7 +632,8 @@ function mapRawBead(raw: Record<string, unknown>): Bead {
     acceptance_criteria: raw['acceptance_criteria'] as string | undefined,
     design: raw['design'] as string | undefined,
     notes: raw['notes'] as string | undefined,
-    status: raw['status'] as string,
+    status,
+    ...(category ? { status_category: category } : {}),
     priority: Number(raw['priority'] ?? 2),
     issue_type: raw['issue_type'] as string,
     assignee: raw['assignee'] as string | undefined,
@@ -479,6 +655,7 @@ function mapRawBead(raw: Record<string, unknown>): Bead {
       raw['dependent_count'] !== undefined
         ? Number(raw['dependent_count'])
         : undefined,
+    ...scheduleFields(raw),
   }
 }
 
@@ -519,14 +696,60 @@ function mapKnowledgeEntry(
   }
 }
 
+/** `bd list` can hide gate issues; add the ones `bd gate list` reports. */
+export function mergeGateRows(
+  rows: Record<string, unknown>[],
+  gates: unknown,
+): Record<string, unknown>[] {
+  const known = new Set(rows.map((row) => row['id']))
+  return [...rows, ...asRows(gates).filter((gate) => !known.has(gate['id']))]
+}
+
 async function listBeads(projectId: string): Promise<Bead[]> {
   const dir = await resolveDir(projectId)
-  const raw = await bdJson<Record<string, unknown>[]>(dir, [
-    'list',
-    '--all',
-    '--json',
+  const [raw, gates, categories] = await Promise.all([
+    bdJson<unknown>(dir, buildListBeadsArgs()).then(asRows),
+    bdJson<unknown>(dir, buildListGatesArgs()).then(asRows),
+    statusCategories(dir),
   ])
-  return buildBeadGraph(raw)
+  return buildBeadGraph(mergeGateRows(raw, gates), categories)
+}
+
+export function buildShowBeadArgs(id: string): string[] {
+  return ['show', id, '--include-dependents', '--json']
+}
+
+function mapRelatedBead(d: Record<string, unknown>): RelatedBead {
+  return {
+    id: String(d['id'] ?? ''),
+    title: String(d['title'] ?? ''),
+    status: String(d['status'] ?? 'open'),
+    issue_type: String(d['issue_type'] ?? 'task'),
+    dependency_type: String(d['dependency_type'] ?? ''),
+    ...(typeof d['due_at'] === 'string' ? { due_at: d['due_at'] } : {}),
+  }
+}
+
+function mapRelatedList(
+  raw: Record<string, unknown>,
+  key: string,
+): RelatedBead[] {
+  const list = Array.isArray(raw[key])
+    ? (raw[key] as Record<string, unknown>[])
+    : []
+  return list.map(mapRelatedBead)
+}
+
+export function mapBeadDetail(
+  rawArr: Record<string, unknown>[],
+  rawComments: Record<string, unknown>[],
+): BeadDetail {
+  const raw = rawArr[0] ?? {}
+  const bead = mapRawBead(raw)
+  const dependencies = mapRelatedList(raw, 'dependencies')
+  const dependents = mapRelatedList(raw, 'dependents')
+  const comments: Comment[] = rawComments.map(mapComment)
+  return { ...bead, dependencies, dependents, comments }
 }
 
 async function getBeadDetail(
@@ -536,30 +759,31 @@ async function getBeadDetail(
   const dir = await resolveDir(projectId)
 
   const [rawArr, rawComments] = await Promise.all([
-    bdJson<Record<string, unknown>[]>(dir, ['show', id, '--json']),
-    bdJson<Record<string, unknown>[]>(dir, ['comments', id, '--json']).catch(
-      () => [] as Record<string, unknown>[],
-    ),
+    bdJson<unknown>(dir, buildShowBeadArgs(id)).then(asRows),
+    bdJson<unknown>(dir, ['comments', id, '--json']).then(asRows, () => []),
   ])
 
-  const raw = rawArr[0] ?? {}
-  const bead = mapRawBead(raw)
+  return mapBeadDetail(rawArr, rawComments)
+}
 
-  const rawDeps = Array.isArray(raw['dependencies'])
-    ? (raw['dependencies'] as Record<string, unknown>[])
-    : []
+async function addRelation(
+  projectId: string,
+  id: string,
+  kind: RelationKind,
+  target: string,
+): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildAddRelationArgs(kind, id, target))
+}
 
-  const dependencies: RelatedBead[] = rawDeps.map((d) => ({
-    id: String(d['id'] ?? ''),
-    title: String(d['title'] ?? ''),
-    status: String(d['status'] ?? 'open'),
-    issue_type: String(d['issue_type'] ?? 'task'),
-    dependency_type: String(d['dependency_type'] ?? ''),
-  }))
-
-  const comments: Comment[] = rawComments.map(mapComment)
-
-  return { ...bead, dependencies, comments }
+async function removeRelation(
+  projectId: string,
+  id: string,
+  kind: RemovableRelationKind,
+  target: string,
+): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildRemoveRelationArgs(kind, id, target))
 }
 
 export function buildProjectKnowledge(
@@ -628,6 +852,9 @@ function buildUpdateBeadArgs(
     args.push('--priority', String(opts.priority))
   if (opts.issue_type !== undefined) args.push('--type', opts.issue_type)
   if (opts.assignee !== undefined) args.push('--assignee', opts.assignee)
+  if (opts.due !== undefined) args.push('--due', opts.due)
+  if (opts.estimate !== undefined)
+    args.push('--estimate', String(opts.estimate))
 
   if (opts.labels !== undefined) {
     if (opts.labels.length > 0) {
@@ -655,43 +882,462 @@ async function updateBead(
   await bdRaw(dir, args)
 }
 
+/** `--until` is omitted when no date is given, so bd defers indefinitely. */
+function buildDeferBeadArgs(id: string, until?: string): string[] {
+  return until ? ['defer', id, '--until', until] : ['defer', id]
+}
+
+function buildUndeferBeadArgs(id: string): string[] {
+  return ['undefer', id]
+}
+
+async function deferBead(
+  projectId: string,
+  id: string,
+  until?: string,
+): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildDeferBeadArgs(id, until))
+}
+
+async function undeferBead(projectId: string, id: string): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildUndeferBeadArgs(id))
+}
+
+/**
+ * The bead plus its parent-child descendants. Upstream `--cascade` also
+ * follows `blocks`/`related` edges (fixed after bd 1.3.4), so a cascade
+ * delete of a blocker would delete the work it blocks; passing this set
+ * explicitly deletes only the subtree.
+ */
+export function deletionSet(beads: Bead[], id: string): string[] {
+  const childrenOf = new Map<string, string[]>()
+  for (const bead of beads) {
+    if (!bead.parent) continue
+    const list = childrenOf.get(bead.parent) ?? []
+    list.push(bead.id)
+    childrenOf.set(bead.parent, list)
+  }
+  const ids = [id]
+  // The iterator also visits ids appended while looping (breadth-first).
+  for (const current of ids) {
+    for (const child of childrenOf.get(current) ?? []) {
+      if (!ids.includes(child)) ids.push(child)
+    }
+  }
+  return ids
+}
+
+/** Beads outside the deletion that depend on something inside it. */
+export function unlinkedDependents(
+  beads: Bead[],
+  ids: string[],
+): DeletePlan['unlinked'] {
+  const deleting = new Set(ids)
+  const byId = new Map(beads.map((b) => [b.id, b]))
+  const seen = new Set<string>()
+  const unlinked: DeletePlan['unlinked'] = []
+  for (const id of ids) {
+    for (const link of byId.get(id)?.links ?? []) {
+      if (link.direction !== 'incoming' || deleting.has(link.id)) continue
+      const key = `${link.id}|${link.type}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      unlinked.push({
+        id: link.id,
+        title: byId.get(link.id)?.title ?? link.id,
+        type: link.type,
+      })
+    }
+  }
+  return unlinked
+}
+
+/**
+ * Drops bd's CLI hints from the preview: the "use --cascade … or --force"
+ * note and the "To proceed, run" command. The dialog explains both itself.
+ */
+function cleanDeletePreview(text: string): string {
+  return text
+    .split('\n')
+    .filter(
+      (line) =>
+        !line.includes('has dependents not in deletion set') &&
+        !line.startsWith('To proceed'),
+    )
+    .join('\n')
+    .trim()
+}
+
+async function planDelete(
+  dir: string,
+  id: string,
+): Promise<{ beads: Bead[]; ids: string[] }> {
+  const beads = buildBeadGraph(
+    asRows(await bdJson<unknown>(dir, buildListBeadsArgs())),
+  )
+  if (!beads.some((b) => b.id === id)) throw new Error(`bead not found: ${id}`)
+  return { beads, ids: deletionSet(beads, id) }
+}
+
 async function previewDeleteBead(
   projectId: string,
   id: string,
-): Promise<string> {
+): Promise<DeletePlan> {
   const dir = await resolveDir(projectId)
-  const out = await bdRaw(dir, buildPreviewDeleteBeadArgs(id))
-  return out.trim()
+  const { beads, ids } = await planDelete(dir, id)
+  const result = await bdExec(dir, buildPreviewDeleteBeadArgs(ids))
+  // With dependents outside the set bd exits 1 but still prints the preview.
+  if (result.code !== 0 && !result.stdout.includes('DELETE PREVIEW')) {
+    throw bdFailure(result)
+  }
+  return {
+    ids,
+    preview: cleanDeletePreview(result.stdout),
+    unlinked: unlinkedDependents(beads, ids),
+  }
 }
 
 async function deleteBead(projectId: string, id: string): Promise<void> {
   const dir = await resolveDir(projectId)
   try {
-    await bdRaw(dir, buildDeleteBeadArgs(id))
+    const { ids } = await planDelete(dir, id)
+    await bdRaw(dir, buildDeleteBeadArgs(ids))
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     throw new Error(`Unable to delete bead. ${message}`)
   }
 }
 
-function buildPreviewDeleteBeadArgs(id: string): string[] {
-  return ['delete', id, '--cascade']
+function buildPreviewDeleteBeadArgs(ids: string[]): string[] {
+  return ['delete', ...ids]
 }
 
-function buildDeleteBeadArgs(id: string): string[] {
-  return ['delete', id, '--cascade', '--force']
+/** `--force` deletes the set and orphans outside dependents; never `--cascade`. */
+function buildDeleteBeadArgs(ids: string[]): string[] {
+  return ['delete', ...ids, '--force']
 }
 
-async function createBead(
+function buildCloseBeadArgs(
+  id: string,
+  opts: { reason?: string; force?: boolean },
+): string[] {
+  const args = ['close', id]
+  if (opts.reason) args.push('--reason', opts.reason)
+  if (opts.force) args.push('--force')
+  return args
+}
+
+async function closeBead(
   projectId: string,
-  opts: { title: string; description?: string; type?: string; parent?: string },
-): Promise<string> {
+  id: string,
+  opts: { reason?: string; force?: boolean },
+): Promise<void> {
   const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildCloseBeadArgs(id, opts))
+}
+
+/** One `bd update` over every id; ids come first so flags apply to all of them. */
+function buildUpdateManyArgs(ids: string[], patch: BulkPatch): string[] {
+  const args = ['update', ...ids]
+  if (patch.status !== undefined) args.push('--status', patch.status)
+  if (patch.priority !== undefined)
+    args.push('--priority', String(patch.priority))
+  if (patch.assignee !== undefined) args.push('--assignee', patch.assignee)
+  if (patch.due !== undefined) args.push('--due', patch.due)
+  for (const label of patch.addLabels ?? []) args.push('--add-label', label)
+  return args
+}
+
+function buildCloseManyArgs(
+  ids: string[],
+  opts: { reason?: string; force?: boolean },
+): string[] {
+  const args = ['close', ...ids]
+  if (opts.reason) args.push('--reason', opts.reason)
+  if (opts.force) args.push('--force')
+  return args
+}
+
+async function updateMany(
+  projectId: string,
+  ids: string[],
+  patch: BulkPatch,
+): Promise<void> {
+  const args = buildUpdateManyArgs(ids, patch)
+  if (args.length <= ids.length + 1) return
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, args)
+}
+
+async function closeMany(
+  projectId: string,
+  ids: string[],
+  opts: { reason?: string; force?: boolean },
+): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildCloseManyArgs(ids, opts))
+}
+
+export function buildClaimArgs(id: string, actor?: string): string[] {
+  const args = ['update', id, '--claim']
+  if (actor) args.push('--actor', actor)
+  return args
+}
+
+export function buildReadyExplainArgs(): string[] {
+  return ['ready', '--explain', '--json', '--limit', '0']
+}
+
+/** Beads not updated for at least `days` days; `--days` must be 1 or more. */
+export function buildStaleArgs(days: number): string[] {
+  return ['stale', '--days', String(days), '--json', '--limit', '0']
+}
+
+async function claimBead(
+  projectId: string,
+  id: string,
+  actor?: string,
+): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildClaimArgs(id, actor))
+}
+
+export function buildListGatesArgs(): string[] {
+  return ['gate', 'list', '--all', '--json']
+}
+
+export function buildResolveGateArgs(id: string): string[] {
+  return ['gate', 'resolve', id]
+}
+
+/** Reverts only leases already expired (`--older-than 0s`) for this bead. */
+export function buildReclaimBeadArgs(id: string): string[] {
+  return ['reclaim', '--id', id, '--older-than', '0s', '--json']
+}
+
+export function buildUnclaimBeadArgs(
+  id: string,
+  force: boolean,
+  actor?: string,
+): string[] {
+  const args = ['unclaim', id]
+  if (force) args.push('--force')
+  if (actor) args.push('--actor', actor)
+  return args
+}
+
+export function buildGetConfigArgs(key: string): string[] {
+  return ['config', 'get', key, '--json']
+}
+
+async function staleBeads(projectId: string, days: number): Promise<Bead[]> {
+  const dir = await resolveDir(projectId)
+  const [raw, categories] = await Promise.all([
+    bdJson<unknown>(dir, buildStaleArgs(days)).then(asRows),
+    statusCategories(dir),
+  ])
+  return raw.map((row) => mapRawBead(row, categories))
+}
+
+async function resolveGate(projectId: string, id: string): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildResolveGateArgs(id))
+}
+
+/** Number of beads `bd reclaim --json` reverted (`{"count":0,...}` when none). */
+export function parseReclaimCount(stdout: string): number {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(stdout.trim())
+  } catch {
+    throw new Error('Unexpected output from bd reclaim')
+  }
+  const count = (parsed as { count?: unknown } | null)?.count
+  if (typeof count !== 'number' || !Number.isInteger(count) || count < 0) {
+    throw new Error('Unexpected output from bd reclaim')
+  }
+  return count
+}
+
+async function reclaimBead(projectId: string, id: string): Promise<number> {
+  const dir = await resolveDir(projectId)
+  return parseReclaimCount(await bdRaw(dir, buildReclaimBeadArgs(id)))
+}
+
+async function unclaimBead(
+  projectId: string,
+  id: string,
+  force: boolean,
+  actor?: string,
+): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildUnclaimBeadArgs(id, force, actor))
+}
+
+/** `bd config set <key> <value>`; an empty value clears the key. */
+export function buildSetConfigArgs(key: string, value: string): string[] {
+  if (key.startsWith('-')) throw new Error('config key is invalid')
+  return ['config', 'set', key, value, '--json']
+}
+
+/** Writes one config key through bd. */
+async function setConfig(
+  projectId: string,
+  key: string,
+  value: string,
+): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildSetConfigArgs(key, value))
+  if (key === 'status.custom') statusCache.delete(dir)
+}
+
+/** A config value as text; an unset key reads as the empty string. */
+async function getConfig(projectId: string, key: string): Promise<string> {
+  const dir = await resolveDir(projectId)
+  const out = await bdJson<{ value?: unknown }>(dir, buildGetConfigArgs(key))
+  return typeof out.value === 'string' ? out.value : ''
+}
+
+/** `bd query <expr> --json --all`: every bead matching the expression, no page limit. */
+export function buildQueryArgs(expr: string): string[] {
+  if (expr.startsWith('-')) throw new Error('query is invalid')
+  return ['query', expr, '--json', '--limit', '0', '--all']
+}
+
+/** `bd query <expr> --parse-only`: validates the expression without running it. */
+export function buildParseQueryArgs(expr: string): string[] {
+  if (expr.startsWith('-')) throw new Error('query is invalid')
+  return ['query', expr, '--parse-only']
+}
+
+/** `bd kv get <key> --json`; a missing key exits 1 with `found: false`. */
+export function buildKvGetArgs(key: string): string[] {
+  if (key.startsWith('-')) throw new Error('kv key is invalid')
+  return ['kv', 'get', key, '--json']
+}
+
+/** `bd kv set <key> <value> --json`. */
+export function buildKvSetArgs(key: string, value: string): string[] {
+  if (key.startsWith('-')) throw new Error('kv key is invalid')
+  return ['kv', 'set', key, value, '--json']
+}
+
+/**
+ * Reads a kv value from a `bd kv get` run. A missing key exits 1 with
+ * `{"found":false}`, which reads as null; any other failure throws.
+ */
+export function parseKvGet(
+  code: number,
+  stdout: string,
+  stderr: string,
+): string | null {
+  const trimmed = stdout.trim()
+  let parsed: { found?: unknown; value?: unknown } | null = null
+  try {
+    parsed = trimmed
+      ? (JSON.parse(trimmed) as { found?: unknown; value?: unknown })
+      : null
+  } catch {
+    parsed = null
+  }
+  if (parsed?.found === false) return null
+  if (code !== 0) {
+    throw new Error(stderr.trim() || `bd kv get exited with status ${code}`)
+  }
+  return typeof parsed?.value === 'string' ? parsed.value : ''
+}
+
+/** Beads matching a `bd query` expression, shaped like `listBeads`. */
+async function queryBeads(projectId: string, expr: string): Promise<Bead[]> {
+  const dir = await resolveDir(projectId)
+  const [raw, categories] = await Promise.all([
+    bdJson<unknown>(dir, buildQueryArgs(expr)).then(asRows),
+    statusCategories(dir),
+  ])
+  return buildBeadGraph(raw, categories)
+}
+
+/** Asks bd to parse a query; a parse error is thrown with bd's message. */
+async function validateQuery(projectId: string, expr: string): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildParseQueryArgs(expr))
+}
+
+/** The value of a kv key, or null when the key is unset. */
+async function kvGet(projectId: string, key: string): Promise<string | null> {
+  const dir = await resolveDir(projectId)
+  const result = await bdExec(dir, buildKvGetArgs(key))
+  return parseKvGet(result.code, result.stdout, result.stderr)
+}
+
+/** Writes a kv value through bd. */
+async function kvSet(
+  projectId: string,
+  key: string,
+  value: string,
+): Promise<void> {
+  const dir = await resolveDir(projectId)
+  await bdRaw(dir, buildKvSetArgs(key, value))
+}
+
+/** `bd linear status --json`: connection state and sync counts, no credentials. */
+async function linearStatus(projectId: string): Promise<LinearStatus> {
+  const dir = await resolveDir(projectId)
+  return parseLinearStatus(
+    await bdJson<unknown>(dir, ['linear', 'status', '--json']),
+  )
+}
+
+/** `bd linear sync`; a non-zero exit is returned with its output, not thrown. */
+async function linearSync(
+  projectId: string,
+  opts: LinearSyncOptions,
+): Promise<LinearSyncResult> {
+  const dir = await resolveDir(projectId)
+  const result = await bdExec(dir, buildLinearSyncArgs(opts))
+  const output = [result.stdout, result.stderr]
+    .map((part) => part.trim())
+    .filter((part) => part !== '')
+    .join('\n')
+  return { output, exitCode: result.code }
+}
+
+/** `bd ready --explain --json`, shaped for the Ready view. */
+async function readyExplain(projectId: string): Promise<ReadyExplain> {
+  const dir = await resolveDir(projectId)
+  return parseReadyExplain(await bdJson<unknown>(dir, buildReadyExplainArgs()))
+}
+
+export function buildCreateBeadArgs(opts: {
+  title: string
+  description?: string
+  type?: string
+  parent?: string
+  labels?: string[]
+}): string[] {
   const args = ['create', '--title', opts.title, '--silent']
   if (opts.description) args.push('-d', opts.description)
   if (opts.type) args.push('--type', opts.type)
   if (opts.parent) args.push('--parent', opts.parent)
-  const out = await bdRaw(dir, args)
+  if (opts.labels && opts.labels.length > 0)
+    args.push('--labels', opts.labels.join(','))
+  return args
+}
+
+async function createBead(
+  projectId: string,
+  opts: {
+    title: string
+    description?: string
+    type?: string
+    parent?: string
+    labels?: string[]
+  },
+): Promise<string> {
+  const dir = await resolveDir(projectId)
+  const out = await bdRaw(dir, buildCreateBeadArgs(opts))
   return out.trim()
 }
 
@@ -704,9 +1350,18 @@ async function addComment(
   await bdRaw(dir, ['comment', id, text])
 }
 
-async function enableEventsJournal(projectId: string): Promise<void> {
+/** One page of the events journal after `since`. Truncation can come with a non-zero exit, and a disabled journal exits 0 with a note on stderr. */
+async function tailEvents(
+  projectId: string,
+  since: number,
+  limit: number,
+): Promise<TailEventsResult> {
   const dir = await resolveDir(projectId)
-  await bdRaw(dir, ['config', 'set', 'events-journal', 'true'])
+  const run = await bdExec(dir, tailArgs(since, { limit }))
+  const disabled = run.stderr.includes(JOURNAL_DISABLED_MARKER)
+  const result = tailResult(run.stdout, disabled)
+  if (run.code !== 0 && !result.truncated && !disabled) throw bdFailure(run)
+  return result
 }
 
 export const bdAdapter: BdAdapter = {
@@ -715,12 +1370,33 @@ export const bdAdapter: BdAdapter = {
   getBeadDetail,
   getProjectKnowledge,
   updateBeadStatus,
+  closeBead,
+  claimBead,
+  readyExplain,
+  addRelation,
+  removeRelation,
+  staleBeads,
+  resolveGate,
+  reclaimBead,
+  unclaimBead,
+  getConfig,
+  setConfig,
+  queryBeads,
+  validateQuery,
+  kvGet,
+  kvSet,
+  linearStatus,
+  linearSync,
   updateBead,
+  updateMany,
+  closeMany,
+  deferBead,
+  undeferBead,
   previewDeleteBead,
   deleteBead,
   createBead,
   addComment,
-  enableEventsJournal,
+  tailEvents,
 }
 
 export {
@@ -729,15 +1405,42 @@ export {
   getBeadDetail,
   getProjectKnowledge,
   updateBeadStatus,
+  closeBead,
+  claimBead,
+  readyExplain,
+  addRelation,
+  removeRelation,
+  buildCloseBeadArgs,
   updateBead,
+  updateMany,
+  closeMany,
+  buildUpdateManyArgs,
+  buildCloseManyArgs,
   buildUpdateBeadArgs,
+  buildListBeadsArgs,
+  buildDeferBeadArgs,
+  buildUndeferBeadArgs,
+  deferBead,
+  undeferBead,
+  staleBeads,
+  resolveGate,
+  reclaimBead,
+  unclaimBead,
+  getConfig,
+  setConfig,
+  queryBeads,
+  validateQuery,
+  kvGet,
+  kvSet,
+  linearStatus,
+  linearSync,
   previewDeleteBead,
   deleteBead,
   buildPreviewDeleteBeadArgs,
   buildDeleteBeadArgs,
   createBead,
   addComment,
-  enableEventsJournal,
+  tailEvents,
   resolveDir,
   counts,
 }

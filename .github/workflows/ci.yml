@@ -44,7 +44,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        bd: ['1.3.0', 'latest']
+        bd: ['1.3.0', '1.3.4', 'latest']
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1

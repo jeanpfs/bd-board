@@ -1,178 +1,99 @@
-import { useCallback } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, createFileRoute } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 import { AlertCircle, FolderOpen, Plus } from 'lucide-react'
 
-import { EditProjectModal } from '@/components/edit-project-modal'
-import { ProjectCard } from '@/components/project-card'
 import { DesktopProbeCard } from '@/components/desktop-probe-card'
-import { useValidateProjectsOnMount } from '@/lib/useValidateProjectsOnMount'
+import { AttentionAction } from '@/components/attention-action'
+import { EditProjectModal } from '@/components/edit-project-modal'
+import {
+  AttentionBlock,
+  AttentionRow,
+  Section,
+} from '@/components/home-sections'
+import { BeadLinkRow, MyWorkList, myWorkItems } from '@/components/my-work'
+import type { Located } from '@/components/my-work'
+import { ProjectCard } from '@/components/project-card'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useAllProjectBeads } from '@/hooks/use-all-project-beads'
+import { useProjectActions } from '@/hooks/use-project-actions'
 import {
-  getProjects,
-  pickProjectDirectory,
-  addProject,
-  initProject,
-} from '@/lib/server'
-import { toErrorMessage } from '@/lib/utils'
-import { confirm } from '@tauri-apps/plugin-dialog'
-import { toast } from 'sonner'
+  ATTENTION_ORDER,
+  attentionList,
+  projectHeadline,
+  projectProblem,
+} from '@/lib/attention'
+import { getStoredIdentity } from '@/lib/identity'
+import { isGate } from '@/lib/lease'
+import { getProjects } from '@/lib/server'
+import { PROJECTS_REFETCH_MS } from '@/lib/polling'
+import { relativeDate } from '@/lib/time'
+import { statusText } from '@/lib/types'
+import { useValidateProjectsOnMount } from '@/lib/useValidateProjectsOnMount'
 
-import type { Project } from '@/lib/types'
+import type { Bead, Project } from '@/lib/types'
 
 export const Route = createFileRoute('/')({ component: Home })
 
-const SUMMARY_META: {
-  key: 'open' | 'in_progress' | 'blocked' | 'closed'
-  label: string
-  dot: string
-  text: string
-}[] = [
-  {
-    key: 'open',
-    label: 'Open',
-    dot: 'bg-status-open',
-    text: 'text-status-open',
-  },
-  {
-    key: 'in_progress',
-    label: 'In progress',
-    dot: 'bg-status-progress',
-    text: 'text-status-progress',
-  },
-  {
-    key: 'blocked',
-    label: 'Blocked',
-    dot: 'bg-status-blocked',
-    text: 'text-status-blocked',
-  },
-  {
-    key: 'closed',
-    label: 'Closed',
-    dot: 'bg-status-closed',
-    text: 'text-status-closed',
-  },
-]
-
-function useProjectActions() {
-  const queryClient = useQueryClient()
-
-  const handleOpenProject = useCallback(async () => {
-    try {
-      const path = await pickProjectDirectory()
-      if (!path) return
-
-      const outcome = await addProject(path)
-      if (outcome.kind === 'registered') {
-        queryClient.invalidateQueries({ queryKey: ['projects'] })
-        toast.success('Project opened')
-      } else {
-        const confirmed = await confirm(
-          `Initialize a new beads workspace at:\n${outcome.path}\n\nPrefix: ${outcome.suggestedPrefix}`,
-          {
-            title: 'No beads workspace',
-            okLabel: 'Initialize',
-            cancelLabel: 'Cancel',
-          },
-        )
-        if (confirmed) {
-          await initProject(outcome.path, outcome.suggestedPrefix)
-          queryClient.invalidateQueries({ queryKey: ['projects'] })
-          toast.success('Project initialized')
-        }
-      }
-    } catch (err) {
-      toast.error(toErrorMessage(err, 'Failed to open project'))
-    }
-  }, [queryClient])
-
-  const handleInitProject = useCallback(async () => {
-    try {
-      const path = await pickProjectDirectory()
-      if (!path) return
-
-      await initProject(path)
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
-      toast.success('Project initialized')
-    } catch (err) {
-      toast.error(toErrorMessage(err, 'Failed to initialize project'))
-    }
-  }, [queryClient])
-
-  return { handleOpenProject, handleInitProject }
-}
+const NEEDS_YOU_LIMIT = 6
+const MY_WORK_LIMIT = 8
+const RECENT_LIMIT = 5
 
 function Home() {
   const { data, isPending, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['projects'],
     queryFn: () => getProjects(),
-    refetchInterval: 15000,
+    refetchInterval: PROJECTS_REFETCH_MS,
     staleTime: 5000,
   })
 
   const { currentBrokenProject, closeBrokenModal } =
     useValidateProjectsOnMount(data)
 
-  const repairModalContent = currentBrokenProject ? (
-    <EditProjectModal
-      open={true}
-      onOpenChange={closeBrokenModal}
-      project={currentBrokenProject.project}
-      isRepair={true}
-    />
-  ) : null
   return (
     <>
-      {repairModalContent}
-      <div className="mx-auto flex max-w-[1240px] flex-col gap-6">
-        <PageHeader projects={data} />
-        <DesktopProbeCard />
+      {currentBrokenProject ? (
+        <EditProjectModal
+          open={true}
+          onOpenChange={closeBrokenModal}
+          project={currentBrokenProject.project}
+          isRepair={true}
+        />
+      ) : null}
+      {!isPending && !isError && data.length === 0 ? (
+        <StartScreen />
+      ) : (
+        <div className="mx-auto flex max-w-[1160px] flex-col gap-section pb-page">
+          <PageHeader />
+          <DesktopProbeCard />
 
-        {isPending ? (
-          <LoadingState />
-        ) : isError ? (
-          <ErrorState
-            message={error instanceof Error ? error.message : String(error)}
-            onRetry={() => refetch()}
-            retrying={isFetching}
-          />
-        ) : data.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <>
-            <SummaryStats projects={data} />
-            <ProjectGrid projects={data} />
-          </>
-        )}
-      </div>
+          {isPending ? (
+            <LoadingState />
+          ) : isError ? (
+            <ErrorState
+              message={error instanceof Error ? error.message : String(error)}
+              onRetry={() => refetch()}
+              retrying={isFetching}
+            />
+          ) : (
+            <Dashboard projects={data} />
+          )}
+        </div>
+      )}
     </>
   )
 }
-function PageHeader({ projects }: { projects: Project[] | undefined }) {
-  const count = projects?.length ?? 0
-  const beads = projects?.reduce((sum, p) => sum + p.counts.total, 0) ?? 0
+
+function PageHeader() {
   const { handleOpenProject, handleInitProject } = useProjectActions()
 
   return (
-    <header className="flex items-start justify-between gap-4">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-[22px] font-semibold tracking-[-0.02em]">
-          Projects
-        </h1>
-        {projects ? (
-          <p className="text-[13px] text-muted-foreground">
-            {count} {count === 1 ? 'project' : 'projects'}
-            <span className="px-1.5 text-muted-foreground/50">·</span>
-            {beads.toLocaleString('en-US')} {beads === 1 ? 'bead' : 'beads'}
-          </p>
-        ) : (
-          <Skeleton className="h-4 w-40" />
-        )}
-      </div>
+    <header className="flex items-center justify-between gap-4">
+      <h1 className="text-title font-semibold tracking-[-0.01em]">Home</h1>
       <div className="flex gap-2">
-        <Button size="sm" variant="outline" onClick={handleInitProject}>
+        <Button size="sm" variant="ghost" onClick={handleInitProject}>
           <Plus className="size-4" />
           Init project
         </Button>
@@ -185,97 +106,225 @@ function PageHeader({ projects }: { projects: Project[] | undefined }) {
   )
 }
 
-function SummaryStats({ projects }: { projects: Project[] }) {
-  const agg = projects.reduce(
-    (acc, p) => ({
-      open: acc.open + p.counts.open + p.counts.deferred,
-      in_progress: acc.in_progress + p.counts.in_progress,
-      blocked: acc.blocked + p.counts.blocked,
-      closed: acc.closed + p.counts.closed,
-    }),
-    { open: 0, in_progress: 0, blocked: 0, closed: 0 },
+function Dashboard({ projects }: { projects: Project[] }) {
+  const beadsByProject = useAllProjectBeads(projects)
+  const [repairing, setRepairing] = useState<Project | null>(null)
+  const [identity, setIdentity] = useState<string | null>(null)
+  useEffect(() => {
+    setIdentity(getStoredIdentity())
+  }, [])
+
+  const located = useMemo(() => {
+    const all: Located[] = []
+    projects.forEach((project, index) => {
+      for (const bead of beadsByProject.get(project.id) ?? []) {
+        all.push({ bead, project, index })
+      }
+    })
+    return all
+  }, [projects, beadsByProject])
+
+  const byUrgency = useMemo(
+    () =>
+      projects
+        .map((project, index) => ({
+          project,
+          index,
+          headline: projectHeadline(project, beadsByProject.get(project.id)),
+        }))
+        .sort(
+          (a, b) =>
+            a.headline.rank - b.headline.rank ||
+            (b.headline.value ?? 0) - (a.headline.value ?? 0),
+        ),
+    [projects, beadsByProject],
   )
-  const total = agg.open + agg.in_progress + agg.blocked + agg.closed
+
+  const mine = myWorkItems(located, identity)
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {SUMMARY_META.map((m) => (
-        <div
-          key={m.key}
-          className="rounded-[12px] bg-card px-4 py-3.5 ring-1 ring-inset ring-border"
-        >
-          <span className="inline-flex items-center gap-[7px] text-xs text-muted-foreground">
-            <span
-              className={`size-1.5 shrink-0 rounded-full ${m.dot}`}
-              aria-hidden="true"
+    <>
+      <NeedsYou
+        projects={projects}
+        beadsByProject={beadsByProject}
+        onRepair={setRepairing}
+      />
+
+      <Section title="Projects" meta="by urgency">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {byUrgency.map(({ project, index }) => (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              index={index}
+              beads={beadsByProject.get(project.id)}
             />
-            {m.label}
-          </span>
-          <span
-            className={`mt-2 block text-[28px] font-semibold tracking-[-0.025em] tabular-nums ${m.text}`}
-          >
-            {agg[m.key].toLocaleString('en-US')}
-          </span>
-          <span className="mt-1.5 block font-mono text-[11px] text-faint">
-            {total > 0
-              ? `${Math.round((agg[m.key] / total) * 100)}% of total`
-              : '—'}
-          </span>
+          ))}
         </div>
-      ))}
-    </div>
+      </Section>
+
+      <div className="grid gap-x-12 gap-y-section lg:grid-cols-2">
+        <Section title="My work" meta={identity ? mine.length : undefined}>
+          <MyWorkList items={mine} identity={identity} limit={MY_WORK_LIMIT} />
+        </Section>
+        <RecentlyUpdated located={located} />
+      </div>
+
+      {repairing ? (
+        <EditProjectModal
+          open={true}
+          onOpenChange={(open) => !open && setRepairing(null)}
+          project={repairing}
+          isRepair={true}
+        />
+      ) : null}
+    </>
   )
 }
 
-function ProjectGrid({ projects }: { projects: Project[] }) {
-  const sorted = [...projects].sort((a, b) => b.counts.total - a.counts.total)
+function NeedsYou({
+  projects,
+  beadsByProject,
+  onRepair,
+}: {
+  projects: Project[]
+  beadsByProject: Map<string, Bead[]>
+  onRepair: (project: Project) => void
+}) {
+  const now = useMemo(() => Date.now(), [beadsByProject])
+  const rows: React.ReactNode[] = []
 
+  for (const project of projects) {
+    const problem = projectProblem(project)
+    if (!problem) continue
+    rows.push(
+      <AttentionRow
+        key={`project:${project.id}`}
+        kind={problem.kind}
+        title={project.name}
+        meta={problem.label}
+        action={
+          problem.kind === 'missing' ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onRepair(project)}
+            >
+              Fix path
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/p/$project" params={{ project: project.id }}>
+                Open
+              </Link>
+            </Button>
+          )
+        }
+      />,
+    )
+  }
+
+  const beadItems = projects
+    .flatMap((project) =>
+      attentionList(beadsByProject.get(project.id) ?? [], now).map((a) => ({
+        ...a,
+        project,
+      })),
+    )
+    // attentionList orders within a project; re-rank across projects.
+    .sort(
+      (a, b) =>
+        ATTENTION_ORDER.indexOf(a.kind) - ATTENTION_ORDER.indexOf(b.kind) ||
+        a.bead.priority - b.bead.priority,
+    )
+
+  for (const { kind, bead, detail, project, gateId } of beadItems) {
+    rows.push(
+      <AttentionRow
+        key={`${project.id}:${bead.id}`}
+        kind={kind}
+        id={bead.id}
+        title={bead.title}
+        meta={[project.name, detail, bead.assignee].filter(Boolean).join(' · ')}
+        action={
+          <AttentionAction
+            item={{ kind, bead, detail, gateId }}
+            project={project.id}
+            fallback={
+              <Button size="sm" variant="outline" asChild>
+                <Link
+                  to="/p/$project"
+                  params={{ project: project.id }}
+                  search={{ bead: bead.id }}
+                >
+                  Open
+                </Link>
+              </Button>
+            }
+          />
+        }
+      />,
+    )
+  }
+
+  const shown = rows.slice(0, NEEDS_YOU_LIMIT)
   return (
-    <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
-      {sorted.map((project) => (
-        <ProjectCard key={project.id} project={project} />
-      ))}
-    </div>
+    <AttentionBlock
+      title="Needs you"
+      meta={
+        rows.length > shown.length
+          ? `${shown.length} of ${rows.length}, most urgent first`
+          : `${rows.length}, most urgent first`
+      }
+      empty="Nothing needs you: no open P0, nothing overdue, nothing blocked or stale, every project readable."
+    >
+      {shown}
+    </AttentionBlock>
+  )
+}
+
+function RecentlyUpdated({ located }: { located: Located[] }) {
+  const recent = useMemo(
+    () =>
+      located
+        .filter(({ bead }) => bead.updated_at && !isGate(bead))
+        .sort((a, b) =>
+          (b.bead.updated_at ?? '').localeCompare(a.bead.updated_at ?? ''),
+        )
+        .slice(0, RECENT_LIMIT),
+    [located],
+  )
+
+  if (recent.length === 0) return null
+  return (
+    <Section title="Recently updated">
+      <ul className="flex flex-col">
+        {recent.map((item) => (
+          <BeadLinkRow
+            key={`${item.project.id}:${item.bead.id}`}
+            item={item}
+            trailing={`${statusText(item.bead)} · ${relativeDate(item.bead.updated_at)}`}
+          />
+        ))}
+      </ul>
+    </Section>
   )
 }
 
 function LoadingState() {
   return (
-    <>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="flex flex-col gap-2 rounded-[12px] bg-card p-3.5 ring-1 ring-inset ring-border"
-          >
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-7 w-12" />
+    <div className="flex flex-col gap-section">
+      <Skeleton className="h-28 w-full rounded-xl" />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="flex flex-col gap-3 rounded-xl bg-card p-4">
+            <Skeleton className="h-5 w-28" />
+            <Skeleton className="h-7 w-20" />
+            <Skeleton className="h-3 w-40" />
           </div>
         ))}
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div
-            key={i}
-            className="flex items-start gap-4 rounded-[12px] bg-card p-4 ring-1 ring-inset ring-border"
-          >
-            <div className="flex flex-1 flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Skeleton className="h-5 w-28" />
-                <Skeleton className="h-3 w-24" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Skeleton className="h-3 w-20" />
-                <Skeleton className="h-3 w-20" />
-                <Skeleton className="h-3 w-20" />
-                <Skeleton className="h-3 w-20" />
-              </div>
-            </div>
-            <Skeleton className="size-13 rounded-full" />
-          </div>
-        ))}
-      </div>
-    </>
+    </div>
   )
 }
 
@@ -307,31 +356,43 @@ function ErrorState({
   )
 }
 
-function EmptyState() {
+/** First run: nothing registered yet, so the only job is to start or open one. */
+function StartScreen() {
   const { handleOpenProject, handleInitProject } = useProjectActions()
 
   return (
-    <Card className="items-center gap-4 px-4 py-12 text-center">
-      <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-        <FolderOpen className="size-4.5" aria-hidden="true" />
-      </span>
-      <div>
-        <p className="text-sm font-medium">No projects yet</p>
-        <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-          Open a folder that already uses beads, or initialize beads in a new
-          one.
-        </p>
+    <section
+      aria-labelledby="start-screen-title"
+      className="mx-auto flex min-h-[70dvh] max-w-md flex-col justify-center gap-6"
+    >
+      <DesktopProbeCard />
+      <div className="flex flex-col items-center gap-4 text-center">
+        <span className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+          <FolderOpen className="size-5" aria-hidden="true" />
+        </span>
+        <div className="flex flex-col gap-1.5">
+          <h1
+            id="start-screen-title"
+            className="text-title font-semibold tracking-[-0.01em]"
+          >
+            Start with a project
+          </h1>
+          <p className="text-body text-muted-foreground">
+            Open a folder that already uses beads, or initialize beads in a new
+            one.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={handleInitProject}>
+            <Plus className="size-4" />
+            Init project
+          </Button>
+          <Button onClick={handleOpenProject}>
+            <FolderOpen className="size-4" />
+            Open project
+          </Button>
+        </div>
       </div>
-      <div className="flex gap-2">
-        <Button size="sm" variant="outline" onClick={handleInitProject}>
-          <Plus className="size-4" />
-          Init project
-        </Button>
-        <Button size="sm" onClick={handleOpenProject}>
-          <FolderOpen className="size-4" />
-          Open project
-        </Button>
-      </div>
-    </Card>
+    </section>
   )
 }

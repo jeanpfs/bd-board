@@ -8,19 +8,32 @@ Visual kanban board and multi-project dashboard for [`bd` (beads)](https://githu
 
 ## Features
 
-- Multi-project dashboard with live status counts.
+- Home across projects: what needs you now (open P0s, blocked or stale work, unreadable projects), projects ordered by urgency, your assigned beads, and recent updates.
+- Project overview: needs attention, epic progress, ready to pick up, in progress, and the latest decisions from Knowledge.
 - Board view grouped by status or by epic swimlanes.
 - Priority filtering, text search, and sort controls with URL state.
 - Epic progress from child beads.
 - Bead detail modal with markdown description, acceptance criteria, comments, parent and child navigation.
 - Drag-and-drop status updates with mouse and keyboard sensors.
 - Create beads, add comments, edit fields, and delete beads, enabled by default.
+- Schedule: due dates, estimates and snooze (defer until a date) on every bead, with overdue, due-soon and "due this week" filters on the board.
+- Label chips with autocomplete, and a relations editor (blocks, blocked by, related, duplicates, supersedes) in the bead detail.
+- Command palette (`Cmd/Ctrl+K`) to jump to beads, projects and actions, plus keyboard shortcuts for navigation and editing (press `?` for the list).
+- Ready view with one-click claim, backed by `bd ready --explain`.
+- Agents panel: who holds a lease, heartbeats, human gates and agent pools.
+- Inbox and My work, built from the events journal, with a per-project read cursor.
+- Project settings: general, custom statuses, agent pools and integrations.
+- Linear integration: connect a team and link beads to Linear issues.
+- Saved views: store a filter, grouping and sort per project, or personally.
+- List view with grouping and bulk actions (status, priority, assignee, labels, close).
+- Epics timeline built from bead dates.
+- Insights: throughput, cycle time and burn-up over a selectable range.
 
 ## Requirements
 
 - Node.js 24+.
 - pnpm 10+.
-- `bd` 1.3.0 or newer. Older versions are not supported (the board relies on the events journal for live updates).
+- `bd` 1.3.0 or newer; 1.3.4 recommended (1.3.3 fixed security and data-loss bugs). Older versions are not supported (the board relies on the events journal for live updates).
 - Repositories with `.beads/metadata.json` under the configured roots.
 
 **Live updates:** the board subscribes to `bd events tail --follow` and refetches only when the journal reports a change (plus a 60 s safety refetch). When a project's journal is off, the board enables it automatically by running `bd config set events-journal true` in that project (a one-time write to its beads config) and shows a toast. It falls back to 8 s polling only while connecting or after a transient feed error.
@@ -127,6 +140,7 @@ Use the **Open project** and **Init project** buttons in the app UI to manage pr
 ### Environment Variables
 
 - `BD_BIN`: path to the `bd` binary. Defaults to `bd`, with `/opt/homebrew/bin/bd` as a fallback.
+- `BD_BOARD_TIMING=1`: log every `bd` call with its duration to stderr, in both the web server and the desktop app. Useful to see where time goes.
 
 The desktop shell uses the same `BD_BIN` configuration. **`BD_ROOTS` is no longer used.**
 

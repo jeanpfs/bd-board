@@ -1,6 +1,14 @@
 const SIDEBAR_KEY = 'bdb.sidebar-collapsed.v1'
 
 /**
+ * The app has settled: hydrated (listeners attached; the server-rendered HTML
+ * shows the sidebar before keys and clicks work), showing the sidebar or the
+ * first-run start screen when no project exists.
+ */
+const APP_READY =
+  'html[data-hydrated] aside button[aria-label], html[data-hydrated] #start-screen-title'
+
+/**
  * Every spec starts from a known window state: localStorage wiped and a fresh
  * document load.
  *
@@ -22,11 +30,12 @@ export async function resetApp(path = '/'): Promise<void> {
   await browser.waitUntil(
     async () => {
       const ready = await browser.execute(
-        (target: string) =>
+        (target: string, selector: string) =>
           document.readyState === 'complete' &&
           window.location.pathname === target &&
-          Boolean(document.querySelector('aside button[aria-label]')),
+          Boolean(document.querySelector(selector)),
         path,
+        APP_READY,
       )
       return ready === true
     },
@@ -139,7 +148,7 @@ export async function resetBrowserApp(
   await seedIpcMocks(responses)
 
   await browser.url(`${DEV_SERVER_URL}${path}`)
-  await $('aside button[aria-label]').waitForExist({ timeout: 20000 })
+  await $(APP_READY).waitForExist({ timeout: 20000 })
 }
 
 export interface IpcCall {

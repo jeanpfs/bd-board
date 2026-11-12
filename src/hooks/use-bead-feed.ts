@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
-import { enableEventsJournalFn, subscribeBeadFeed } from '@/lib/server'
+import { setConfigFn, subscribeBeadFeed } from '@/lib/server'
 import { toErrorMessage } from '@/lib/utils'
 
 import type { BeadFeedMessage, BeadFeedStatus } from '@/lib/types'
@@ -88,7 +88,9 @@ export function useBeadFeed(project: string): UseBeadFeedResult {
             break
           }
           enableTried.current.add(project)
-          enableEventsJournalFn({ data: { project } })
+          setConfigFn({
+            data: { project, key: 'events-journal', value: 'true' },
+          })
             .then(() => {
               if (!cancelled) {
                 toast.success('Live updates enabled for this project')

@@ -5,25 +5,11 @@ import * as readline from 'node:readline'
 import type { BeadFeedMessage } from './types.ts'
 import { bdExec, bdErrorMessage, resolveDir } from './bd.ts'
 import { parseProjectInput } from './server-validation.ts'
+import { JOURNAL_DISABLED_MARKER, tailArgs } from './events.ts'
 
 export const FEED_PAGE_SIZE = 1000
-export const JOURNAL_DISABLED_MARKER = 'events journal is disabled'
 export const TRUNCATED_CODE = 'events_journal_truncated'
 export const FEED_HEARTBEAT_MS = 20_000
-
-export function tailArgs(
-  since: number,
-  opts: { limit?: number; follow?: boolean },
-): string[] {
-  const args = ['events', 'tail', '--json', '--since', String(since)]
-  if (opts.limit) {
-    args.push('--limit', String(opts.limit))
-  }
-  if (opts.follow) {
-    args.push('--follow')
-  }
-  return args
-}
 
 export function parseFeedLine(
   line: string,

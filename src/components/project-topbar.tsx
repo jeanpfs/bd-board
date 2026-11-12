@@ -1,77 +1,137 @@
-import { Link, useParams, useSearch } from '@tanstack/react-router'
+import { Link, useLocation, useParams, useSearch } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { BookOpen, Columns3, ListTree } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 
-import { cn } from '@/lib/utils'
-import { getProjects } from '@/lib/server'
+import { ProjectChip } from '@/components/project-chip'
+import { useSavedViews } from '@/components/view-editor'
+import { getBeads, getProjects } from '@/lib/server'
+import { PROJECTS_REFETCH_MS } from '@/lib/polling'
+import { isGate } from '@/lib/lease'
+import { isOverdue } from '@/lib/schedule'
+import { isReady } from '@/lib/sort'
+import { epicSpans, timelineSummary } from '@/lib/timeline'
+import { mapStatus } from '@/lib/types'
 
-import type { LucideIcon } from 'lucide-react'
 import type { ProjectTab } from '@/components/board-header'
 
-const TABS: { key: ProjectTab; label: string; icon: LucideIcon }[] = [
-  { key: 'board', label: 'Board', icon: Columns3 },
-  { key: 'hierarchy', label: 'Hierarchy', icon: ListTree },
-  { key: 'knowledge', label: 'Knowledge', icon: BookOpen },
-]
+const TAB_LABEL: Record<ProjectTab, string> = {
+  overview: 'Overview',
+  board: 'Board',
+  ready: 'Ready',
+  hierarchy: 'Hierarchy',
+  knowledge: 'Knowledge',
+  agents: 'Agents',
+  view: 'Views',
+  insights: 'Insights',
+}
 
+/**
+ * Where you are inside a project: `ledger › Board` plus a one-line summary.
+ * The project's views are in the sidebar; the Overview has its own title.
+ */
 export function ProjectTopbar() {
   const { project } = useParams({ strict: false })
   const search = useSearch({ strict: false })
-  const tab = search.tab ?? 'board'
+  const tab = search.tab ?? 'overview'
+  const onSettings = useLocation({
+    select: (location) => location.pathname.endsWith('/settings'),
+  })
 
   const projectsQuery = useQuery({
     queryKey: ['projects'],
     queryFn: () => getProjects(),
-    refetchInterval: 15000,
+    refetchInterval: PROJECTS_REFETCH_MS,
     staleTime: 5000,
     enabled: Boolean(project),
   })
-  const projectName =
-    projectsQuery.data?.find((p) => p.id === project)?.name ?? project
+  // Shares the board's cache; the board owns retries and error display.
+  const beadsQuery = useQuery({
+    queryKey: ['beads', project],
+    queryFn: () => getBeads({ data: { project: project! } }),
+    enabled: Boolean(project),
+    staleTime: 3000,
+    retry: false,
+  })
+  const { views } = useSavedViews(project ?? '')
 
-  if (!project) {
+  if (!project || (tab === 'overview' && !onSettings)) {
     return null
   }
 
+  const projects = projectsQuery.data ?? []
+  const index = projects.findIndex((p) => p.id === project)
+  const name = projects[index]?.name ?? project
+  const viewName = views.find((v) => v.id === search.v)?.name
+  const beads = beadsQuery.data
+  const open = beads?.filter((b) => {
+    if (isGate(b)) return false
+    const column = mapStatus(b).column
+    return column === 'open' || column === 'blocked'
+  }).length
+  const ready = beads?.filter(isReady).length
+  const overdue = beads?.filter((b) => isOverdue(b, new Date())).length
+  const weeks = Number(search.range ?? 8)
+  const isTimeline = tab === 'board' && search.view === 'timeline'
+  const timeline = beads
+    ? timelineSummary(epicSpans(beads, new Date()))
+    : undefined
+
   return (
-    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-background px-4">
-      <span className="min-w-0 truncate text-sm font-semibold text-foreground capitalize">
-        {projectName}
-      </span>
-
-      <div className="h-5 w-px shrink-0 bg-border" aria-hidden="true" />
-
-      <div
-        className="flex items-center gap-1"
-        role="tablist"
-        aria-label="Project view"
+    <header className="flex h-12 shrink-0 items-center gap-4 border-b border-border bg-background px-4">
+      <nav
+        aria-label="Breadcrumb"
+        className="flex min-w-0 items-center gap-1.5 text-body"
       >
-        {TABS.map((item) => {
-          const Icon = item.icon
-          const active = tab === item.key
-          return (
-            <Link
-              key={item.key}
-              to="/p/$project"
-              params={{ project }}
-              search={{ tab: item.key }}
-              role="tab"
-              aria-selected={active}
-              className={cn(
-                'relative inline-flex h-12 items-center gap-1.5 px-2.5 text-[13px] font-medium outline-none transition-colors',
-                'after:pointer-events-none after:absolute after:inset-x-1 after:bottom-0 after:h-0.5 after:rounded-full after:bg-transparent',
-                'focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset',
-                active
-                  ? 'text-foreground after:bg-[var(--primary-text)]'
-                  : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
-              )}
-            >
-              <Icon className="size-3.5" aria-hidden="true" />
-              {item.label}
-            </Link>
-          )
-        })}
-      </div>
+        <Link
+          to="/p/$project"
+          params={{ project }}
+          search={{ tab: 'overview' }}
+          className="flex min-w-0 items-center gap-2 rounded text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
+        >
+          <ProjectChip name={name} index={Math.max(index, 0)} />
+          <span className="truncate">{name}</span>
+        </Link>
+        <ChevronRight
+          className="size-3.5 shrink-0 text-faint"
+          aria-hidden="true"
+        />
+        {tab === 'view' && !onSettings ? (
+          <>
+            <span className="text-muted-foreground">Views</span>
+            <ChevronRight
+              className="size-3.5 shrink-0 text-faint"
+              aria-hidden="true"
+            />
+            <span aria-current="page" className="font-semibold text-foreground">
+              {viewName ?? 'View'}
+            </span>
+          </>
+        ) : (
+          <span aria-current="page" className="font-semibold text-foreground">
+            {onSettings
+              ? 'Settings'
+              : tab === 'board' && search.view === 'timeline'
+                ? 'Timeline'
+                : TAB_LABEL[tab]}
+          </span>
+        )}
+      </nav>
+      {tab === 'insights' ? (
+        <p className="truncate text-xs text-muted-foreground">
+          Project pace over the last {weeks} weeks: what closes, how long it
+          takes, and what stalled.
+        </p>
+      ) : isTimeline && timeline ? (
+        <p className="truncate text-xs text-muted-foreground">
+          {timeline.dated} epics with due dates, {timeline.undated} without ·{' '}
+          {timeline.atRisk} at risk
+        </p>
+      ) : open !== undefined && ready !== undefined ? (
+        <p className="truncate text-xs text-muted-foreground">
+          {open} open · {ready} ready
+          {overdue ? ` · ${overdue} overdue` : null}
+        </p>
+      ) : null}
     </header>
   )
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { format } from 'date-fns'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { formatDistanceToNow } from 'date-fns'
-import { enUS } from 'date-fns/locale'
+import { relativeDate } from '@/lib/time'
 import Markdown from 'react-markdown'
 import {
   AlignLeft,
@@ -32,7 +32,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { CloseBeadDialog } from '@/components/close-bead-dialog'
 import { CreateBeadDialog } from '@/components/create-bead-dialog'
+import { DueDatePicker } from '@/components/due-date-picker'
+import { EstimateInput } from '@/components/estimate-input'
+import { SnoozeMenu } from '@/components/snooze-menu'
+import { RelationsEditor } from '@/components/relations-editor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { InteractiveRow } from '@/components/ui/interactive-row'
@@ -46,8 +51,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn, initials } from '@/lib/utils'
-import { COLUMNS, groupBeadLinks, isEpic, mapStatus } from '@/lib/types'
+import { LabelsInput } from '@/components/labels-input'
+import { labelCounts } from '@/lib/labels'
+import { cn, initials, toErrorMessage } from '@/lib/utils'
+import { COLUMNS, isEpic, mapStatus } from '@/lib/types'
+import { groupRelations } from '@/lib/relations'
+import { beadPatchFromUpdate, patchCachedBead } from '@/lib/optimistic'
 import { PRIORITY_TEXT_CLASS, PRIORITY_WORD } from '@/lib/sort'
 import {
   KNOWLEDGE_TYPE_BG_CLASS as K_BG_CLASS,
@@ -58,6 +67,7 @@ import {
 import {
   addCommentFn,
   deleteBeadFn,
+  getBeads,
   getBeadDetailFn,
   getProjectKnowledgeFn,
   previewDeleteBeadFn,
@@ -67,8 +77,17 @@ import {
 
 import type { LucideIcon } from 'lucide-react'
 import type { FormEvent, ReactNode } from 'react'
-import type { Bead, BeadColumn, BeadDetail } from '@/lib/types'
+import type { Bead, BeadColumn, BeadDetail, BeadUpdate } from '@/lib/types'
 
+export interface BeadAction {
+  id: string
+  nonce: number
+  /** Bead the action targets; the route drops it when a different bead opens. */
+  beadId: string
+}
+
+/** Edit-dialog control a shortcut focuses; its value is the element id suffix. */
+type EditField = 'priority' | 'assignee' | 'labels'
 interface BeadDetailModalProps {
   project: string
   bead: Bead | null
@@ -77,6 +96,8 @@ interface BeadDetailModalProps {
   onOpenBead: (bead: Bead) => void
   resolveBead: (id: string) => Bead | undefined
   onOpenKnowledge: (id: string) => void
+  action?: BeadAction | null
+  onActionHandled: () => void
 }
 
 const COLUMN_LABEL: Record<BeadColumn, string> = {
@@ -117,20 +138,6 @@ const EDIT_TYPES = [
 
 const PRIORITIES = [0, 1, 2, 3, 4]
 
-function relativeDate(value?: string): string {
-  if (!value) return ''
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return ''
-  return formatDistanceToNow(parsed, { addSuffix: true, locale: enUS })
-}
-
-function labelsFromText(value: string): string[] {
-  return value
-    .split(',')
-    .map((label) => label.trim())
-    .filter(Boolean)
-}
-
 function LinkedBeadList({
   items,
   resolveBead,
@@ -144,7 +151,7 @@ function LinkedBeadList({
     <ul className="flex flex-col gap-1.5">
       {items.map(({ id, note }) => {
         const target = resolveBead(id)
-        const column = target ? mapStatus(target.status).column : null
+        const column = target ? mapStatus(target).column : null
         return (
           <li key={`${id}:${note ?? ''}`}>
             <InteractiveRow
@@ -160,26 +167,31 @@ function LinkedBeadList({
                 )}
                 aria-hidden="true"
               />
-              <span className="font-mono text-[11px] text-muted-foreground">
+              <span className="font-mono text-badge text-muted-foreground">
                 {id}
               </span>
               <span
                 className={cn(
-                  'truncate text-[12.75px]',
+                  'truncate text-body',
                   !target && 'text-muted-foreground/60 italic',
                 )}
               >
                 {target?.title ?? 'Not on this board'}
               </span>
               <span className="ml-auto flex shrink-0 items-center gap-1.5">
+                {target?.due_at ? (
+                  <span className="text-badge text-muted-foreground">
+                    due {format(new Date(target.due_at), 'MMM d')}
+                  </span>
+                ) : null}
                 {note ? (
-                  <span className="font-mono text-[10.5px] tracking-[0.05em] text-muted-foreground uppercase">
+                  <span className="font-mono text-badge tracking-[0.05em] text-muted-foreground uppercase">
                     {note}
                   </span>
                 ) : column ? (
                   <span
                     className={cn(
-                      'font-mono text-[10.5px] tracking-[0.05em] uppercase',
+                      'font-mono text-badge tracking-[0.05em] uppercase',
                       COLUMN_TEXT[column],
                     )}
                   >
@@ -201,30 +213,6 @@ function LinkedBeadList({
   )
 }
 
-function LinkGroup({
-  label,
-  items,
-  resolveBead,
-  onOpenBead,
-}: {
-  label: string
-  items: { id: string; note?: string }[]
-  resolveBead: (id: string) => Bead | undefined
-  onOpenBead: (bead: Bead) => void
-}) {
-  if (items.length === 0) return null
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="px-2 text-[11.5px] text-faint">{label}</span>
-      <LinkedBeadList
-        items={items}
-        resolveBead={resolveBead}
-        onOpenBead={onOpenBead}
-      />
-    </div>
-  )
-}
-
 function SectionHeader({
   icon: Icon,
   label,
@@ -239,13 +227,13 @@ function SectionHeader({
   return (
     <div className="mb-2.5 flex items-center gap-1.5 text-muted-foreground">
       <Icon className="size-3.5" aria-hidden="true" />
-      <h3 className="font-mono text-[10.5px] font-medium tracking-[0.09em] uppercase">
+      <h3 className="font-mono text-badge font-medium tracking-[0.09em] uppercase">
         {label}
       </h3>
       {trailing != null || actions ? (
         <span className="ml-auto flex items-center gap-2">
           {trailing != null ? (
-            <span className="font-mono text-[11px] tabular-nums text-faint">
+            <span className="font-mono text-badge tabular-nums text-faint">
               {trailing}
             </span>
           ) : null}
@@ -265,10 +253,10 @@ function MetaField({
 }) {
   return (
     <div className="flex flex-col [&+&]:mt-4">
-      <span className="mb-[7px] block font-mono text-[10px] font-medium tracking-[0.09em] text-faint uppercase">
+      <span className="mb-[7px] block font-mono text-badge font-medium tracking-[0.09em] text-faint uppercase">
         {label}
       </span>
-      <div className="flex items-center gap-1.5 text-[13px] text-foreground">
+      <div className="flex items-center gap-1.5 text-body text-foreground">
         {children}
       </div>
     </div>
@@ -281,12 +269,14 @@ function BeadEditDialog({
   detail,
   open,
   onOpenChange,
+  initialField,
 }: {
   project: string
   bead: Bead
   detail?: BeadDetail
   open: boolean
   onOpenChange: (open: boolean) => void
+  initialField?: EditField
 }) {
   const queryClient = useQueryClient()
   const [title, setTitle] = useState('')
@@ -297,7 +287,16 @@ function BeadEditDialog({
   const [priority, setPriority] = useState('2')
   const [issueType, setIssueType] = useState('task')
   const [assignee, setAssignee] = useState('')
-  const [labels, setLabels] = useState('')
+  const [labels, setLabels] = useState<string[]>([])
+  const beadsQuery = useQuery({
+    queryKey: ['beads', project],
+    queryFn: () => getBeads({ data: { project } }),
+    enabled: false,
+  })
+  const counts = useMemo(
+    () => labelCounts(beadsQuery.data ?? []),
+    [beadsQuery.data],
+  )
 
   useEffect(() => {
     if (!open) return
@@ -310,38 +309,63 @@ function BeadEditDialog({
     setPriority(String(Math.max(0, Math.min(4, source.priority))))
     setIssueType(source.issue_type || 'task')
     setAssignee(source.assignee ?? '')
-    setLabels((source.labels ?? []).join(', '))
+    setLabels(source.labels ?? [])
   }, [bead, detail, open])
 
+  // P/A/L open the edit dialog with the matching control focused.
+  useEffect(() => {
+    if (!open || !initialField) return
+    requestAnimationFrame(() =>
+      document.getElementById(`edit-bead-${initialField}`)?.focus(),
+    )
+  }, [open, initialField])
+
+  function buildUpdate(): BeadUpdate {
+    // bd-native labels and types may fall outside the form's own choices,
+    // so send them only when this edit changed them.
+    const source = detail ?? bead
+    const update: BeadUpdate = {
+      title,
+      description,
+      acceptance_criteria: acceptance,
+      design,
+      notes,
+      priority: Number(priority),
+      assignee,
+    }
+    if (issueType !== (source.issue_type || 'task')) {
+      update.issue_type = issueType
+    }
+    const sourceLabels = source.labels ?? []
+    const labelsChanged =
+      [...labels].sort().join('\n') !== [...sourceLabels].sort().join('\n')
+    if (labelsChanged) update.labels = labels
+    return update
+  }
+
   const mutation = useMutation({
-    mutationFn: () =>
-      updateBeadFn({
-        data: {
-          project,
-          id: bead.id,
-          update: {
-            title,
-            description,
-            acceptance_criteria: acceptance,
-            design,
-            notes,
-            priority: Number(priority),
-            issue_type: issueType,
-            assignee,
-            labels: labelsFromText(labels),
-          },
-        },
-      }),
+    mutationFn: (update: BeadUpdate) =>
+      updateBeadFn({ data: { project, id: bead.id, update } }),
+    onMutate: (update) =>
+      patchCachedBead(
+        queryClient,
+        project,
+        bead.id,
+        beadPatchFromUpdate(update),
+      ),
     onSuccess: () => {
       toast.success(`Bead ${bead.id} updated`)
-      queryClient.invalidateQueries({ queryKey: ['beads', project] })
-      queryClient.invalidateQueries({ queryKey: ['bead', project, bead.id] })
       onOpenChange(false)
     },
-    onError: (error) => {
+    onError: (error, _update, undo) => {
+      undo?.()
       toast.error(
         error instanceof Error ? error.message : 'Failed to update bead',
       )
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['beads', project] })
+      queryClient.invalidateQueries({ queryKey: ['bead', project, bead.id] })
     },
   })
 
@@ -350,7 +374,7 @@ function BeadEditDialog({
 
   function save() {
     if (!title.trim() || mutation.isPending) return
-    mutation.mutate()
+    mutation.mutate(buildUpdate())
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -428,16 +452,12 @@ function BeadEditDialog({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="edit-bead-labels">Labels</Label>
-            <Input
+            <LabelsInput
               id="edit-bead-labels"
               value={labels}
-              onChange={(event) => setLabels(event.target.value)}
-              autoComplete="off"
-              placeholder="ui, backend"
+              onChange={setLabels}
+              counts={counts}
             />
-            <p className="text-xs text-muted-foreground">
-              Separate labels with commas.
-            </p>
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -517,24 +537,18 @@ function BeadEditDialog({
 function BeadDeleteDialog({
   project,
   bead,
-  detail,
   open,
   onOpenChange,
   onDeleted,
 }: {
   project: string
   bead: Bead
-  detail?: BeadDetail
   open: boolean
   onOpenChange: (open: boolean) => void
   onDeleted: () => void
 }) {
   const queryClient = useQueryClient()
   const [confirmation, setConfirmation] = useState('')
-  const childCount = bead.childBeads?.length ?? bead.children?.length ?? 0
-  const dependencyCount =
-    detail?.dependencies?.length ?? bead.dependency_count ?? 0
-  const dependentCount = bead.dependent_count ?? 0
   const isConfirmed = confirmation.trim() === bead.id
 
   useEffect(() => {
@@ -568,13 +582,13 @@ function BeadDeleteDialog({
     },
   })
 
-  const preview = previewQuery.data?.preview.trim()
+  const plan = previewQuery.data
+  const preview = plan?.preview.trim()
+  const subtasks = plan ? plan.ids.slice(1) : []
   const errorMessage =
-    mutation.error instanceof Error
-      ? mutation.error.message
-      : previewQuery.error instanceof Error
-        ? previewQuery.error.message
-        : null
+    mutation.error || previewQuery.error
+      ? toErrorMessage(mutation.error ?? previewQuery.error, 'Delete failed')
+      : null
 
   function confirmDelete() {
     if (!isConfirmed || mutation.isPending) return
@@ -614,30 +628,39 @@ function BeadDeleteDialog({
             </div>
           </div>
 
-          {childCount > 0 || dependencyCount > 0 || dependentCount > 0 ? (
+          {subtasks.length > 0 || (plan && plan.unlinked.length > 0) ? (
             <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
-              <p className="font-medium text-foreground">Linked work</p>
-              <ul className="mt-1.5 list-disc space-y-1 pl-4 text-muted-foreground">
-                {childCount > 0 ? (
-                  <li>
-                    {childCount} child {childCount === 1 ? 'bead' : 'beads'}
-                  </li>
-                ) : null}
-                {dependencyCount > 0 ? (
-                  <li>
-                    {dependencyCount}{' '}
-                    {dependencyCount === 1 ? 'dependency' : 'dependencies'}
-                  </li>
-                ) : null}
-                {dependentCount > 0 ? (
-                  <li>
-                    {dependentCount}{' '}
-                    {dependentCount === 1
-                      ? 'dependent bead'
-                      : 'dependent beads'}
-                  </li>
-                ) : null}
-              </ul>
+              {subtasks.length > 0 ? (
+                <>
+                  <p className="font-medium text-foreground">
+                    Also deletes {subtasks.length}{' '}
+                    {subtasks.length === 1 ? 'subtask' : 'subtasks'}
+                  </p>
+                  <p className="mt-1 font-mono text-xs text-muted-foreground">
+                    {subtasks.join(', ')}
+                  </p>
+                </>
+              ) : null}
+              {plan && plan.unlinked.length > 0 ? (
+                <div className={subtasks.length > 0 ? 'mt-3' : undefined}>
+                  <p className="font-medium text-foreground">
+                    Kept, link removed
+                  </p>
+                  <ul className="mt-1.5 space-y-1 text-muted-foreground">
+                    {plan.unlinked.map((dep) => (
+                      <li key={`${dep.id}|${dep.type}`} className="flex gap-2">
+                        <span className="shrink-0 font-mono text-xs">
+                          {dep.id}
+                        </span>
+                        <span className="min-w-0 truncate">{dep.title}</span>
+                        <span className="shrink-0 text-xs text-faint">
+                          {dep.type}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -720,12 +743,67 @@ export function BeadDetailModal({
   onOpenBead,
   resolveBead,
   onOpenKnowledge,
+  action,
+  onActionHandled,
 }: BeadDetailModalProps) {
   const queryClient = useQueryClient()
   const [comment, setComment] = useState('')
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [closeOpen, setCloseOpen] = useState(false)
   const [subtaskOpen, setSubtaskOpen] = useState(false)
+  const [statusOpen, setStatusOpen] = useState(false)
+  const [editField, setEditField] = useState<EditField>()
+  // Kept in state (not read from `action`) because the action is cleared right
+  // away, usually before the picker has mounted inside the freshly opened dialog.
+  const [dueRequest, setDueRequest] = useState<number>()
+
+  // Keyboard shortcuts open the existing controls for the open bead, then
+  // report the request handled so a remount does not replay it.
+  useEffect(() => {
+    if (!open) {
+      setDueRequest(undefined)
+      return
+    }
+    if (!action) return
+    switch (action.id) {
+      case 'due':
+        setDueRequest(action.nonce)
+        break
+      case 'status':
+        setStatusOpen(true)
+        break
+      case 'close-bead':
+        setCloseOpen(true)
+        break
+      case 'relation':
+        requestAnimationFrame(() =>
+          document
+            .querySelector<HTMLInputElement>(
+              '[data-bead-detail] [aria-label="Search beads"]',
+            )
+            ?.focus(),
+        )
+        break
+      case 'priority':
+        setEditField('priority')
+        setEditOpen(true)
+        break
+      case 'assign':
+        setEditField('assignee')
+        setEditOpen(true)
+        break
+      case 'labels':
+        setEditField('labels')
+        setEditOpen(true)
+        break
+      case 'edit':
+        setEditField(undefined)
+        setEditOpen(true)
+        break
+    }
+    onActionHandled()
+  }, [action, open, onActionHandled])
 
   const detailQuery = useQuery({
     queryKey: ['bead', project, bead?.id],
@@ -749,23 +827,32 @@ export function BeadDetailModal({
   )
 
   const detail = detailQuery.data
-  const column: BeadColumn = bead ? mapStatus(bead.status).column : 'open'
+  const statusBadge = bead ? mapStatus(bead).badge : undefined
+  const column: BeadColumn = bead ? mapStatus(bead).column : 'open'
   const childBeads = bead?.childBeads ?? []
   const doneChildren = useMemo(
-    () =>
-      childBeads.filter((c) => mapStatus(c.status).column === 'closed').length,
+    () => childBeads.filter((c) => mapStatus(c).column === 'closed').length,
     [childBeads],
   )
-  const { blockedBy, blocking, related } = useMemo(
-    () => groupBeadLinks(bead?.links),
-    [bead?.links],
+  const {
+    blockedBy,
+    blocks: blocking,
+    related,
+  } = useMemo(
+    () => groupRelations(detail?.dependencies, detail?.dependents),
+    [detail?.dependencies, detail?.dependents],
   )
-  const linkCount = blockedBy.length + blocking.length + related.length
 
   const statusMutation = useMutation({
     mutationFn: (status: BeadColumn) =>
       updateBeadStatusFn({ data: { project, id: bead!.id, status } }),
-    onSuccess: () => {
+    onMutate: (status) =>
+      patchCachedBead(queryClient, project, bead!.id, { status }),
+    onError: (error, _status, undo) => {
+      undo?.()
+      toast.error(toErrorMessage(error, 'Failed to change status'))
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['beads', project] })
       queryClient.invalidateQueries({ queryKey: ['bead', project, bead?.id] })
     },
@@ -789,7 +876,7 @@ export function BeadDetailModal({
   return (
     <>
       <Dialog
-        open={open && !editOpen && !deleteOpen}
+        open={open && !editOpen && !deleteOpen && !closeOpen}
         onOpenChange={(next) => {
           if (!next) {
             setEditOpen(false)
@@ -798,7 +885,10 @@ export function BeadDetailModal({
           onOpenChange(next)
         }}
       >
-        <DialogContent className="grid max-h-[86vh] w-[94vw] max-w-3xl grid-cols-1 grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden rounded-[14px] bg-background p-0 shadow-pop sm:max-w-3xl lg:max-w-[1080px] lg:grid-cols-[minmax(0,1fr)_268px]">
+        <DialogContent
+          data-bead-detail=""
+          className="grid max-h-[86vh] w-[94vw] max-w-3xl grid-cols-1 grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden rounded-[14px] bg-background p-0 shadow-pop sm:max-w-3xl lg:max-w-[1080px] lg:grid-cols-[minmax(0,1fr)_268px]"
+        >
           {bead ? (
             <>
               <div className="flex min-h-0 min-w-0 flex-col">
@@ -808,18 +898,18 @@ export function BeadDetailModal({
                       {bead.id}
                     </span>
                     {isEpic(bead) ? (
-                      <span className="inline-flex items-center gap-1 rounded-[4px] bg-primary/30 px-1.5 py-px text-[10px] font-semibold tracking-[0.06em] text-primary-text uppercase ring-1 ring-inset ring-ring/45">
+                      <span className="inline-flex items-center gap-1 rounded-[4px] bg-primary/30 px-1.5 py-px text-badge font-semibold tracking-[0.06em] text-primary-text uppercase ring-1 ring-inset ring-ring/45">
                         <Layers className="size-3" aria-hidden="true" />
                         Epic
                       </span>
                     ) : (
-                      <span className="rounded-[4px] bg-white/7 px-1.5 py-px text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+                      <span className="rounded-[4px] bg-white/7 px-1.5 py-px text-badge font-semibold tracking-[0.06em] text-muted-foreground uppercase">
                         {bead.issue_type}
                       </span>
                     )}
                     <span
                       className={cn(
-                        'rounded-[4px] px-1 py-px font-mono text-[10px] font-semibold tabular-nums ring-1 ring-inset ring-current',
+                        'rounded-[4px] px-1 py-px font-mono text-badge font-semibold tabular-nums ring-1 ring-inset ring-current',
                         PRIORITY_TEXT_CLASS[
                           Math.max(0, Math.min(4, bead.priority))
                         ],
@@ -827,14 +917,14 @@ export function BeadDetailModal({
                     >
                       P{Math.max(0, Math.min(4, bead.priority))}
                     </span>
-                    {mapStatus(bead.status).badge ? (
+                    {mapStatus(bead).badge ? (
                       <span
                         className={cn(
-                          'rounded-[4px] px-1.5 py-px text-[10px] font-semibold tracking-[0.06em] uppercase',
-                          BADGE_TONE[mapStatus(bead.status).badge!.tone],
+                          'rounded-[4px] px-1.5 py-px text-badge font-semibold tracking-[0.06em] uppercase',
+                          BADGE_TONE[mapStatus(bead).badge!.tone],
                         )}
                       >
-                        {mapStatus(bead.status).badge!.label}
+                        {mapStatus(bead).badge!.label}
                       </span>
                     ) : null}
 
@@ -842,7 +932,10 @@ export function BeadDetailModal({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setEditOpen(true)}
+                        onClick={() => {
+                          setEditField(undefined)
+                          setEditOpen(true)
+                        }}
                       >
                         <Pencil className="size-3.5" aria-hidden="true" />
                         Edit
@@ -858,7 +951,7 @@ export function BeadDetailModal({
                     </div>
                   </div>
 
-                  <DialogTitle className="mt-2.5 text-[20px] leading-[1.28] font-semibold tracking-[-0.015em] text-balance">
+                  <DialogTitle className="mt-2.5 text-title leading-[1.28] font-semibold tracking-[-0.015em] text-balance">
                     {bead.title}
                   </DialogTitle>
                   <DialogDescription className="sr-only">
@@ -894,7 +987,7 @@ export function BeadDetailModal({
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-6 gap-1 px-1.5 text-[11px]"
+                              className="h-6 gap-1 px-1.5 text-badge"
                               onClick={() => setSubtaskOpen(true)}
                             >
                               <Plus className="size-3" aria-hidden="true" />
@@ -918,41 +1011,14 @@ export function BeadDetailModal({
                       </section>
                     ) : null}
 
-                    {linkCount > 0 ? (
-                      <section>
-                        <SectionHeader
-                          icon={Link2}
-                          label="Dependencies"
-                          trailing={linkCount}
-                        />
-                        <div className="flex flex-col gap-3">
-                          <LinkGroup
-                            label="Blocked by"
-                            items={blockedBy.map((id) => ({ id }))}
-                            resolveBead={resolveBead}
-                            onOpenBead={onOpenBead}
-                          />
-                          <LinkGroup
-                            label="Blocking"
-                            items={blocking.map((id) => ({ id }))}
-                            resolveBead={resolveBead}
-                            onOpenBead={onOpenBead}
-                          />
-                          <LinkGroup
-                            label="Related"
-                            items={related.map((link) => ({
-                              id: link.id,
-                              note:
-                                link.direction === 'outgoing'
-                                  ? link.type
-                                  : `${link.type} (reverse)`,
-                            }))}
-                            resolveBead={resolveBead}
-                            onOpenBead={onOpenBead}
-                          />
-                        </div>
-                      </section>
-                    ) : null}
+                    <section>
+                      <RelationsEditor
+                        project={project}
+                        bead={bead}
+                        groups={{ blockedBy, blocks: blocking, related }}
+                        onOpenBead={onOpenBead}
+                      />
+                    </section>
 
                     {beadKnowledge.length > 0 ? (
                       <section>
@@ -979,7 +1045,7 @@ export function BeadDetailModal({
                                 <div className="flex items-center gap-1.5">
                                   <span
                                     className={cn(
-                                      'inline-flex items-center gap-[5px] rounded-[4px] px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-[0.08em] uppercase',
+                                      'inline-flex items-center gap-[5px] rounded-[4px] px-1.5 py-0.5 font-mono text-badge font-semibold tracking-[0.08em] uppercase',
                                       K_BG_CLASS[entry.type],
                                       K_TEXT_CLASS[entry.type],
                                     )}
@@ -993,11 +1059,11 @@ export function BeadDetailModal({
                                     />
                                     {KNOWLEDGE_TYPE_LABEL[entry.type]}
                                   </span>
-                                  <span className="ml-auto font-mono text-[10.5px] text-faint">
+                                  <span className="ml-auto font-mono text-badge text-faint">
                                     {relativeDate(entry.created_at)}
                                   </span>
                                 </div>
-                                <p className="mt-1.5 line-clamp-2 text-[12.75px] leading-[1.58] text-foreground/90">
+                                <p className="mt-1.5 line-clamp-2 text-body leading-[1.58] text-foreground/90">
                                   {entry.content}
                                 </p>
                               </div>
@@ -1059,7 +1125,7 @@ export function BeadDetailModal({
                               key={c.id}
                               className="rounded-[9px] bg-canvas px-3 py-2.5 ring-1 ring-inset ring-border"
                             >
-                              <div className="flex items-center gap-2 text-[11.5px] text-faint">
+                              <div className="flex items-center gap-2 text-xs text-faint">
                                 <span className="font-medium text-foreground/90">
                                   {c.author ?? 'Anonymous'}
                                 </span>
@@ -1067,7 +1133,7 @@ export function BeadDetailModal({
                                   <span>· {relativeDate(c.created_at)}</span>
                                 ) : null}
                               </div>
-                              <p className="mt-1.5 text-[13px] whitespace-pre-wrap">
+                              <p className="mt-1.5 text-body whitespace-pre-wrap">
                                 {c.text}
                               </p>
                             </li>
@@ -1108,10 +1174,15 @@ export function BeadDetailModal({
               <div className="flex min-h-0 flex-col overflow-y-auto border-t border-border bg-sidebar p-[18px] lg:border-t-0 lg:border-l">
                 <MetaField label="Status">
                   <Select
-                    value={column}
-                    onValueChange={(v) =>
-                      statusMutation.mutate(v as BeadColumn)
-                    }
+                    open={statusOpen}
+                    onOpenChange={setStatusOpen}
+                    value={statusBadge ? bead.status : column}
+                    onValueChange={(v) => {
+                      if (v === bead.status && statusBadge) return
+                      // Closing asks for a reason and handles bd's close policy.
+                      if (v === 'closed') setCloseOpen(true)
+                      else statusMutation.mutate(v as BeadColumn)
+                    }}
                   >
                     <SelectTrigger
                       size="sm"
@@ -1121,6 +1192,20 @@ export function BeadDetailModal({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      {statusBadge ? (
+                        // Deferred, hooked, pinned and custom statuses have no
+                        // column of their own: show the real one as current.
+                        <SelectItem value={bead.status}>
+                          <span
+                            className={cn(
+                              'size-1.5 rounded-full',
+                              DOT_CLASS[column],
+                            )}
+                            aria-hidden="true"
+                          />
+                          {statusBadge.label}
+                        </SelectItem>
+                      ) : null}
                       {COLUMNS.map((c) => (
                         <SelectItem key={c.key} value={c.key}>
                           <span
@@ -1147,7 +1232,7 @@ export function BeadDetailModal({
                   {bead.assignee ? (
                     <>
                       <Avatar size="sm" className="size-[19px] bg-white/9">
-                        <AvatarFallback className="bg-transparent text-[9px] font-semibold text-foreground">
+                        <AvatarFallback className="bg-transparent text-badge font-semibold text-foreground">
                           {initials(bead.assignee)}
                         </AvatarFallback>
                       </Avatar>
@@ -1165,7 +1250,7 @@ export function BeadDetailModal({
                       <>
                         <span
                           className={cn(
-                            'rounded-[4px] px-1 py-px font-mono text-[10px] font-semibold tabular-nums ring-1 ring-inset ring-current',
+                            'rounded-[4px] px-1 py-px font-mono text-badge font-semibold tabular-nums ring-1 ring-inset ring-current',
                             PRIORITY_TEXT_CLASS[p],
                           )}
                         >
@@ -1180,9 +1265,22 @@ export function BeadDetailModal({
                 </MetaField>
 
                 <MetaField label="Type">
-                  <span className="font-mono text-[12.5px]">
-                    {bead.issue_type}
-                  </span>
+                  <span className="font-mono text-body">{bead.issue_type}</span>
+                </MetaField>
+                <MetaField label="Due date">
+                  <DueDatePicker
+                    project={project}
+                    bead={bead}
+                    openRequest={dueRequest}
+                  />
+                </MetaField>
+
+                <MetaField label="Estimate">
+                  <EstimateInput key={bead.id} project={project} bead={bead} />
+                </MetaField>
+
+                <MetaField label="Snooze">
+                  <SnoozeMenu project={project} bead={bead} />
                 </MetaField>
 
                 <MetaField label="Labels">
@@ -1191,7 +1289,7 @@ export function BeadDetailModal({
                       {bead.labels.map((label) => (
                         <span
                           key={label}
-                          className="max-w-[92px] truncate rounded-[4px] px-[5px] text-[10.5px] leading-[1.6] text-muted-foreground ring-1 ring-inset ring-border-strong"
+                          className="max-w-[92px] truncate rounded-[4px] px-[5px] text-badge leading-[1.6] text-muted-foreground ring-1 ring-inset ring-border-strong"
                         >
                           {label}
                         </span>
@@ -1205,13 +1303,13 @@ export function BeadDetailModal({
                 <hr className="my-4 border-border" />
 
                 <MetaField label="Updated">
-                  <span className="font-mono text-[12.5px] text-muted-foreground">
+                  <span className="font-mono text-body text-muted-foreground">
                     {relativeDate(bead.updated_at)}
                   </span>
                 </MetaField>
 
                 <MetaField label="Edges">
-                  <span className="flex items-center gap-3 text-[12.5px] text-muted-foreground">
+                  <span className="flex items-center gap-3 text-body text-muted-foreground">
                     <span
                       className="inline-flex items-center gap-1"
                       title={`${blockedBy.length} blocked by`}
@@ -1238,10 +1336,10 @@ export function BeadDetailModal({
 
                 <hr className="my-4 border-border" />
 
-                <span className="mb-[7px] block font-mono text-[10px] font-medium tracking-[0.09em] text-faint uppercase">
+                <span className="mb-[7px] block font-mono text-badge font-medium tracking-[0.09em] text-faint uppercase">
                   bd command
                 </span>
-                <p className="rounded-[7px] bg-black/35 px-[11px] py-[9px] font-mono text-[11.5px] leading-[1.55] text-muted-foreground ring-1 ring-inset ring-border">
+                <p className="rounded-[7px] bg-black/35 px-[11px] py-[9px] font-mono text-xs leading-[1.55] text-muted-foreground ring-1 ring-inset ring-border">
                   bd show {bead.id} --json
                 </p>
               </div>
@@ -1265,6 +1363,7 @@ export function BeadDetailModal({
           project={project}
           bead={bead}
           detail={detail}
+          initialField={editField}
           open={editOpen}
           onOpenChange={setEditOpen}
         />
@@ -1274,12 +1373,18 @@ export function BeadDetailModal({
         <BeadDeleteDialog
           project={project}
           bead={bead}
-          detail={detail}
           open={deleteOpen}
           onOpenChange={setDeleteOpen}
           onDeleted={() => onOpenChange(false)}
         />
       ) : null}
+
+      <CloseBeadDialog
+        project={project}
+        beads={bead ? [bead] : []}
+        open={closeOpen}
+        onOpenChange={setCloseOpen}
+      />
 
       {bead ? (
         <CreateBeadDialog

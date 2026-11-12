@@ -1,11 +1,13 @@
 import {
   ArrowUpDown,
+  CalendarRange,
   Columns3,
   Layers,
   ListTree,
   Plus,
   Search,
   SlidersHorizontal,
+  List,
 } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
@@ -29,8 +31,16 @@ import { PRIORITIES, SORT_OPTIONS } from '@/lib/sort'
 import type { LucideIcon } from 'lucide-react'
 import type { SortKey } from '@/lib/sort'
 
-export type BoardView = 'status' | 'epic' | 'priority'
-export type ProjectTab = 'board' | 'knowledge' | 'hierarchy'
+export type BoardView = 'status' | 'epic' | 'priority' | 'list' | 'timeline'
+export type ProjectTab =
+  | 'overview'
+  | 'board'
+  | 'ready'
+  | 'knowledge'
+  | 'agents'
+  | 'hierarchy'
+  | 'view'
+  | 'insights'
 
 interface BoardHeaderProps {
   search: string
@@ -47,6 +57,13 @@ interface BoardHeaderProps {
   setSort: (value: SortKey) => void
   nested: boolean
   setNested: (value: boolean) => void
+  due: 'week' | 'overdue' | undefined
+  setDue: (value: 'week' | 'overdue' | undefined) => void
+  snoozed: boolean
+  setSnoozed: (value: boolean) => void
+  dueWeekCount: number
+  overdueCount: number
+  snoozedCount: number
   onCreate: () => void
   liveIndicator: React.ReactNode
 }
@@ -55,7 +72,36 @@ const VIEWS: { key: BoardView; label: string; icon: LucideIcon }[] = [
   { key: 'epic', label: 'Epics', icon: Layers },
   { key: 'priority', label: 'Priority', icon: SlidersHorizontal },
   { key: 'status', label: 'Status', icon: Columns3 },
+  { key: 'list', label: 'List', icon: List },
+  { key: 'timeline', label: 'Timeline', icon: CalendarRange },
 ]
+
+function ViewToggle({
+  view,
+  onChange,
+}: {
+  view: BoardView
+  onChange: (value: BoardView) => void
+}) {
+  return (
+    <ToggleGroup
+      type="single"
+      value={view}
+      onValueChange={(value) => value && onChange(value as BoardView)}
+      aria-label="Group by"
+    >
+      {VIEWS.map((v) => {
+        const Icon = v.icon
+        return (
+          <ToggleGroupItem key={v.key} value={v.key} aria-label={v.label}>
+            <Icon className="size-3.5" aria-hidden="true" />
+            {v.label}
+          </ToggleGroupItem>
+        )
+      })}
+    </ToggleGroup>
+  )
+}
 
 const PRIORITY_HINT: Record<number, string> = {
   0: 'highest',
@@ -77,6 +123,13 @@ export function BoardHeader({
   setSort,
   nested,
   setNested,
+  due,
+  setDue,
+  snoozed,
+  setSnoozed,
+  dueWeekCount,
+  overdueCount,
+  snoozedCount,
   onCreate,
   liveIndicator,
 }: BoardHeaderProps) {
@@ -88,25 +141,54 @@ export function BoardHeader({
     )
   }
 
+  if (view === 'timeline') {
+    return (
+      <header className="flex flex-col gap-3 pb-4">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <ViewToggle view={view} onChange={setView} />
+          <div className="ml-auto">{liveIndicator}</div>
+        </div>
+      </header>
+    )
+  }
+
   return (
     <header className="flex flex-col gap-3 pb-4">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <ToggleGroup
-          type="single"
-          value={view}
-          onValueChange={(value) => value && setView(value as BoardView)}
-          aria-label="Group by"
+        <ViewToggle view={view} onChange={setView} />
+
+        <Toggle
+          pressed={due === 'week'}
+          onPressedChange={(on) => setDue(on ? 'week' : undefined)}
+          className="gap-1.5"
         >
-          {VIEWS.map((v) => {
-            const Icon = v.icon
-            return (
-              <ToggleGroupItem key={v.key} value={v.key} aria-label={v.label}>
-                <Icon className="size-3.5" aria-hidden="true" />
-                {v.label}
-              </ToggleGroupItem>
-            )
-          })}
-        </ToggleGroup>
+          Due this week
+          <span className="font-mono tabular-nums text-muted-foreground">
+            {dueWeekCount}
+          </span>
+        </Toggle>
+
+        {overdueCount > 0 || due === 'overdue' ? (
+          <Toggle
+            pressed={due === 'overdue'}
+            onPressedChange={(on) => setDue(on ? 'overdue' : undefined)}
+            className="gap-1.5 text-status-blocked"
+          >
+            Overdue
+            <span className="font-mono tabular-nums">{overdueCount}</span>
+          </Toggle>
+        ) : null}
+
+        {snoozedCount > 0 || snoozed ? (
+          <Toggle
+            pressed={snoozed}
+            onPressedChange={setSnoozed}
+            className="gap-1.5"
+          >
+            <span className="font-mono tabular-nums">{snoozedCount}</span>
+            snoozed
+          </Toggle>
+        ) : null}
 
         <Toggle
           pressed={nested}
@@ -138,7 +220,16 @@ export function BoardHeader({
           {liveIndicator}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5"
+                aria-label={
+                  priorities.length > 0
+                    ? `Filter by priority (${priorities.length} selected)`
+                    : 'Filter by priority'
+                }
+              >
                 <SlidersHorizontal className="size-3.5" aria-hidden="true" />
                 Priority
                 {priorities.length > 0 ? (
@@ -183,6 +274,7 @@ export function BoardHeader({
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-8 gap-1.5">
                 <ArrowUpDown className="size-3.5" aria-hidden="true" />
+                <span className="text-muted-foreground">Sort:</span>
                 {SORT_OPTIONS.find((o) => o.key === sort)?.label}
               </Button>
             </DropdownMenuTrigger>
@@ -213,6 +305,7 @@ export function BoardHeader({
               placeholder="Search..."
               className="h-8 w-40 pl-8 sm:w-52"
               aria-label="Search beads"
+              data-board-search=""
             />
           </div>
 

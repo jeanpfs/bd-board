@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { formatDistanceToNow } from 'date-fns'
-import { enUS } from 'date-fns/locale'
+import { relativeDate } from '@/lib/time'
 import {
   BookOpen,
   Copy,
@@ -54,18 +53,11 @@ const DOT_CLASS: Record<string, string> = {
   closed: 'bg-status-closed',
 }
 
-function relativeDate(value?: string): string {
-  if (!value) return ''
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return ''
-  return formatDistanceToNow(parsed, { addSuffix: true, locale: enUS })
-}
-
 function KTag({ type }: { type: KnowledgeType }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-[5px] rounded-[4px] px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-[0.08em] uppercase',
+        'inline-flex items-center gap-[5px] rounded-[4px] px-1.5 py-0.5 font-mono text-badge font-semibold tracking-[0.08em] uppercase',
         K_BG_CLASS[type],
         K_TEXT_CLASS[type],
       )}
@@ -104,7 +96,7 @@ function KRow({
       />
       <div className="min-w-0 flex-1">
         <KTag type={entry.type} />
-        <p className="mt-1.5 line-clamp-2 text-[12.75px] leading-[1.58] text-foreground/90">
+        <p className="mt-1.5 line-clamp-2 text-body leading-[1.58] text-foreground/90">
           {entry.content}
         </p>
       </div>
@@ -132,7 +124,7 @@ export function KnowledgeDetailModal({
     ? (knowledge.find((k) => k.id === knowledgeId) ?? null)
     : null
   const bead = entry ? beadsById.get(entry.bead_id) : undefined
-  const beadColumn = bead ? mapStatus(bead.status).column : null
+  const beadColumn = bead ? mapStatus(bead).column : null
   const beadPriority = bead ? Math.max(0, Math.min(4, bead.priority)) : null
 
   const sameBead = entry
@@ -212,7 +204,7 @@ export function KnowledgeDetailModal({
                   </div>
                 </div>
 
-                <DialogTitle className="mt-2.5 text-[20px] leading-[1.28] font-semibold tracking-[-0.015em] text-balance">
+                <DialogTitle className="mt-2.5 text-title leading-[1.28] font-semibold tracking-[-0.015em] text-balance">
                   {entry.content}
                 </DialogTitle>
                 <DialogDescription className="sr-only">
@@ -240,20 +232,20 @@ export function KnowledgeDetailModal({
                   <section>
                     <div className="mb-2.5 flex items-center gap-1.5 text-muted-foreground">
                       <BookOpen className="size-3.5" aria-hidden="true" />
-                      <h3 className="font-mono text-[10.5px] font-medium tracking-[0.09em] uppercase">
+                      <h3 className="font-mono text-badge font-medium tracking-[0.09em] uppercase">
                         Comment as stored, in full
                       </h3>
-                      <span className="ml-auto font-mono text-[11px] tabular-nums text-faint">
+                      <span className="ml-auto font-mono text-badge tabular-nums text-faint">
                         {relativeDate(entry.created_at)}
                       </span>
                     </div>
-                    <div className="rounded-[9px] bg-canvas px-3 py-2.5 text-[13px] leading-[1.6] ring-1 ring-inset ring-border">
+                    <div className="rounded-[9px] bg-canvas px-3 py-2.5 text-body leading-[1.6] ring-1 ring-inset ring-border">
                       <b className={K_TEXT_CLASS[entry.type]}>
                         {KNOWLEDGE_TYPE_PREFIX[entry.type]}:
                       </b>{' '}
                       {entry.content}
                     </div>
-                    <p className="mt-2 text-[11.5px] leading-[1.55] text-faint">
+                    <p className="mt-2 text-xs leading-[1.55] text-faint">
                       bd has no knowledge entity — this is an ordinary bead
                       comment. The board promotes it because the text opens with
                       a recognised prefix, matched case-insensitively.
@@ -266,7 +258,7 @@ export function KnowledgeDetailModal({
                         className="size-3.5"
                         aria-hidden="true"
                       />
-                      <h3 className="font-mono text-[10.5px] font-medium tracking-[0.09em] uppercase">
+                      <h3 className="font-mono text-badge font-medium tracking-[0.09em] uppercase">
                         Source bead
                       </h3>
                     </div>
@@ -279,15 +271,13 @@ export function KnowledgeDetailModal({
                           )}
                           aria-hidden="true"
                         />
-                        <span className="font-mono text-[11px] text-muted-foreground">
+                        <span className="font-mono text-badge text-muted-foreground">
                           {bead.id}
                         </span>
-                        <span className="truncate text-[12.75px]">
-                          {bead.title}
-                        </span>
+                        <span className="truncate text-body">{bead.title}</span>
                         <span
                           className={cn(
-                            'ml-auto shrink-0 rounded-[4px] px-1 py-px font-mono text-[10px] font-semibold tabular-nums ring-1 ring-inset ring-current',
+                            'ml-auto shrink-0 rounded-[4px] px-1 py-px font-mono text-badge font-semibold tabular-nums ring-1 ring-inset ring-current',
                             PRIORITY_TEXT_CLASS[beadPriority],
                           )}
                         >
@@ -305,10 +295,10 @@ export function KnowledgeDetailModal({
                     <section>
                       <div className="mb-2.5 flex items-center gap-1.5 text-muted-foreground">
                         <BookOpen className="size-3.5" aria-hidden="true" />
-                        <h3 className="font-mono text-[10.5px] font-medium tracking-[0.09em] uppercase">
+                        <h3 className="font-mono text-badge font-medium tracking-[0.09em] uppercase">
                           Also recorded on this bead
                         </h3>
-                        <span className="ml-auto font-mono text-[11px] tabular-nums text-faint">
+                        <span className="ml-auto font-mono text-badge tabular-nums text-faint">
                           {sameBead.length}
                         </span>
                       </div>
@@ -328,11 +318,11 @@ export function KnowledgeDetailModal({
                     <section>
                       <div className="mb-2.5 flex items-center gap-1.5 text-muted-foreground">
                         <Layers className="size-3.5" aria-hidden="true" />
-                        <h3 className="font-mono text-[10.5px] font-medium tracking-[0.09em] uppercase">
+                        <h3 className="font-mono text-badge font-medium tracking-[0.09em] uppercase">
                           Other {KNOWLEDGE_TYPE_LABEL[entry.type].toLowerCase()}{' '}
                           entries
                         </h3>
-                        <span className="ml-auto font-mono text-[11px] tabular-nums text-faint">
+                        <span className="ml-auto font-mono text-badge tabular-nums text-faint">
                           {sameType.length}
                         </span>
                       </div>
@@ -353,22 +343,22 @@ export function KnowledgeDetailModal({
 
             <div className="flex min-h-0 flex-col overflow-y-auto border-t border-border bg-sidebar p-[18px] lg:border-t-0 lg:border-l">
               <div className="flex flex-col">
-                <span className="mb-[7px] block font-mono text-[10px] font-medium tracking-[0.09em] text-faint uppercase">
+                <span className="mb-[7px] block font-mono text-badge font-medium tracking-[0.09em] text-faint uppercase">
                   Type
                 </span>
                 <KTag type={entry.type} />
-                <p className="mt-[7px] text-[11.5px] leading-[1.55] text-faint">
+                <p className="mt-[7px] text-xs leading-[1.55] text-faint">
                   {KNOWLEDGE_TYPE_HINT[entry.type]}
                 </p>
               </div>
 
               <div className="mt-4 flex flex-col">
-                <span className="mb-[7px] block font-mono text-[10px] font-medium tracking-[0.09em] text-faint uppercase">
+                <span className="mb-[7px] block font-mono text-badge font-medium tracking-[0.09em] text-faint uppercase">
                   Recorded by
                 </span>
-                <div className="flex items-center gap-1.5 text-[13px]">
+                <div className="flex items-center gap-1.5 text-body">
                   <Avatar size="sm" className="size-[19px] bg-white/9">
-                    <AvatarFallback className="bg-transparent text-[9px] font-semibold text-foreground">
+                    <AvatarFallback className="bg-transparent text-badge font-semibold text-foreground">
                       {initials(entry.author ?? '?')}
                     </AvatarFallback>
                   </Avatar>
@@ -379,20 +369,20 @@ export function KnowledgeDetailModal({
               </div>
 
               <div className="mt-4 flex flex-col">
-                <span className="mb-[7px] block font-mono text-[10px] font-medium tracking-[0.09em] text-faint uppercase">
+                <span className="mb-[7px] block font-mono text-badge font-medium tracking-[0.09em] text-faint uppercase">
                   When
                 </span>
-                <span className="font-mono text-[12.5px] text-muted-foreground">
+                <span className="font-mono text-body text-muted-foreground">
                   {relativeDate(entry.created_at)}
                 </span>
               </div>
 
               {bead && beadColumn !== null && beadPriority !== null ? (
                 <div className="mt-4 flex flex-col">
-                  <span className="mb-[7px] block font-mono text-[10px] font-medium tracking-[0.09em] text-faint uppercase">
+                  <span className="mb-[7px] block font-mono text-badge font-medium tracking-[0.09em] text-faint uppercase">
                     Source bead
                   </span>
-                  <div className="flex items-center gap-1.5 text-[12.5px]">
+                  <div className="flex items-center gap-1.5 text-body">
                     <span
                       className={cn(
                         'size-2 shrink-0 rounded-full',
@@ -403,7 +393,7 @@ export function KnowledgeDetailModal({
                     <span className="font-mono">{bead.id}</span>
                     <span
                       className={cn(
-                        'ml-auto rounded-[4px] px-1 py-px font-mono text-[10px] font-semibold tabular-nums ring-1 ring-inset ring-current',
+                        'ml-auto rounded-[4px] px-1 py-px font-mono text-badge font-semibold tabular-nums ring-1 ring-inset ring-current',
                         PRIORITY_TEXT_CLASS[beadPriority],
                       )}
                     >
@@ -415,14 +405,14 @@ export function KnowledgeDetailModal({
 
               {bead?.labels && bead.labels.length > 0 ? (
                 <div className="mt-4 flex flex-col">
-                  <span className="mb-[7px] block font-mono text-[10px] font-medium tracking-[0.09em] text-faint uppercase">
+                  <span className="mb-[7px] block font-mono text-badge font-medium tracking-[0.09em] text-faint uppercase">
                     Bead labels
                   </span>
                   <span className="flex flex-wrap gap-1.5">
                     {bead.labels.map((label) => (
                       <span
                         key={label}
-                        className="max-w-[92px] truncate rounded-[4px] px-[5px] text-[10.5px] leading-[1.6] text-muted-foreground ring-1 ring-inset ring-border-strong"
+                        className="max-w-[92px] truncate rounded-[4px] px-[5px] text-badge leading-[1.6] text-muted-foreground ring-1 ring-inset ring-border-strong"
                       >
                         {label}
                       </span>
@@ -434,12 +424,12 @@ export function KnowledgeDetailModal({
               <hr className="my-4 border-border" />
 
               <div className="flex flex-col">
-                <span className="mb-[7px] block font-mono text-[10px] font-medium tracking-[0.09em] text-faint uppercase">
+                <span className="mb-[7px] block font-mono text-badge font-medium tracking-[0.09em] text-faint uppercase">
                   Prefix
                 </span>
                 <span
                   className={cn(
-                    'font-mono text-[12.5px]',
+                    'font-mono text-body',
                     K_TEXT_CLASS[entry.type],
                   )}
                 >
@@ -448,7 +438,7 @@ export function KnowledgeDetailModal({
               </div>
 
               <div className="mt-4 flex flex-col">
-                <span className="mb-[7px] block font-mono text-[10px] font-medium tracking-[0.09em] text-faint uppercase">
+                <span className="mb-[7px] block font-mono text-badge font-medium tracking-[0.09em] text-faint uppercase">
                   All types
                 </span>
                 <div className="flex flex-wrap gap-1.5">
@@ -463,7 +453,7 @@ export function KnowledgeDetailModal({
                         onClick={() => target && onOpenKnowledge(target)}
                         title={`${KNOWLEDGE_TYPE_LABEL[t]} · ${typeCounts.get(t) ?? 0}`}
                         className={cn(
-                          'border-transparent font-mono text-[10px] tracking-[0.08em] uppercase disabled:pointer-events-none disabled:opacity-100',
+                          'border-transparent font-mono text-badge tracking-[0.08em] uppercase disabled:pointer-events-none disabled:opacity-100',
                           K_BG_CLASS[t],
                           K_TEXT_CLASS[t],
                           isCurrent && 'ring-1 ring-inset ring-current',
@@ -485,17 +475,17 @@ export function KnowledgeDetailModal({
 
               <hr className="my-4 border-border" />
 
-              <span className="mb-[7px] block font-mono text-[10px] font-medium tracking-[0.09em] text-faint uppercase">
+              <span className="mb-[7px] block font-mono text-badge font-medium tracking-[0.09em] text-faint uppercase">
                 Written with
               </span>
-              <p className="rounded-[7px] bg-black/35 px-[11px] py-[9px] font-mono text-[11.5px] leading-[1.55] text-muted-foreground ring-1 ring-inset ring-border">
+              <p className="rounded-[7px] bg-black/35 px-[11px] py-[9px] font-mono text-xs leading-[1.55] text-muted-foreground ring-1 ring-inset ring-border">
                 bd comment {entry.bead_id} &quot;
                 {KNOWLEDGE_TYPE_PREFIX[entry.type]}: …&quot;
               </p>
-              <span className="mt-3.5 mb-[7px] block font-mono text-[10px] font-medium tracking-[0.09em] text-faint uppercase">
+              <span className="mt-3.5 mb-[7px] block font-mono text-badge font-medium tracking-[0.09em] text-faint uppercase">
                 Read back with
               </span>
-              <p className="rounded-[7px] bg-black/35 px-[11px] py-[9px] font-mono text-[11.5px] leading-[1.55] text-muted-foreground ring-1 ring-inset ring-border">
+              <p className="rounded-[7px] bg-black/35 px-[11px] py-[9px] font-mono text-xs leading-[1.55] text-muted-foreground ring-1 ring-inset ring-border">
                 bd show {entry.bead_id} --json
               </p>
             </div>

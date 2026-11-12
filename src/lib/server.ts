@@ -1,15 +1,37 @@
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core'
+import type { RelationKind, RemovableRelationKind } from './relations.ts'
+import { parseLinearStatus } from './linear.ts'
+import type { LinearStatus, LinearSyncResult } from './linear.ts'
 import { createServerFn } from '@tanstack/react-start'
 
 import { bdAdapter } from './bd.ts'
 import {
+  parseRelationInput,
+  parseRemoveRelationInput,
   parseBeadInput,
+  parseClaimInput,
+  parseUnclaimInput,
+  parseCloseBeadInput,
   parseCommentInput,
   parseCreateBeadInput,
+  parseDeferInput,
   parseProjectInput,
+  parseSetConfigInput,
   parseStatusUpdateInput,
+  parseStaleInput,
+  parseTailEventsInput,
   parseUpdateBeadInput,
+  parseGetConfigInput,
+  parseLinearSyncInput,
+  parseQueryInput,
+  parseViewsKeyInput,
+  parseViewsWriteInput,
+  parseUpdateManyInput,
+  parseCloseManyInput,
 } from './server-validation.ts'
+import { parseReadyExplain } from './ready.ts'
+import { tailResult } from './events.ts'
+import type { TailEventsResult } from './events.ts'
 import { toErrorMessage } from './utils.ts'
 
 import type {
@@ -18,7 +40,10 @@ import type {
   BeadFeedMessage,
   BeadDetail,
   BeadUpdate,
+  BulkPatch,
+  DeletePlan,
   Project,
+  ReadyExplain,
   ProjectKnowledge,
 } from './types.ts'
 
@@ -49,6 +74,134 @@ const webUpdateBeadStatus = createServerFn({ method: 'POST' })
     return { ok: true as const }
   })
 
+const webCloseBead = createServerFn({ method: 'POST' })
+  .validator(parseCloseBeadInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.closeBead(data.project, data.id, {
+      reason: data.reason,
+      force: data.force,
+    })
+    return { ok: true as const }
+  })
+
+const webUpdateMany = createServerFn({ method: 'POST' })
+  .validator(parseUpdateManyInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.updateMany(data.project, data.ids, data.patch)
+    return { ok: true as const }
+  })
+
+const webCloseMany = createServerFn({ method: 'POST' })
+  .validator(parseCloseManyInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.closeMany(data.project, data.ids, {
+      reason: data.reason,
+      force: data.force,
+    })
+    return { ok: true as const }
+  })
+
+const webClaimBead = createServerFn({ method: 'POST' })
+  .validator(parseClaimInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.claimBead(data.project, data.id, data.actor)
+    return { ok: true as const }
+  })
+
+const webStaleBeads = createServerFn({ method: 'POST' })
+  .validator(parseStaleInput)
+  .handler(async ({ data }) => bdAdapter.staleBeads(data.project, data.days))
+
+const webResolveGate = createServerFn({ method: 'POST' })
+  .validator(parseBeadInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.resolveGate(data.project, data.id)
+    return { ok: true as const }
+  })
+
+const webReclaimBead = createServerFn({ method: 'POST' })
+  .validator(parseBeadInput)
+  .handler(async ({ data }) => {
+    return { count: await bdAdapter.reclaimBead(data.project, data.id) }
+  })
+
+const webUnclaimBead = createServerFn({ method: 'POST' })
+  .validator(parseUnclaimInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.unclaimBead(data.project, data.id, data.force, data.actor)
+    return { ok: true as const }
+  })
+
+const webGetConfig = createServerFn({ method: 'POST' })
+  .validator(parseGetConfigInput)
+  .handler(async ({ data }) => bdAdapter.getConfig(data.project, data.key))
+
+const webSetConfig = createServerFn({ method: 'POST' })
+  .validator(parseSetConfigInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.setConfig(data.project, data.key, data.value)
+    return { ok: true as const }
+  })
+
+const webQueryBeads = createServerFn({ method: 'POST' })
+  .validator(parseQueryInput)
+  .handler(async ({ data }) => bdAdapter.queryBeads(data.project, data.query))
+
+const webValidateQuery = createServerFn({ method: 'POST' })
+  .validator(parseQueryInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.validateQuery(data.project, data.query)
+    return { ok: true as const }
+  })
+
+const webKvGet = createServerFn({ method: 'POST' })
+  .validator(parseViewsKeyInput)
+  .handler(async ({ data }) => bdAdapter.kvGet(data.project, data.key))
+
+const webKvSet = createServerFn({ method: 'POST' })
+  .validator(parseViewsWriteInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.kvSet(data.project, data.key, data.value)
+    return { ok: true as const }
+  })
+
+const webLinearStatus = createServerFn({ method: 'POST' })
+  .validator(parseProjectInput)
+  .handler(async ({ data }) => bdAdapter.linearStatus(data.project))
+
+const webLinearSync = createServerFn({ method: 'POST' })
+  .validator(parseLinearSyncInput)
+  .handler(async ({ data }) =>
+    bdAdapter.linearSync(data.project, {
+      direction: data.direction,
+      relations: data.relations,
+      dryRun: data.dryRun,
+    }),
+  )
+
+const webReadyExplain = createServerFn({ method: 'POST' })
+  .validator(parseProjectInput)
+  .handler(async ({ data }) => bdAdapter.readyExplain(data.project))
+
+const webAddRelation = createServerFn({ method: 'POST' })
+  .validator(parseRelationInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.addRelation(data.project, data.id, data.kind, data.target)
+    return { ok: true as const }
+  })
+
+const webRemoveRelation = createServerFn({ method: 'POST' })
+  .validator(parseRemoveRelationInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.removeRelation(
+      data.project,
+      data.id,
+      data.kind,
+      data.target,
+    )
+    return { ok: true as const }
+  })
+
 const webUpdateBead = createServerFn({ method: 'POST' })
   .validator(parseUpdateBeadInput)
   .handler(async ({ data }) => {
@@ -56,12 +209,23 @@ const webUpdateBead = createServerFn({ method: 'POST' })
     return { ok: true as const }
   })
 
-const webPreviewDeleteBead = createServerFn({ method: 'POST' })
+const webDeferBead = createServerFn({ method: 'POST' })
+  .validator(parseDeferInput)
+  .handler(async ({ data }) => {
+    await bdAdapter.deferBead(data.project, data.id, data.until)
+    return { ok: true as const }
+  })
+
+const webUndeferBead = createServerFn({ method: 'POST' })
   .validator(parseBeadInput)
   .handler(async ({ data }) => {
-    const preview = await bdAdapter.previewDeleteBead(data.project, data.id)
-    return { preview }
+    await bdAdapter.undeferBead(data.project, data.id)
+    return { ok: true as const }
   })
+
+const webPreviewDeleteBead = createServerFn({ method: 'POST' })
+  .validator(parseBeadInput)
+  .handler(({ data }) => bdAdapter.previewDeleteBead(data.project, data.id))
 
 const webDeleteBead = createServerFn({ method: 'POST' })
   .validator(parseBeadInput)
@@ -78,6 +242,7 @@ const webCreateBead = createServerFn({ method: 'POST' })
       description: data.description,
       type: data.type,
       parent: data.parent,
+      labels: data.labels,
     })
     return { id }
   })
@@ -89,11 +254,10 @@ const webAddComment = createServerFn({ method: 'POST' })
     return { ok: true as const }
   })
 
-export const webEnableEventsJournal = createServerFn({ method: 'POST' })
-  .validator(parseProjectInput)
+const webTailEvents = createServerFn({ method: 'POST' })
+  .validator(parseTailEventsInput)
   .handler(async ({ data }) => {
-    await bdAdapter.enableEventsJournal(data.project)
-    return { ok: true as const }
+    return bdAdapter.tailEvents(data.project, data.since, data.limit)
   })
 
 export async function getProjects(): Promise<Project[]> {
@@ -152,6 +316,311 @@ export async function updateBeadStatusFn({
   return webUpdateBeadStatus({ data })
 }
 
+export async function closeBeadFn({
+  data,
+}: {
+  data: { project: string; id: string; reason?: string; force?: boolean }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('close_bead', {
+      projectId: data.project,
+      id: data.id,
+      reason: data.reason,
+      force: data.force ?? false,
+    })
+    return { ok: true }
+  }
+  return webCloseBead({ data })
+}
+
+export async function updateManyFn({
+  data,
+}: {
+  data: { project: string; ids: string[]; patch: BulkPatch }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('update_many', {
+      projectId: data.project,
+      ids: data.ids,
+      patch: data.patch,
+    })
+    return { ok: true }
+  }
+  return webUpdateMany({ data })
+}
+
+export async function closeManyFn({
+  data,
+}: {
+  data: { project: string; ids: string[]; reason?: string; force?: boolean }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('close_many', {
+      projectId: data.project,
+      ids: data.ids,
+      reason: data.reason,
+      force: data.force ?? false,
+    })
+    return { ok: true }
+  }
+  return webCloseMany({ data })
+}
+
+export async function claimBeadFn({
+  data,
+}: {
+  data: { project: string; id: string; actor?: string }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('claim_bead', {
+      projectId: data.project,
+      id: data.id,
+      actor: data.actor?.trim() || undefined,
+    })
+    return { ok: true }
+  }
+  return webClaimBead({ data })
+}
+
+export async function staleBeadsFn({
+  data,
+}: {
+  data: { project: string; days: number }
+}): Promise<Bead[]> {
+  if (isDesktopApp()) {
+    return invoke<Bead[]>('stale_beads', {
+      projectId: data.project,
+      days: data.days,
+    })
+  }
+  return webStaleBeads({ data })
+}
+
+export async function resolveGateFn({
+  data,
+}: {
+  data: { project: string; id: string }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('resolve_gate', { projectId: data.project, id: data.id })
+    return { ok: true }
+  }
+  return webResolveGate({ data })
+}
+
+export async function reclaimBeadFn({
+  data,
+}: {
+  data: { project: string; id: string }
+}): Promise<{ count: number }> {
+  if (isDesktopApp()) {
+    const count = await invoke<number>('reclaim_bead', {
+      projectId: data.project,
+      id: data.id,
+    })
+    return { count }
+  }
+  return webReclaimBead({ data })
+}
+
+export async function unclaimBeadFn({
+  data,
+}: {
+  data: { project: string; id: string; force?: boolean; actor?: string }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('unclaim_bead', {
+      projectId: data.project,
+      id: data.id,
+      force: data.force ?? false,
+      actor: data.actor?.trim() || undefined,
+    })
+    return { ok: true }
+  }
+  return webUnclaimBead({ data })
+}
+
+export async function getConfigFn({
+  data,
+}: {
+  data: { project: string; key: string }
+}): Promise<string> {
+  if (isDesktopApp()) {
+    return invoke<string>('get_config', {
+      projectId: data.project,
+      key: data.key,
+    })
+  }
+  return webGetConfig({ data })
+}
+
+export async function setConfigFn({
+  data,
+}: {
+  data: { project: string; key: string; value: string }
+}): Promise<{ ok: true }> {
+  const checked = parseSetConfigInput(data)
+  if (isDesktopApp()) {
+    await invoke('set_config', {
+      projectId: checked.project,
+      key: checked.key,
+      value: checked.value,
+    })
+    return { ok: true }
+  }
+  return webSetConfig({ data: checked })
+}
+
+export async function queryBeadsFn({
+  data,
+}: {
+  data: { project: string; query: string }
+}): Promise<Bead[]> {
+  const checked = parseQueryInput(data)
+  if (isDesktopApp()) {
+    return invoke<Bead[]>('query_beads', {
+      projectId: checked.project,
+      query: checked.query,
+    })
+  }
+  return webQueryBeads({ data: checked })
+}
+
+export async function validateQueryFn({
+  data,
+}: {
+  data: { project: string; query: string }
+}): Promise<{ ok: true }> {
+  const checked = parseQueryInput(data)
+  if (isDesktopApp()) {
+    await invoke('validate_query', {
+      projectId: checked.project,
+      query: checked.query,
+    })
+    return { ok: true }
+  }
+  return webValidateQuery({ data: checked })
+}
+
+export async function kvGetFn({
+  data,
+}: {
+  data: { project: string; key: string }
+}): Promise<string | null> {
+  const checked = parseViewsKeyInput(data)
+  if (isDesktopApp()) {
+    return invoke<string | null>('kv_get', {
+      projectId: checked.project,
+      key: checked.key,
+    })
+  }
+  return webKvGet({ data: checked })
+}
+
+export async function kvSetFn({
+  data,
+}: {
+  data: { project: string; key: string; value: string }
+}): Promise<{ ok: true }> {
+  const checked = parseViewsWriteInput(data)
+  if (isDesktopApp()) {
+    await invoke('kv_set', {
+      projectId: checked.project,
+      key: checked.key,
+      value: checked.value,
+    })
+    return { ok: true }
+  }
+  return webKvSet({ data: checked })
+}
+
+export async function linearStatusFn({
+  data,
+}: {
+  data: { project: string }
+}): Promise<LinearStatus> {
+  if (isDesktopApp()) {
+    return parseLinearStatus(
+      await invoke<unknown>('linear_status', { projectId: data.project }),
+    )
+  }
+  return webLinearStatus({ data })
+}
+
+export async function linearSyncFn({
+  data,
+}: {
+  data: {
+    project: string
+    direction: 'pull' | 'push' | 'both'
+    relations: boolean
+    dryRun: boolean
+  }
+}): Promise<LinearSyncResult> {
+  const checked = parseLinearSyncInput(data)
+  if (isDesktopApp()) {
+    return invoke<LinearSyncResult>('linear_sync', {
+      projectId: checked.project,
+      direction: checked.direction,
+      relations: checked.relations,
+      dryRun: checked.dryRun,
+    })
+  }
+  return webLinearSync({ data: checked })
+}
+
+export async function readyExplainFn({
+  data,
+}: {
+  data: { project: string }
+}): Promise<ReadyExplain> {
+  if (isDesktopApp()) {
+    return parseReadyExplain(
+      await invoke<unknown>('ready_explain', { projectId: data.project }),
+    )
+  }
+  return webReadyExplain({ data })
+}
+
+export async function addRelationFn({
+  data,
+}: {
+  data: { project: string; id: string; kind: RelationKind; target: string }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('add_relation', {
+      projectId: data.project,
+      id: data.id,
+      kind: data.kind,
+      target: data.target,
+    })
+    return { ok: true }
+  }
+  return webAddRelation({ data })
+}
+
+export async function removeRelationFn({
+  data,
+}: {
+  data: {
+    project: string
+    id: string
+    kind: RemovableRelationKind
+    target: string
+  }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('remove_relation', {
+      projectId: data.project,
+      id: data.id,
+      kind: data.kind,
+      target: data.target,
+    })
+    return { ok: true }
+  }
+  return webRemoveRelation({ data })
+}
+
 export async function updateBeadFn({
   data,
 }: {
@@ -168,17 +637,44 @@ export async function updateBeadFn({
   return webUpdateBead({ data })
 }
 
+export async function deferBeadFn({
+  data,
+}: {
+  data: { project: string; id: string; until?: string }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('defer_bead', {
+      projectId: data.project,
+      id: data.id,
+      until: data.until,
+    })
+    return { ok: true }
+  }
+  return webDeferBead({ data })
+}
+
+export async function undeferBeadFn({
+  data,
+}: {
+  data: { project: string; id: string }
+}): Promise<{ ok: true }> {
+  if (isDesktopApp()) {
+    await invoke('undefer_bead', { projectId: data.project, id: data.id })
+    return { ok: true }
+  }
+  return webUndeferBead({ data })
+}
+
 export async function previewDeleteBeadFn({
   data,
 }: {
   data: { project: string; id: string }
-}): Promise<{ preview: string }> {
+}): Promise<DeletePlan> {
   if (isDesktopApp()) {
-    const preview = await invoke<string>('preview_delete_bead', {
+    return invoke<DeletePlan>('preview_delete_bead', {
       projectId: data.project,
       id: data.id,
     })
-    return { preview }
   }
   return webPreviewDeleteBead({ data })
 }
@@ -204,6 +700,7 @@ export async function createBeadFn({
     description?: string
     type?: string
     parent?: string
+    labels?: string[]
   }
 }): Promise<{ id: string }> {
   if (isDesktopApp()) {
@@ -213,6 +710,7 @@ export async function createBeadFn({
       description: data.description,
       type: data.type,
       parent: data.parent,
+      labels: data.labels,
     })
     return { id }
   }
@@ -235,16 +733,19 @@ export async function addCommentFn({
   return webAddComment({ data })
 }
 
-export async function enableEventsJournalFn({
+export async function tailEventsFn({
   data,
 }: {
-  data: { project: string }
-}): Promise<{ ok: true }> {
+  data: { project: string; since: number; limit: number }
+}): Promise<TailEventsResult> {
   if (isDesktopApp()) {
-    await invoke('enable_events_journal', { projectId: data.project })
-    return { ok: true }
+    const page = await invoke<{ stdout: string; disabled: boolean }>(
+      'tail_events',
+      { projectId: data.project, since: data.since, limit: data.limit },
+    )
+    return tailResult(page.stdout, page.disabled)
   }
-  return webEnableEventsJournal({ data })
+  return webTailEvents({ data })
 }
 
 export function subscribeBeadFeed(
