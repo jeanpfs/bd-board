@@ -190,6 +190,7 @@ function ReadyItem({
   return (
     <li
       data-ready-id={bead.id}
+      data-bead-id={bead.id}
       className={cn(
         'flex items-center gap-2.5 border-t border-border py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
       )}
