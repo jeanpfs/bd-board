@@ -1,7 +1,13 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { addDays, differenceInCalendarDays, format, startOfDay } from 'date-fns'
-import { ChevronDown, ChevronRight, Layers, TriangleAlert } from 'lucide-react'
+import {
+  CalendarDays,
+  ChevronDown,
+  ChevronRight,
+  Layers,
+  TriangleAlert,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -50,6 +56,8 @@ interface DueDraft {
   date: Date
   /** Pointer x at drag start; unused for keyboard changes. */
   startX: number
+  /** Pointer driving a drag; null for keyboard changes. */
+  pointerId: number | null
 }
 
 function timelineRange(
@@ -123,12 +131,20 @@ export function TimelineView({
   function onHandleDown(e: PointerEvent<HTMLDivElement>, span: EpicSpan) {
     e.currentTarget.setPointerCapture(e.pointerId)
     const base = span.due ?? now
-    setDraft({ id: span.epic.id, base, date: base, startX: e.clientX })
+    setDraft({
+      id: span.epic.id,
+      base,
+      date: base,
+      startX: e.clientX,
+      pointerId: e.pointerId,
+    })
   }
 
+  // Only the pointer that started a drag may move or end it, so hovering a
+  // handle never changes a pending keyboard edit.
   function onHandleMove(e: PointerEvent<HTMLDivElement>) {
     const track = trackRef.current
-    if (!draft || !track) return
+    if (!draft || draft.pointerId !== e.pointerId || !track) return
     const width = track.getBoundingClientRect().width
     if (width === 0) return
     const days = Math.round(
@@ -138,9 +154,14 @@ export function TimelineView({
   }
 
   function onHandleUp(e: PointerEvent<HTMLDivElement>) {
-    if (!draft) return
+    if (!draft || draft.pointerId !== e.pointerId) return
     if (e.type === 'pointercancel') setDraft(null)
     else commit(draft)
+  }
+
+  /** Leaving a handle drops a pending keyboard edit; it was never saved. */
+  function onHandleBlur(span: EpicSpan) {
+    if (draft?.id === span.epic.id) setDraft(null)
   }
 
   function onHandleKey(e: KeyboardEvent<HTMLDivElement>, span: EpicSpan) {
@@ -155,6 +176,7 @@ export function TimelineView({
               base: span.due ?? now,
               date: shownDue(span) ?? now,
               startX: 0,
+              pointerId: null,
             }
       setDraft({ ...current, date: addDays(current.date, days) })
     } else if (e.key === 'Enter' && draft?.id === span.epic.id) {
@@ -174,9 +196,6 @@ export function TimelineView({
       return next
     })
   }
-
-  const atRiskCount = spans.filter((s) => s.atRisk).length
-  const noDueCount = spans.filter((s) => !s.due).length
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 pt-2">
@@ -224,7 +243,7 @@ export function TimelineView({
               />
             ))}
             <div
-              className="absolute inset-y-0 w-px bg-foreground"
+              className="absolute inset-y-0 w-px bg-primary-text"
               style={{ left: `${pct(now)}%` }}
             />
           </div>
@@ -247,7 +266,7 @@ export function TimelineView({
                 </span>
               ))}
               <span
-                className="absolute top-0 font-mono text-foreground"
+                className="absolute top-0 font-mono text-primary-text"
                 style={{ left: `${pct(now)}%` }}
               >
                 today · {format(now, 'MMM d')}
@@ -330,6 +349,9 @@ export function TimelineView({
                       aria-valuetext={
                         due ? format(due, 'MMM d') : 'No due date'
                       }
+                      aria-valuenow={differenceInCalendarDays(handleAt, now)}
+                      aria-valuemin={differenceInCalendarDays(start, now)}
+                      aria-valuemax={differenceInCalendarDays(end, now)}
                       className="absolute top-1/2 h-5 w-2 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize touch-none rounded bg-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                       style={{ left: `${pct(handleAt)}%` }}
                       onPointerDown={(e) => onHandleDown(e, span)}
@@ -337,6 +359,7 @@ export function TimelineView({
                       onPointerUp={onHandleUp}
                       onPointerCancel={onHandleUp}
                       onKeyDown={(e) => onHandleKey(e, span)}
+                      onBlur={() => onHandleBlur(span)}
                     />
 
                     <div
@@ -359,7 +382,11 @@ export function TimelineView({
                           {format(due, 'MMM d')}
                         </span>
                       ) : (
-                        <span className="text-muted-foreground">
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          <CalendarDays
+                            className="size-3.5"
+                            aria-hidden="true"
+                          />
                           No due date · drag to schedule
                         </span>
                       )}
@@ -402,10 +429,6 @@ export function TimelineView({
             aria-hidden="true"
           />
           not started
-        </span>
-        <span className="ml-auto">
-          {spans.length} epics · {atRiskCount} at risk · {noDueCount} without
-          due date
         </span>
       </footer>
     </div>

@@ -8,6 +8,7 @@ import { getBeads, getProjects } from '@/lib/server'
 import { isGate } from '@/lib/lease'
 import { isOverdue } from '@/lib/schedule'
 import { isReady } from '@/lib/sort'
+import { epicSpans, timelineSummary } from '@/lib/timeline'
 import { mapStatus } from '@/lib/types'
 
 import type { ProjectTab } from '@/components/board-header'
@@ -67,6 +68,10 @@ export function ProjectTopbar() {
   }).length
   const ready = beads?.filter(isReady).length
   const overdue = beads?.filter((b) => isOverdue(b, new Date())).length
+  const isTimeline = tab === 'board' && search.view === 'timeline'
+  const timeline = beads
+    ? timelineSummary(epicSpans(beads, new Date()))
+    : undefined
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-4 border-b border-border bg-background px-4">
@@ -108,7 +113,12 @@ export function ProjectTopbar() {
           </span>
         )}
       </nav>
-      {open !== undefined && ready !== undefined ? (
+      {isTimeline && timeline ? (
+        <p className="truncate text-xs text-muted-foreground">
+          {timeline.dated} epics with due dates, {timeline.undated} without ·{' '}
+          {timeline.atRisk} at risk
+        </p>
+      ) : open !== undefined && ready !== undefined ? (
         <p className="truncate text-xs text-muted-foreground">
           {open} open · {ready} ready
           {overdue ? ` · ${overdue} overdue` : null}

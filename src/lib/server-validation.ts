@@ -623,8 +623,8 @@ export function parseUpdateBeadInput(input: unknown): {
   }
 
   return {
-    project: requiredString(data, 'project', PROJECT_RE, 'Project'),
-    id: requiredString(data, 'id', BEAD_ID_RE, 'Bead id'),
+    project: requiredString(raw, 'project', PROJECT_RE, 'Project'),
+    id: requiredString(raw, 'id', BEAD_ID_RE, 'Bead id'),
     update,
   }
 }

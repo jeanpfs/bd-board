@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { childDueLabel, epicSpans, scaleTicks } from './timeline'
+import {
+  childDueLabel,
+  epicSpans,
+  scaleTicks,
+  timelineSummary,
+} from './timeline'
 
 import type { Bead } from './types'
 
@@ -202,5 +207,20 @@ describe('childDueLabel', () => {
   ])('labels %i days out as %j (soon %s)', (offset, text, soon) => {
     const due = new Date(2026, 10, 11 + offset, 9, 0, 0)
     expect(childDueLabel(due, NOW)).toEqual({ text, soon })
+  })
+})
+
+describe('timelineSummary', () => {
+  it('counts epics with and without a due date, and at-risk epics', () => {
+    const spans = [
+      { due: new Date(2026, 10, 14), atRisk: true },
+      { due: new Date(2026, 10, 28), atRisk: false },
+      { due: undefined, atRisk: false },
+    ]
+    expect(timelineSummary(spans)).toEqual({ dated: 2, undated: 1, atRisk: 1 })
+  })
+
+  it('is all zeros for no epics', () => {
+    expect(timelineSummary([])).toEqual({ dated: 0, undated: 0, atRisk: 0 })
   })
 })

@@ -295,6 +295,20 @@ describe('schedule input validation', () => {
     })
   })
 
+  it('takes the target from the top level, never from a nested update', () => {
+    expect(
+      parseUpdateBeadInput({
+        project: 'bd-board',
+        id: 'bd-board-a2k',
+        update: { project: 'other', id: 'bd-board-zzz', due: '2026-11-28' },
+      }),
+    ).toEqual({
+      project: 'bd-board',
+      id: 'bd-board-a2k',
+      update: { due: '2026-11-28' },
+    })
+  })
+
   it('rejects due dates longer than 40 characters or spanning lines', () => {
     expect(() =>
       parseUpdateBeadInput({ ...base, due: 'x'.repeat(41) }),

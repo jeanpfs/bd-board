@@ -163,3 +163,17 @@ export function childDueLabel(
   }
   return { text: `due ${date}`, soon: false }
 }
+
+/** Epic counts for the timeline summary line. */
+export function timelineSummary(spans: Pick<EpicSpan, 'due' | 'atRisk'>[]): {
+  dated: number
+  undated: number
+  atRisk: number
+} {
+  const dated = spans.filter((s) => s.due !== undefined).length
+  return {
+    dated,
+    undated: spans.length - dated,
+    atRisk: spans.filter((s) => s.atRisk).length,
+  }
+}
